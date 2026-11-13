@@ -8,6 +8,12 @@ Personal spending tracker for one user in Israel (Hebrew + English). A joint car
 - I have not tested everything in a browser. When I report a problem, reproduce and verify the fix before saying it works.
 - Ask before big changes (new files, new dependencies, changing the data format).
 
+## Workflow (always)
+- All work happens in `C:\Claude\Spending Project`. This folder is the git repo; remote is https://github.com/jacomo57/Spending-Management (public, GitHub Pages from `main`, site https://jacomo57.github.io/Spending-Management/).
+- After every change: test it in a browser, then commit and push to `main`, so GitHub is always the backup. Then confirm the live site works.
+- Test by actually running the app (local server + browser pane), not by reading code. Only say something works if it was checked; otherwise say exactly what was not checked.
+- The repo is public: never commit personal data (real amounts, backups, statements). `.gitignore` covers backup/statement files.
+
 ## The app
 - Single file: `index.html`. The spec comment at the top lists features, untested parts and ideas. Keep it updated with every change.
 - Data lives only in the browser's localStorage key `spend-v1`. Never rename the key or break the saved format without a migration, or the user loses their data.

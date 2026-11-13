@@ -1,0 +1,8 @@
+# Personal data: this repo is public
+backup*
+*backup*.json
+*backup*.txt
+*.csv
+*.xlsx
+*.xls
+*.zip
