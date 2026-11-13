@@ -5,11 +5,11 @@ Storage: localStorage "spend-v1" only. No network, no bank connection.
 Panels: Import (CSV/Excel/pasted text, dedupe, card + Mine/Joint), Recurring, Backup (copy/paste), Delete all (press twice).
 Summary: total, mine vs joint, currency, "Count joint card at half" (on).
 Categories: editable, add, bars (click to filter), sort by size or own order (drag grip), colors stay per category. Other = catch-all.
-Expenses: inline edit, add, month + All/Mine/Joint filters, column sort, Ignore checkbox, "Sort N unrecognized with Claude".
-Categorizing: EN + HE keywords first; changing a category teaches the merchant; Claude only handles Other.
+Expenses: inline edit, add, month + All/Mine/Joint filters, column sort, Ignore checkbox.
+Categorizing: EN + HE keywords first; changing a category teaches the merchant; anything unrecognized stays in Other for manual sorting.
 Recurring (monthly, card "Recurring", Mine, full price): starts empty; the user adds their own bills in the Recurring panel.
 Undo: 8s button + Ctrl/Cmd+Z, session only.
-UNTESTED: category drag, Claude sort button, recurring, newest sort/ignore/undo.
+UNTESTED: category drag, recurring, newest sort/ignore/undo.
 IDEAS: phone-friendly table, monthly budgets, search, month-over-month, partner sync, emailed report, Caspion, PWA.
 -->
 <html lang="en">
@@ -128,7 +128,7 @@ tr.skip td.k{opacity:1}
   <div class="row" style="margin-top:10px">
     <select id="month" aria-label="Month"></select>
     <button data-k="all" class="kb on">All cards</button><button data-k="mine" class="kb">Mine</button><button data-k="joint" class="kb">Joint</button>
-    <span id="chip"></span><span class="row" id="aibar"></span>
+    <span id="chip"></span>
   </div>
   <div class="row" style="margin-top:10px"><button id="addp">+ Add purchase</button></div>
   <div class="tw"><table><thead><tr id="head"></tr></thead><tbody id="rows"></tbody></table></div>
@@ -153,7 +153,7 @@ const CATS={
 let ORDER=[...Object.keys(CATS),"Other"];
 const COL={};
 let S={tx:[],rules:{},cur:"₪",half:true};
-let kind="all",cat=null,hasAI=false,aiMsg="",smp=null,catMsg="",panel=null,focusCat=null;
+let kind="all",cat=null,catMsg="",panel=null,focusCat=null;
 try{const r=localStorage.getItem("spend-v1");if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
 const save=()=>{try{localStorage.setItem("spend-v1",JSON.stringify(S))}catch(e){}};
 function syncCats(){if(!Array.isArray(S.cats))S.cats=Object.keys(CATS);if(!S.alias)S.alias={};ORDER=[...S.cats,"Other"];if(!S.hue)S.hue={};S.cats.forEach(c=>{if(S.hue[c]==null)S.hue[c]=(Object.keys(S.hue).length*41+150)%360});ORDER.forEach(c=>COL[c]=c=="Other"?"hsl(150 8% 55%)":`hsl(${S.hue[c]} 55% 46%)`)}
@@ -248,8 +248,6 @@ function render(){
  $("cats").innerHTML=ord.map(i=>{const c=S.cats[i];return `<div class="cat${cat==c?" sel":""}" data-row="${i}"><span class="grip" title="Drag to reorder" aria-label="Drag to reorder">⋮⋮</span><input class="cn" data-ren="${i}" value="${esc(c)}" aria-label="Category name">${bw(c,by[c]||0)}<button class="x" data-delcat="${i}" aria-label="Delete category">✕</button></div>`}).join("")+(by.Other?`<div class="cat${cat=="Other"?" sel":""}"><span></span><span class="cn" style="padding:6px 8px">Other</span>${bw("Other",by.Other)}<span></span></div>`:"");
  $("catmsg").textContent=catMsg;
  document.querySelectorAll("[data-cs]").forEach(b=>b.classList.toggle("on",b.dataset.cs==(S.catSort=="manual"?"manual":"size")));
- const nO=S.tx.filter(t=>t.cat=="Other").length;
- $("aibar").innerHTML=(nO&&hasAI?`<button class="pri" id="ai">Sort ${nO} unrecognized with Claude</button>`:"")+`<span class="msg">${esc(aiMsg)}</span>`;
  $("chip").innerHTML=cat?`<button id="clearcat">${esc(cat)} ✕</button>`:"";
  const sk=S.sk||"date",sd=S.sd=="asc"?1:-1,val=t=>sk=="amt"?v(t):String(t[sk]||"").toLowerCase();
  const list=base.filter(t=>!cat||t.cat==cat).sort((a,b)=>{const x=val(a),y=val(b),c=typeof x=="number"?x-y:x.localeCompare(y);return (c*sd)||b.date.localeCompare(a.date)});
@@ -303,19 +301,6 @@ function delCat(i){const old=S.cats[i],oAlias={...S.alias},oRules={},oTx=S.tx.fi
  for(const k in S.rules)if(S.rules[k]==old)delete S.rules[k];
  for(const b in CATS)if((S.alias[b]||b)==old)S.alias[b]="Other";
  if(cat==old)cat=null;catMsg="";pushUndo("Deleted category “"+old+"”",()=>{S.cats.splice(Math.min(i,S.cats.length),0,old);S.alias=oAlias;Object.assign(S.rules,oRules);S.tx.forEach(t=>{if(oTx.includes(t.id))t.cat=old})});save();render()}
-async function aiSort(){
- const names=[...new Set(S.tx.filter(t=>t.cat=="Other").map(t=>t.desc))].slice(0,150);
- if(!smp||!names.length)return;
- aiMsg="Asking Claude…";render();
- try{
-  const r=await smp.json(`Sort card purchases from Israel into categories. Merchant names may be Hebrew or English, often abbreviated or truncated. Categories: ${ORDER.join(", ")}. Return ONLY a JSON object that maps each merchant, spelled exactly as given, to one category from the list. Use "Other" only if you truly can’t tell. Merchants: ${JSON.stringify(names)}`,{modelTier:"quick"});
-  let n=0;
-  names.forEach(nm=>{const c=r&&r[nm];if(ORDER.includes(c)&&c!="Other"){S.rules[key(nm)]=c;n++}});
-  S.tx.forEach(t=>{if(t.cat=="Other")t.cat=guess(t.desc)});
-  save();aiMsg=`Claude sorted ${n} of ${names.length}.`;
- }catch(e){aiMsg=e&&e.code=="not_granted"?"No problem, you can still sort by hand.":"Couldn’t reach Claude just now. Try again in a bit."}
- render()}
-if(window.claude&&claude.use){claude.use("sample").then(s=>{smp=s;hasAI=!!s;render()}).catch(()=>{})}
 let wp=false;$("wipe").onclick=()=>{if(!wp){wp=true;$("wipe").textContent="Press again to delete everything";$("wmsg").textContent="This removes all purchases, recurring items and learned corrections from this browser.";setTimeout(()=>{wp=false;$("wipe").textContent="Delete all data";$("wmsg").textContent=""},6000);return}
  const snap={tx:S.tx,rules:S.rules,recur:S.recur,recDone:S.recDone};S.tx=[];S.rules={};S.recur=[];S.recDone={};pushUndo("Deleted all data",()=>{S.tx=snap.tx.concat(S.tx);S.rules=Object.assign({},snap.rules,S.rules);S.recur=snap.recur.concat(S.recur);S.recDone=Object.assign({},snap.recDone,S.recDone)});save();wp=false;cat=null;$("wipe").textContent="Delete all data";$("wmsg").textContent="All clear.";render()};
 $("bkshow").onclick=()=>{$("bk").value=JSON.stringify(S);$("bk").select();let ok=false;try{ok=document.execCommand("copy")}catch(e){}$("bkmsg").textContent=ok?"Backup copied. Paste it somewhere safe.":"Select all the text and copy it."};
@@ -346,7 +331,6 @@ document.addEventListener("click",e=>{const t=e.target;
  if(t.id=="addcat")addCat();
  if(t.id=="addp")addPurchase();
  if(t.id=="radd")addRec();
- if(t.id=="ai")aiSort();
  if(t.dataset.delcat!==undefined)delCat(+t.dataset.delcat);
  if(t.dataset.delrec){const i=S.recur.findIndex(x=>x.id==t.dataset.delrec);if(i>=0){const it=S.recur[i];S.recur.splice(i,1);pushUndo("Deleted recurring “"+it.desc.slice(0,28)+"”",()=>{S.recur.splice(Math.min(i,S.recur.length),0,it)})}save();render()}
  if(t.dataset.del){const i=S.tx.findIndex(x=>x.id==t.dataset.del);if(i>=0){const it=S.tx[i];S.tx.splice(i,1);pushUndo("Deleted “"+(it.desc||"purchase").slice(0,28)+"”",()=>{S.tx.splice(Math.min(i,S.tx.length),0,it)})}save();render()}

@@ -12,7 +12,7 @@ Personal spending tracker for one user in Israel (Hebrew + English). A joint car
 - Single file: `index.html`. The spec comment at the top lists features, untested parts and ideas. Keep it updated with every change.
 - Data lives only in the browser's localStorage key `spend-v1`. Never rename the key or break the saved format without a migration, or the user loses their data.
 - No bank connection; the page contacts no other sites.
-- The "Sort N unrecognized with Claude" button used the artifact environment's Claude API, which won't work once hosted elsewhere. Remove it or replace it, and tell the user.
+- The "Sort N unrecognized with Claude" button was removed (it needed the artifact environment's Claude API). Unrecognized merchants stay in Other for manual sorting.
 
 ## Next steps (ask which first)
 1. Put it on GitHub Pages and make it an installable PWA.
