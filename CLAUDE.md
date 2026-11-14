@@ -33,7 +33,7 @@ Goal: two users only (me and my partner), each with a private, independent accou
 
 ## Local testing
 - New shells need `$env:Path` refreshed (Node, Java and `firebase` were installed with winget/npm after the session started); tools: node 24, npm 11, java 21, firebase 15.
-- No node or python on this PC. Start the local server with the launch config `spend` (`.claude/launch.json` runs `.claude/serve.ps1`, a PowerShell static server on http://localhost:8765).
+- No python on this PC. Start the local server with the launch config `spend` (`.claude/launch.json` runs `.claude/serve.ps1`, a PowerShell static server on http://localhost:8765).
 
 ## Next steps
 0. BIG TASK in progress: follow "Backend plan" above. Stop only at the gates in "How to work with me".
