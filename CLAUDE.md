@@ -1,6 +1,6 @@
 # Spend, sorted: spending tracker
 
-Personal spending tracker for one user in Israel (Hebrew + English). A joint card with their partner counts at half.
+Personal spending tracker for one user in Israel (Hebrew + English). Each card has its own counting rule (full, half, a custom percentage, or not counted); a joint card with their partner is just a card set to half.
 
 ## How to work with me
 - Keep answers short and clear. Keep the app uncluttered.
@@ -21,8 +21,21 @@ Personal spending tracker for one user in Israel (Hebrew + English). A joint car
 - No bank connection. Today the page contacts no other sites; that changes when the backend is added.
 - The "Sort N unrecognized with Claude" button was removed (it needed the artifact environment's Claude API). Unrecognized merchants stay in Other for manual sorting.
 
+## Backend plan (decided 2026-11-14)
+Goal: two users only (me and my partner), each with a private, independent account; the same data on phone, laptop and PC, saved automatically. Not a public service: no legal or scaling work.
+- Service: Firebase on the free Spark plan (no payment card): Auth with email + password, and Firestore. Chosen over Supabase (free projects pause after a week unused and need a manual restart) and a self-built Cloudflare Worker backend (own password handling, more code to maintain).
+- Hosting stays on GitHub Pages. No custom domain (it costs money).
+- Accounts: exactly two, created by the user in the Firebase console. The app has sign-in and password reset only, no sign-up form. Firestore rules allow a user only `users/{own uid}/...`, and only for the two allowed UIDs, so a stranger who registers through the public key gets nothing.
+- Data layout: `users/{uid}/data/settings` (categories, card rules, learned merchants, recurring) and `users/{uid}/months/{YYYY-MM}` (that month's purchases). localStorage `spend-v1` stays as the offline cache; changes sync when back online; last write wins per document.
+- The Firebase web config (apiKey etc.) is public by design and lives in `index.html`; the rules are the protection. Never commit passwords or service-account keys.
+- Claude cannot type passwords into a hosted sign-in: the user signs in themselves in the browser pane, then Claude tests.
+- Build order: 1) per-card counting rules, 2) sign-in screen, 3) load/save sync, 4) two-account and two-device test, 5) installable PWA.
+
+## Local testing
+- No node or python on this PC. Start the local server with the launch config `spend` (`.claude/launch.json` runs `.claude/serve.ps1`, a PowerShell static server on http://localhost:8765).
+
 ## Next steps
-0. BIG TASK: small backend with accounts and sign-in for just two users (me and my partner), each with their own independent, private account and data, same data on phone, laptop and PC (saved in the cloud, no manual export). Not a public service: no legal/privacy-policy work, no signup scaling. Keep it simple, but data must still be locked per user and signups limited (invite-only or disabled after our two accounts). Also: per-card counting rule (replace the single "joint card at half" toggle). No shared data. Hosting is open: GitHub Pages is not required if something better fits (ask before anything that costs money). Plan first, then build; stop only at the gates above.
+0. BIG TASK in progress: follow "Backend plan" above. Stop only at the gates in "How to work with me".
 1. Installable PWA (GitHub Pages is already live).
 2. Phone-friendly expenses table.
 3. Monthly budgets per category, search, month-over-month comparison.
