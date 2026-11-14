@@ -6,7 +6,7 @@ Personal spending tracker for one user in Israel (Hebrew + English). A joint car
 - Keep answers short and clear. Keep the app uncluttered.
 - Make targeted edits, not full rewrites.
 - I have not tested everything in a browser. When I report a problem, reproduce and verify the fix before saying it works.
-- Agency (granted 2026-11-14): decide and build on your own, including new files, new dependencies and data-format changes (just tell me what you chose and why). The current data is test data, so no migration is needed, but keep an export/backup path. Still stop and ask for: creating accounts or sign-ups (I do those; you give click-by-click steps), secrets/API keys (never in the public repo), anything that could cost money, and anything that exposes personal data publicly.
+- Agency (granted 2026-11-14): decide and build on your own, including new files, new dependencies and data-format changes (just tell me what you chose and why). The current data is test data, so no migration is needed. Still stop and ask for: creating accounts or sign-ups (I do those; you give click-by-click steps), secrets/API keys (never in the public repo), anything that could cost money, and anything that exposes personal data publicly.
 
 ## Workflow (always)
 - At the start of every session, run `git pull` first (the user works from two computers, a PC and a laptop, so GitHub is the shared source of truth). Never start editing before pulling.
@@ -22,7 +22,7 @@ Personal spending tracker for one user in Israel (Hebrew + English). A joint car
 - The "Sort N unrecognized with Claude" button was removed (it needed the artifact environment's Claude API). Unrecognized merchants stay in Other for manual sorting.
 
 ## Next steps
-0. BIG TASK: small backend with accounts and sign-in so the same data is on phone, laptop and everywhere (plan first, then build; stop only at the gates above).
+0. BIG TASK: small backend with accounts and sign-in; data saved in the cloud per account so phone, laptop and PC all show the same data (no manual export needed). Also: per-card counting rule (replace the single "joint card at half" toggle). Partner access is NOT wanted. Plan first, then build; stop only at the gates above.
 1. Installable PWA (GitHub Pages is already live).
 2. Phone-friendly expenses table.
 3. Monthly budgets per category, search, month-over-month comparison.
