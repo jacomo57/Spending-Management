@@ -1,9 +1,39 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Placeholder until sign-in is built: nothing is readable or writable.
-    match /{document=**} {
+
+    // Invite codes. The document id is the code. Only the project owner adds or
+    // deletes them (Firebase console); the app can never read, list or change them.
+    // Delete the codes once both accounts exist and sign-ups are closed.
+    match /invites/{code} {
       allow read, write: if false;
+    }
+
+    // One profile document per account. It can only be created by its own user,
+    // and only with an invite code that exists. Everything else hangs off it.
+    match /users/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['invite', 'created'])
+        && request.resource.data.invite is string
+        && request.resource.data.invite.size() > 0
+        && request.resource.data.invite.size() < 200
+        && exists(/databases/$(database)/documents/invites/$(request.resource.data.invite));
+      allow delete: if request.auth != null && request.auth.uid == uid;
+
+      // The account's data: data/settings and months/{YYYY-MM}.
+      // Only the owner, and only once the profile (so a valid invite) exists.
+      // (Named collections on purpose: a {name=**} wildcard would also match the profile itself.)
+      function ownerWithProfile() {
+        return request.auth != null && request.auth.uid == uid
+          && exists(/databases/$(database)/documents/users/$(uid));
+      }
+      match /data/{doc} {
+        allow read, write: if ownerWithProfile();
+      }
+      match /months/{doc} {
+        allow read, write: if ownerWithProfile();
+      }
     }
   }
 }

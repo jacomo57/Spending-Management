@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 SPEND, SORTED: spec (keep updated with each edit)
-Storage: localStorage "spend-v1" only. No network, no bank connection.
+Storage: localStorage "spend-v1" in local-only mode; Firestore per account in cloud mode. No bank connection.
 Panels: Import (CSV/Excel/pasted text, dedupe, card name + how it counts), Cards, Recurring, Backup (copy/paste), Delete all (press twice).
 Cards: S.cards[name] = percent that counts (full 100, half 50, custom, not counted 0). Rename a card in the Cards panel. A joint card is a card set to half. Old data (kind mine/joint + S.half) converts once in syncCards.
 Summary: total, a figure per card (when more than one), currency.
@@ -9,7 +9,8 @@ Categories: editable, add, bars (click to filter), sort by size or own order (dr
 Expenses: inline edit, add, month + card filters, column sort, Ignore checkbox.
 Categorizing: EN + HE keywords first; changing a category teaches the merchant; anything unrecognized stays in Other for manual sorting.
 Recurring (monthly, card "Recurring" unless another is chosen): starts empty; the user adds their own bills in the Recurring panel.
-PLANNED: Firebase accounts + cloud sync, see "Backend plan" in CLAUDE.md.
+Accounts + cloud sync (Firebase, see "Backend plan" in CLAUDE.md): only active when FB_REAL is set or on localhost (emulators). Sign in, Create account (needs invite code), Forgot password, Account panel (Sign out, Delete my account with password + press twice). Data per account in Firestore, live sync between devices, "Saved / Saving… / Offline" status. Backup panel is local-only mode.
+UNTESTED (cloud): offline use, password reset email, the real Firebase project (FB_REAL is still null, so the live site is local-only).
 Undo: 8s button + Ctrl/Cmd+Z, session only.
 UNTESTED: category drag, recurring, newest sort/ignore/undo.
 IDEAS: phone-friendly table, monthly budgets, search, month-over-month, partner sync, emailed report, Caspion, PWA.
@@ -87,13 +88,31 @@ tr.skip td.k{opacity:1}
 <body>
 <main>
 <h1>Spend, sorted</h1>
+<div class="empty" id="boot" hidden>Loading your data…</div>
+<form class="panel" id="auth" hidden novalidate><div class="grid" style="max-width:340px">
+  <h2 id="atitle">Sign in</h2>
+  <div class="sub" id="ahelp"></div>
+  <input id="aemail" type="email" placeholder="Email" autocomplete="username" aria-label="Email">
+  <input id="apass" type="password" placeholder="Password" autocomplete="current-password" aria-label="Password">
+  <input id="acode" placeholder="Invite code" autocomplete="off" aria-label="Invite code" hidden>
+  <div class="row"><button class="pri" id="ago">Sign in</button><button type="button" id="aswap">Create account</button><button type="button" class="danger" id="aforgot">Forgot password?</button></div>
+  <span class="msg" id="amsg" role="status"></span>
+</div></form>
+<div id="app">
 <nav class="row" aria-label="Tools">
   <button data-p="imp">Import</button>
   <button data-p="crd">Cards</button>
   <button data-p="rec">Recurring</button>
-  <button data-p="bak">Backup</button>
-  <button id="wipe" class="danger">Delete all data</button><span class="msg" id="wmsg"></span>
+  <button data-p="bak" id="bakbtn">Backup</button>
+  <button data-p="acc" id="accbtn" hidden>Account</button>
+  <button id="wipe" class="danger">Delete all data</button><span class="msg" id="wmsg"></span><span class="sub" id="sync" role="status"></span>
 </nav>
+
+<div class="panel" id="p-acc" hidden><div class="grid">
+  <div>Signed in as <b id="who"></b>. Everything you change is saved to your account and shows on every device where you sign in.</div>
+  <div class="row"><button id="signout">Sign out</button><span class="msg" id="outmsg"></span></div>
+  <div class="row"><input id="delpass" type="password" placeholder="Your password" autocomplete="current-password" aria-label="Your password" style="width:170px"><button class="danger" id="delacc">Delete my account</button><span class="msg" id="accmsg"></span></div>
+</div></div>
 
 <div class="panel" id="p-imp" hidden><div class="grid">
   <div class="row"><input id="card" placeholder="Card name, e.g. Visa 1234" list="cardlist"><datalist id="cardlist"></datalist><select id="irule" aria-label="How this card counts"></select></div>
@@ -142,6 +161,7 @@ tr.skip td.k{opacity:1}
   <div class="tw"><table><thead><tr id="head"></tr></thead><tbody id="rows"></tbody></table></div>
   <p class="sub">Click any field to edit it. Change a category and the app remembers it for that merchant. Click a column title to sort. Tick Ignore to leave a purchase out of the totals.</p>
 </section>
+</div>
 </main>
 <div class="toast" id="toast" hidden role="status"></div>
 <script>
@@ -162,8 +182,16 @@ let ORDER=[...Object.keys(CATS),"Other"];
 const COL={};
 let S={tx:[],rules:{},cur:"₪"};
 let cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null;
-try{const r=localStorage.getItem("spend-v1");if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
-const save=()=>{try{localStorage.setItem("spend-v1",JSON.stringify(S))}catch(e){}};
+// Accounts + cloud sync (Firebase): see "Backend plan" in CLAUDE.md. The cloud code is at the bottom of this script.
+// FB_REAL = the real project's firebaseConfig (public by design; firestore.rules is the protection).
+// While it is null the live site stays local-only (localStorage), exactly as before.
+// On localhost the page talks to the local Firebase emulators only, never the real project. Add ?local=1 for local-only mode.
+const FB_VER="13.3.0",FB_REAL=null;
+const EMU=/^(localhost|127\.0\.0\.1)$/.test(location.hostname)&&!/[?&]local=1/.test(location.search);
+const FBC=EMU?{apiKey:"demo-key",authDomain:"demo-spend.firebaseapp.com",projectId:"demo-spend"}:FB_REAL;
+const C={on:!!FBC,un:{},ready:false,user:null,syn:{settings:null,months:{}},pend:0,err:"",unsub:[],mode:null};
+if(!C.on)try{const r=localStorage.getItem("spend-v1");if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
+function save(){if(C.on)return cloudSave();try{localStorage.setItem("spend-v1",JSON.stringify(S))}catch(e){}}
 // Card rules: S.cards[name] = percent of that card's purchases that counts (100 full, 50 half, 0 not counted).
 // syncCards also converts the old format (purchase.kind mine/joint + S.half) once.
 function syncCards(){if(S.cards)return;S.cards={};const j=S.half===false?100:50,mine=new Set(S.tx.filter(t=>t.kind!="joint").map(t=>t.card));
@@ -253,7 +281,7 @@ function render(){
  CL=[...new Set([...S.tx.map(t=>t.card),...S.recur.map(r=>r.card||"Recurring")])].sort((a,b)=>a.localeCompare(b));
  if(cardF!="all"&&!CL.includes(cardF))cardF="all";
  const rc=[...new Set(["Recurring",...CL])],copt=s=>rc.map(c=>`<option${c==s?" selected":""}>${esc(c)}</option>`).join("");
- ["imp","crd","rec","bak"].forEach(p=>{$("p-"+p).hidden=panel!=p});
+ ["imp","crd","rec","bak","acc"].forEach(p=>{$("p-"+p).hidden=panel!=p});
  document.querySelectorAll("[data-p]").forEach(b=>b.classList.toggle("on",b.dataset.p==panel));
  $("cardrules").innerHTML=CL.map((c,i)=>{const p=pct(c),n=S.tx.filter(t=>t.card==c).length;return `<div class="row"><input data-ci="${i}" data-f="name" value="${esc(c)}" style="width:170px" aria-label="Card name"><select data-ci="${i}" data-f="rule" aria-label="How this card counts">${ruleOpts(p,1)}</select>${[100,50,0].includes(p)?"":`<input data-ci="${i}" data-f="pct" type="number" min="0" max="100" value="${p}" style="width:70px" aria-label="Percent that counts"><span class="sub">%</span>`}<span class="sub">${n} purchase${n==1?"":"s"}</span></div>`}).join("")||`<span class="msg">No cards yet. Import or add a purchase first.</span>`;
  $("crdmsg").textContent=crdMsg;
@@ -333,7 +361,7 @@ function delCat(i){const old=S.cats[i],oAlias={...S.alias},oRules={},oTx=S.tx.fi
  for(const k in S.rules)if(S.rules[k]==old)delete S.rules[k];
  for(const b in CATS)if((S.alias[b]||b)==old)S.alias[b]="Other";
  if(cat==old)cat=null;catMsg="";pushUndo("Deleted category “"+old+"”",()=>{S.cats.splice(Math.min(i,S.cats.length),0,old);S.alias=oAlias;Object.assign(S.rules,oRules);S.tx.forEach(t=>{if(oTx.includes(t.id))t.cat=old})});save();render()}
-let wp=false;$("wipe").onclick=()=>{if(!wp){wp=true;$("wipe").textContent="Press again to delete everything";$("wmsg").textContent="This removes all purchases, recurring items and learned corrections from this browser.";setTimeout(()=>{wp=false;$("wipe").textContent="Delete all data";$("wmsg").textContent=""},6000);return}
+let wp=false;$("wipe").onclick=()=>{if(!wp){wp=true;$("wipe").textContent="Press again to delete everything";$("wmsg").textContent="This removes all purchases, recurring items and learned corrections.";setTimeout(()=>{wp=false;$("wipe").textContent="Delete all data";$("wmsg").textContent=""},6000);return}
  const snap={tx:S.tx,rules:S.rules,recur:S.recur,recDone:S.recDone};S.tx=[];S.rules={};S.recur=[];S.recDone={};pushUndo("Deleted all data",()=>{S.tx=snap.tx.concat(S.tx);S.rules=Object.assign({},snap.rules,S.rules);S.recur=snap.recur.concat(S.recur);S.recDone=Object.assign({},snap.recDone,S.recDone)});save();wp=false;cat=null;$("wipe").textContent="Delete all data";$("wmsg").textContent="All clear.";render()};
 $("bkshow").onclick=()=>{$("bk").value=JSON.stringify(S);$("bk").select();let ok=false;try{ok=document.execCommand("copy")}catch(e){}$("bkmsg").textContent=ok?"Backup copied. Paste it somewhere safe.":"Select all the text and copy it."};
 $("bkrestore").onclick=()=>{try{const o=JSON.parse($("bk").value);if(!Array.isArray(o.tx))throw 0;S=Object.assign({tx:[],rules:{},cur:"₪"},o);syncCards();save();render();$("bkmsg").textContent="Restored "+S.tx.length+" purchases."}catch(e){$("bkmsg").textContent="That doesn’t look like a backup."}};
@@ -389,9 +417,120 @@ document.addEventListener("change",e=>{const t=e.target;
   if(/\.xlsx?$/i.test(f.name)){if(!window.XLSX){$("msg").textContent="Excel support didn’t load. Export the file as CSV instead, or paste the rows.";return}
    r.onload=()=>{const w=XLSX.read(r.result,{type:"array"});$("paste").value=w.SheetNames.map(n=>XLSX.utils.sheet_to_csv(w.Sheets[n])).join("\n");$("msg").textContent="File read. Press Import and sort."};r.readAsArrayBuffer(f)}
   else{r.onload=()=>{$("paste").value=r.result};r.readAsText(f)}}});
-recGen();S.tx.forEach(t=>{if(t.cat=="Other")t.cat=guess(t.desc)});save();
-if(!S.tx.some(t=>!String(t.id).startsWith("rec-")))panel="imp";
-render();
+function start(){syncCards();recGen();S.tx.forEach(t=>{if(t.cat=="Other")t.cat=guess(t.desc)});save();
+ panel=S.tx.some(t=>!String(t.id).startsWith("rec-"))?null:"imp";
+ $("bakbtn").hidden=C.on;$("accbtn").hidden=!C.on;$("who").textContent=C.user?C.user.email:"";
+ $("boot").hidden=true;$("app").hidden=false;render();stat()}
+
+// ---- Accounts + cloud sync ----
+// Layout in Firestore, per account: users/{uid} (profile, proves a valid invite code),
+// users/{uid}/data/settings (everything in S except purchases) and users/{uid}/months/{YYYY-MM} (that month's purchases).
+// Each document is {v:1,json:"..."}. C.syn holds what this device last wrote or applied, so save() only writes real changes.
+const mk=t=>(t.date||"").slice(0,7)||"none";
+function ser(){const o=Object.assign({},S);delete o.tx;const g={};S.tx.forEach(t=>(g[mk(t)]=g[mk(t)]||[]).push(t));
+ const out={settings:JSON.stringify(o),months:{}};for(const m in g)out.months[m]=JSON.stringify(g[m]);return out}
+function stat(){$("sync").textContent=!C.on||!C.ready?"":C.err||(C.pend?(navigator.onLine?"Saving…":"Offline. Changes will sync when you’re back online."):"Saved")}
+// C.un[key] counts this device's writes to a document that the server has not confirmed yet. While it is above zero,
+// incoming versions of that document are ignored (ours is newer and will win); when it reaches zero we re-check.
+function put(key,p){C.pend++;C.un[key]=(C.un[key]||0)+1;stat();
+ const end=e=>{C.pend--;C.err=e?"Couldn’t save ("+(e.code||e.message)+"). Reload the page.":"";stat();if(!--C.un[key]&&C.ready&&C.again)C.again()};
+ p.then(()=>end(),end)}
+function cloudSave(){if(!C.ready)return;const F=C.F,cur=ser(),at=(...p)=>F.doc(C.db,"users",C.user.uid,...p);
+ if(cur.settings!==C.syn.settings){C.syn.settings=cur.settings;put("s",F.setDoc(at("data","settings"),{v:1,json:cur.settings}))}
+ for(const m in cur.months)if(cur.months[m]!==C.syn.months[m]){C.syn.months[m]=cur.months[m];put("m:"+m,F.setDoc(at("months",m),{v:1,json:cur.months[m]}))}
+ // A month with no purchases left is written as an empty list, never deleted, so "missing" can't be mistaken for "deleted".
+ for(const m in C.syn.months)if(!(m in cur.months)&&C.syn.months[m]!=="[]"){C.syn.months[m]="[]";put("m:"+m,F.setDoc(at("months",m),{v:1,json:"[]"}))}}
+function stop(){C.unsub.forEach(f=>f());C.unsub=[];C.ready=false;C.again=null;C.un={}}
+function remoteRender(){const a=document.activeElement;
+ if(a&&/^(INPUT|TEXTAREA)$/.test(a.tagName)&&a.type!="checkbox"&&$("app").contains(a)){if(!C.defer){C.defer=true;a.addEventListener("blur",()=>{C.defer=false;later(render)},{once:true})}}
+ else render()}
+function listen(){const F=C.F,uid=C.user.uid,opt={includeMetadataChanges:true};let sS=null,mS=null,trust=false;stop();
+ const parse=j=>{try{return JSON.parse(j)}catch(e){return null}};
+ // Show the app only once the data is known to be complete: from the server, or from this device's own cache
+ // (which has the settings document only if it synced before). Otherwise a new device could overwrite real data.
+ const check=()=>{if(C.ready||!sS||!mS)return;
+  if(sS.exists()&&sS.metadata.fromCache)trust=true;
+  if(!(sS.exists()||!sS.metadata.fromCache)||!(trust||!mS.metadata.fromCache))return;
+  S=Object.assign({tx:[],rules:{},cur:"₪"},sS.exists()&&parse(sS.data().json)||{});S.tx=[];
+  mS.docs.slice().sort((a,b)=>a.id<b.id?-1:1).forEach(d=>{const a=parse(d.data().json);if(Array.isArray(a))S.tx.push(...a)});
+  syncCards();C.syn=ser();if(!sS.exists())C.syn.settings=null;mS.forEach(d=>{if(!(d.id in C.syn.months))C.syn.months[d.id]=d.data().json});
+  C.ready=true;C.err="";C.again=()=>{onS(sS);onM(mS)};start()};
+ const fail=e=>{if(C.user&&C.user.uid!=uid)return;stop();
+  if(e.code=="permission-denied")authShow("code");else{$("boot").hidden=false;$("boot").textContent="Couldn’t load your data ("+(e.code||e.message)+"). Check your connection and reload."}};
+ // After the first load, apply only confirmed changes that came from another device.
+ const onS=d=>{sS=d;if(!C.ready)return check();
+  if(d.metadata.hasPendingWrites||C.un.s||!d.exists()||d.data().json===C.syn.settings)return;
+  const o=parse(d.data().json);if(!o)return;S=Object.assign({rules:{},cur:"₪"},o,{tx:S.tx});syncCards();C.syn.settings=ser().settings;remoteRender()};
+ const onM=q=>{mS=q;if(!C.ready)return check();
+  const chg=[];q.forEach(d=>{const j=d.data().json;if(!d.metadata.hasPendingWrites&&!C.un["m:"+d.id]&&j!==C.syn.months[d.id])chg.push([d.id,parse(j),j])});
+  if(!chg.length)return;
+  chg.forEach(([m,a])=>{if(Array.isArray(a))S.tx=S.tx.filter(t=>mk(t)!=m).concat(a)});
+  const cur=ser();chg.forEach(([m,a,j])=>{C.syn.months[m]=cur.months[m]||j});remoteRender()};
+ C.unsub.push(F.onSnapshot(F.doc(C.db,"users",uid,"data","settings"),opt,onS,fail));
+ C.unsub.push(F.onSnapshot(F.collection(C.db,"users",uid,"months"),opt,onM,fail))}
+const AE={"auth/invalid-credential":"Wrong email or password.","auth/wrong-password":"Wrong email or password.","auth/user-not-found":"Wrong email or password.","auth/email-already-in-use":"That email already has an account. Sign in instead.","auth/weak-password":"Use a password of at least 6 characters.","auth/invalid-email":"That email doesn’t look right.","auth/missing-password":"Enter your password.","auth/too-many-requests":"Too many attempts. Wait a few minutes and try again.","auth/network-request-failed":"No connection. Check your internet and try again.","permission-denied":"That invite code isn’t valid."};
+const authErr=e=>AE[e&&e.code]||"Something went wrong ("+(e&&(e.code||e.message)||"unknown")+").";
+function authShow(m){C.mode=m;$("auth").hidden=!m;$("boot").hidden=true;if(!m)return;$("app").hidden=true;
+ $("atitle").textContent=m=="in"?"Sign in":m=="up"?"Create account":"One more step";
+ $("ahelp").textContent=m=="code"?"This account isn’t set up yet. Enter your invite code to finish.":m=="up"?"You need an invite code to create an account.":"";
+ $("aemail").hidden=$("apass").hidden=m=="code";$("acode").hidden=m=="in";
+ $("apass").autocomplete=m=="up"?"new-password":"current-password";
+ $("ago").textContent=m=="in"?"Sign in":m=="up"?"Create account":"Finish";
+ $("aswap").textContent=m=="in"?"Create account":m=="up"?"I have an account":"Sign out";
+ $("aforgot").hidden=m!="in";$("amsg").textContent=""}
+function enter(){authShow(null);$("boot").textContent="Loading your data…";$("boot").hidden=false;listen()}
+// The invite code is the id of a document in /invites; the rules only let the profile be created if it exists.
+function claim(code){if(/\//.test(code))return Promise.reject({code:"permission-denied"});
+ return C.F.setDoc(C.F.doc(C.db,"users",C.auth.currentUser.uid),{invite:code,created:Date.now()})}
+async function authGo(){const B=C.B,em=$("aemail").value.trim(),pw=$("apass").value,code=$("acode").value.trim(),msg=t=>{$("amsg").textContent=t};
+ if(C.busy)return;msg("");
+ if(C.mode!="code"&&(!em||!pw))return msg("Enter your email and password.");
+ if(C.mode!="in"&&!code)return msg("Enter your invite code.");
+ if(!navigator.onLine)return msg(AE["auth/network-request-failed"]);
+ C.busy=true;$("ago").disabled=true;
+ try{
+  if(C.mode=="in")await B.signInWithEmailAndPassword(C.auth,em,pw);
+  else if(C.mode=="up"){C.signing=true;
+   try{const cred=await B.createUserWithEmailAndPassword(C.auth,em,pw);
+    try{await claim(code)}catch(e){await B.deleteUser(cred.user).catch(()=>{});throw e}}
+   finally{C.signing=false}
+   enter()}
+  else{await claim(code);enter()}
+  $("apass").value="";$("acode").value=""}
+ catch(e){msg(authErr(e))}
+ finally{C.busy=false;$("ago").disabled=false}}
+async function forgot(){const em=$("aemail").value.trim();if(!em)return $("amsg").textContent="Type your email first.";
+ try{await C.B.sendPasswordResetEmail(C.auth,em);$("amsg").textContent="If that email has an account, a reset link is on its way."}catch(e){$("amsg").textContent=authErr(e)}}
+// Leaving an account: forget this device's cached copy of the data, then start clean.
+async function bye(){try{await C.F.terminate(C.db);await C.F.clearIndexedDbPersistence(C.db)}catch(e){}location.reload()}
+async function signOutNow(){
+ if(C.pend&&!C.outArm){C.outArm=true;$("outmsg").textContent="Some changes haven’t synced yet. Press again to sign out and lose them.";setTimeout(()=>{C.outArm=false;$("outmsg").textContent=""},6000);return}
+ stop();C.leaving=true;try{await C.B.signOut(C.auth)}catch(e){}bye()}
+async function delAccount(){const B=C.B,F=C.F,u=C.auth.currentUser,pw=$("delpass").value,msg=t=>{$("accmsg").textContent=t};
+ if(!pw)return msg("Type your password to confirm.");
+ if(!navigator.onLine)return msg("Connect to the internet first.");
+ if(!C.delArm){C.delArm=true;msg("Press again to delete your account and all its data. This can’t be undone.");setTimeout(()=>{C.delArm=false},6000);return}
+ C.delArm=false;
+ try{await B.reauthenticateWithCredential(u,B.EmailAuthProvider.credential(u.email,pw))}catch(e){return msg(/invalid-credential|wrong-password/.test(e.code)?"Wrong password.":authErr(e))}
+ stop();C.leaving=true;$("app").hidden=true;$("boot").textContent="Deleting your account…";$("boot").hidden=false;
+ try{const q=await F.getDocsFromServer(F.collection(C.db,"users",u.uid,"months"));
+  await Promise.all(q.docs.map(d=>F.deleteDoc(d.ref)));
+  await F.deleteDoc(F.doc(C.db,"users",u.uid,"data","settings"));await F.deleteDoc(F.doc(C.db,"users",u.uid));
+  await B.deleteUser(u);bye()}
+ catch(e){$("boot").textContent="Couldn’t finish deleting ("+(e.code||e.message)+"). Reload the page and try again."}}
+async function cloudBoot(){$("app").hidden=true;$("boot").hidden=false;
+ try{const u="https://www.gstatic.com/firebasejs/"+FB_VER+"/firebase-";
+  const[A,B,F]=await Promise.all([import(u+"app.js"),import(u+"auth.js"),import(u+"firestore.js")]);
+  const app=A.initializeApp(FBC);C.B=B;C.F=F;C.auth=B.getAuth(app);
+  try{C.db=F.initializeFirestore(app,{localCache:F.persistentLocalCache({tabManager:F.persistentMultipleTabManager()})})}catch(e){C.db=F.getFirestore(app)}
+  if(EMU){B.connectAuthEmulator(C.auth,"http://127.0.0.1:9099",{disableWarnings:true});F.connectFirestoreEmulator(C.db,"127.0.0.1",8080)}
+  B.onAuthStateChanged(C.auth,usr=>{C.user=usr;if(C.signing||C.leaving)return;stop();if(usr)enter();else authShow("in")})}
+ catch(e){$("boot").textContent="Couldn’t reach the sign-in service. Check your connection and reload."}}
+$("auth").onsubmit=e=>{e.preventDefault();authGo()};
+$("aswap").onclick=()=>{if(C.mode=="code")signOutNow();else authShow(C.mode=="in"?"up":"in")};
+$("aforgot").onclick=forgot;$("signout").onclick=signOutNow;$("delacc").onclick=delAccount;
+addEventListener("online",stat);addEventListener("offline",stat);
+if(C.on)cloudBoot();else start();
 </script>
 </body>
 </html>

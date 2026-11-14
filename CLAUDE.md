@@ -17,8 +17,10 @@ Personal spending tracker for one user in Israel (Hebrew + English). Each card h
 
 ## The app
 - Single file: `index.html`. The spec comment at the top lists features, untested parts and ideas. Keep it updated with every change.
-- Data currently lives in the browser's localStorage key `spend-v1` (test data only; a backend with accounts is planned, so this will change).
-- No bank connection. Today the page contacts no other sites; that changes when the backend is added.
+- Two modes, chosen in `index.html` by `FB_REAL`/`EMU`:
+  - Local-only (the live site today, because `FB_REAL` is still `null`; also `?local=1` on localhost): data in localStorage key `spend-v1`, Backup panel shown, no sign-in.
+  - Cloud (localhost against the emulators today; the live site once `FB_REAL` holds the real config): sign-in required, data in Firestore, Account panel shown, Backup hidden, localStorage unused.
+- No bank connection. In local-only mode the page contacts no other sites except fonts and the Excel library; in cloud mode it also loads the Firebase SDK from gstatic and talks to Firebase.
 - The "Sort N unrecognized with Claude" button was removed (it needed the artifact environment's Claude API). Unrecognized merchants stay in Other for manual sorting.
 
 ## Backend plan (decided 2026-11-14)
@@ -26,14 +28,17 @@ Goal: two users only (me and my partner), each with a private, independent accou
 - Service: Firebase on the free Spark plan (no payment card): Auth with email + password, and Firestore. Chosen over Supabase (free projects pause after a week unused and need a manual restart) and a self-built Cloudflare Worker backend (own password handling, more code to maintain).
 - Hosting stays on GitHub Pages. No custom domain (it costs money).
 - Accounts: created inside the app (Create account, Sign in, Reset password, Delete my account; deleting removes the login and all its data). Sign-up needs an invite code: the user adds code documents in the Firebase console, and Firestore rules allow a user to create their data only if the code exists (checked with `exists()`; clients cannot read the codes). A stranger can make a login but can never store or read data.
-- Data layout: `users/{uid}/data/settings` (categories, card rules, learned merchants, recurring) and `users/{uid}/months/{YYYY-MM}` (that month's purchases). localStorage `spend-v1` stays as the offline cache; changes sync when back online; last write wins per document.
+- Data layout: `users/{uid}` (profile: invite code used, proves the account is allowed), `users/{uid}/data/settings` (everything in `S` except purchases) and `users/{uid}/months/{YYYY-MM}` (that month's purchases). Each document is `{v:1, json:"..."}`. Emptied months are written as `[]`, never deleted. Last write wins per document. Offline uses Firestore's own cache (IndexedDB), cleared on sign-out; the app waits for server-confirmed data on a device that never synced, so it cannot overwrite real data with an empty state.
+- Sync rules in the code (keep them): `save()` writes only documents whose content changed (`C.syn`); incoming snapshots are ignored while this device has unconfirmed writes to that document (`C.un`), and re-checked once they confirm; a remote change never redraws the table while the user is typing in a field.
 - The Firebase web config (apiKey etc.) is public by design and lives in `index.html`; the rules are the protection. Never commit passwords or service-account keys.
 - Testing: the Firebase Emulator Suite (Auth on 127.0.0.1:9099, Firestore on 127.0.0.1:8080, project id `demo-spend`, config in `firebase.json`) runs fully local on this PC. When the page is opened on localhost it connects to the emulators, never the real project. Claude may create and delete demo accounts there freely (throwaway emails like demo1@example.invalid, throwaway passwords, never the user's real account); the emulator forgets everything when stopped. The real project is only used by the live site and by the user signing in themselves.
-- Build order: 1) per-card counting rules (done), 2) emulator installed (done: Node 24, Java 21 Temurin, firebase-tools 15; start with `firebase emulators:start --only auth,firestore --project demo-spend`), 3) in-app sign-up/sign-in + invite code + delete account, 4) load/save sync, 5) two-account and two-device test on the emulator, 6) user creates the real Firebase project and Claude wires it in, 7) installable PWA.
+- Build order: 1) per-card counting rules (done), 2) emulator installed (done: Node 24, Java 21 Temurin, firebase-tools 15; start with `firebase emulators:start --only auth,firestore --project demo-spend`), 3) in-app sign-up/sign-in + invite code + delete account (done), 4) load/save sync (done), 5) two-account and two-device test on the emulator (done 2026-11-14), 6) NEXT: user creates the real Firebase project (Email/Password sign-in on, Firestore in production mode, authorized domain `jacomo57.github.io`, paste `firestore.rules` into the console, add one document in an `invites` collection whose id is the invite code), then Claude puts the web config in `FB_REAL`, 7) installable PWA (needed for the app to open with no connection; password reset emails and offline use are untested until then).
 
 ## Local testing
 - New shells need `$env:Path` refreshed (Node, Java and `firebase` were installed with winget/npm after the session started); tools: node 24, npm 11, java 21, firebase 15.
-- No python on this PC. Start the local server with the launch config `spend` (`.claude/launch.json` runs `.claude/serve.ps1`, a PowerShell static server on http://localhost:8765).
+- No python on this PC. Start the local server with the launch config `spend` (`.claude/launch.json` runs `.claude/serve.ps1`, a PowerShell static server on http://localhost:8765 and http://127.0.0.1:8765). The two addresses have separate browser storage, so one acts as a "second device" in sync tests.
+- Cloud-mode testing needs the emulators running first (command in the build order above), then one invite code seeded: `PATCH http://127.0.0.1:8080/v1/projects/demo-spend/databases/(default)/documents/invites/DEMO-INVITE-1` with header `Authorization: Bearer owner` and body `{"fields":{}}`.
+- `.claude/rules-test.ps1` runs 32 allow/deny checks of `firestore.rules` against the emulator (other user's data, no invite, signed out, invite codes unreadable). Run it after any rules change; it must report `failures: 0`.
 
 ## Next steps
 0. BIG TASK in progress: follow "Backend plan" above. Stop only at the gates in "How to work with me".
