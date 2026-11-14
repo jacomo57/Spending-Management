@@ -22,7 +22,7 @@ Personal spending tracker for one user in Israel (Hebrew + English). A joint car
 - The "Sort N unrecognized with Claude" button was removed (it needed the artifact environment's Claude API). Unrecognized merchants stay in Other for manual sorting.
 
 ## Next steps
-0. BIG TASK: turn the app into a multi-user service: anyone can sign up with their own account, each user's data is private and independent, and the same data shows on phone, laptop and PC (saved in the cloud, no manual export). Also: per-card counting rule (replace the single "joint card at half" toggle). No partner/shared access. Hosting is open: GitHub Pages is not required if something better fits (stop and ask before anything that costs money). Plan first, then build; stop only at the gates above.
+0. BIG TASK: small backend with accounts and sign-in for just two users (me and my partner), each with their own independent, private account and data, same data on phone, laptop and PC (saved in the cloud, no manual export). Not a public service: no legal/privacy-policy work, no signup scaling. Keep it simple, but data must still be locked per user and signups limited (invite-only or disabled after our two accounts). Also: per-card counting rule (replace the single "joint card at half" toggle). No shared data. Hosting is open: GitHub Pages is not required if something better fits (ask before anything that costs money). Plan first, then build; stop only at the gates above.
 1. Installable PWA (GitHub Pages is already live).
 2. Phone-friendly expenses table.
 3. Monthly budgets per category, search, month-over-month comparison.
