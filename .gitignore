@@ -6,3 +6,7 @@ backup*
 *.xlsx
 *.xls
 *.zip
+
+firebase-debug.log
+firestore-debug.log
+ui-debug.log

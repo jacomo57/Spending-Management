@@ -25,13 +25,14 @@ Personal spending tracker for one user in Israel (Hebrew + English). Each card h
 Goal: two users only (me and my partner), each with a private, independent account; the same data on phone, laptop and PC, saved automatically. Not a public service: no legal or scaling work.
 - Service: Firebase on the free Spark plan (no payment card): Auth with email + password, and Firestore. Chosen over Supabase (free projects pause after a week unused and need a manual restart) and a self-built Cloudflare Worker backend (own password handling, more code to maintain).
 - Hosting stays on GitHub Pages. No custom domain (it costs money).
-- Accounts: exactly two, created by the user in the Firebase console. The app has sign-in and password reset only, no sign-up form. Firestore rules allow a user only `users/{own uid}/...`, and only for the two allowed UIDs, so a stranger who registers through the public key gets nothing.
+- Accounts: created inside the app (Create account, Sign in, Reset password, Delete my account; deleting removes the login and all its data). Sign-up needs an invite code: the user adds code documents in the Firebase console, and Firestore rules allow a user to create their data only if the code exists (checked with `exists()`; clients cannot read the codes). A stranger can make a login but can never store or read data.
 - Data layout: `users/{uid}/data/settings` (categories, card rules, learned merchants, recurring) and `users/{uid}/months/{YYYY-MM}` (that month's purchases). localStorage `spend-v1` stays as the offline cache; changes sync when back online; last write wins per document.
 - The Firebase web config (apiKey etc.) is public by design and lives in `index.html`; the rules are the protection. Never commit passwords or service-account keys.
-- Claude cannot type passwords into a hosted sign-in: the user signs in themselves in the browser pane, then Claude tests.
-- Build order: 1) per-card counting rules, 2) sign-in screen, 3) load/save sync, 4) two-account and two-device test, 5) installable PWA.
+- Testing: the Firebase Emulator Suite (Auth on 127.0.0.1:9099, Firestore on 127.0.0.1:8080, project id `demo-spend`, config in `firebase.json`) runs fully local on this PC. When the page is opened on localhost it connects to the emulators, never the real project. Claude may create and delete demo accounts there freely (throwaway emails like demo1@example.invalid, throwaway passwords, never the user's real account); the emulator forgets everything when stopped. The real project is only used by the live site and by the user signing in themselves.
+- Build order: 1) per-card counting rules (done), 2) emulator installed (done: Node 24, Java 21 Temurin, firebase-tools 15; start with `firebase emulators:start --only auth,firestore --project demo-spend`), 3) in-app sign-up/sign-in + invite code + delete account, 4) load/save sync, 5) two-account and two-device test on the emulator, 6) user creates the real Firebase project and Claude wires it in, 7) installable PWA.
 
 ## Local testing
+- New shells need `$env:Path` refreshed (Node, Java and `firebase` were installed with winget/npm after the session started); tools: node 24, npm 11, java 21, firebase 15.
 - No node or python on this PC. Start the local server with the launch config `spend` (`.claude/launch.json` runs `.claude/serve.ps1`, a PowerShell static server on http://localhost:8765).
 
 ## Next steps
