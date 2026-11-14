@@ -9,6 +9,7 @@ Personal spending tracker for one user in Israel (Hebrew + English). A joint car
 - Ask before big changes (new files, new dependencies, changing the data format).
 
 ## Workflow (always)
+- At the start of every session, run `git pull` first (the user works from two computers, a PC and a laptop, so GitHub is the shared source of truth). Never start editing before pulling.
 - All work happens in `C:\Claude\Spending Project`. This folder is the git repo; remote is https://github.com/jacomo57/Spending-Management (public, GitHub Pages from `main`, site https://jacomo57.github.io/Spending-Management/).
 - After every change: test it in a browser, then commit and push to `main`, so GitHub is always the backup. Then confirm the live site works.
 - Test by actually running the app (local server + browser pane), not by reading code. Only say something works if it was checked; otherwise say exactly what was not checked.
