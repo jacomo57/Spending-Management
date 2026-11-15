@@ -41,8 +41,5 @@ Goal: two users only (me and my partner), each with a private, independent accou
 - `.claude/rules-test.ps1` runs 32 allow/deny checks of `firestore.rules` against the emulator (other user's data, no invite, signed out, invite codes unreadable). Run it after any rules change; it must report `failures: 0`.
 
 ## Next steps
-0. BIG TASK in progress: follow "Backend plan" above. Stop only at the gates in "How to work with me".
-1. Installable PWA (GitHub Pages is already live).
-2. Phone-friendly expenses table.
-3. Monthly budgets per category, search, month-over-month comparison.
-4. Later: Caspion automatic bank downloads, partner sync (builds on the backend).
+- The plan lives in `ROADMAP.md`: review findings, then Steps 0 to 5, each with the model to use, what to do, how to test, and the user's part. One step per session. Tick steps off there as they finish.
+- Order: Step 0 (safety net and fixes) first, then 1 (PWA) and 2 (phone layout), then 3 (budgets, search, comparisons), then 4 (reports).
