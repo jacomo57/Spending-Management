@@ -2,6 +2,8 @@
   "name": "spend-sorted",
   "private": true,
   "scripts": {
+    "stamp": "node tools/stamp.mjs",
+    "pretest": "node tools/stamp.mjs",
     "test": "node tests/run.mjs",
     "emulators": "firebase emulators:start --only auth,firestore --project demo-spend",
     "deploy:rules": "firebase deploy --only firestore:rules --project spending-management-608d5"

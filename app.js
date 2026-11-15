@@ -320,6 +320,27 @@ document.addEventListener("change",e=>{const t=e.target;
  else if(t.id=="cardf"){cardF=t.value;render()}
  else if(t.id=="cur"){S.cur=t.value||"₪";save();render()}
  else if(t.id=="file"&&t.files[0])readFile(t.files[0])});
+// Installable app: sw.js keeps a copy of the app's files so it opens offline (rules at the top of sw.js).
+// APPV is the version this page was loaded as (stamped by tools/stamp.mjs). A newer sw.js that finishes installing is told
+// our version: if they match it takes over quietly, otherwise it answers "update" and the Reload notice is shown.
+// On localhost the worker is off (so edits always show) unless the address has ?sw=1.
+const APPV=new URL(document.currentScript.src).searchParams.get("v")||"dev";
+(function(){const sw=navigator.serviceWorker;if(!sw)return;
+ if(LOCALHOST&&!/[?&]sw=1/.test(location.search)){sw.getRegistrations().then(a=>a.forEach(r=>r.unregister())).catch(()=>{});
+  if(window.caches)caches.keys().then(ks=>ks.forEach(k=>{if(k.startsWith("spend-"))caches.delete(k)})).catch(()=>{});return}
+ let reg=null,go=false;
+ const hello=w=>w.postMessage({type:"hello",v:APPV});
+ const watch=w=>{if(!w)return;if(w.state=="installed")hello(w);else w.addEventListener("statechange",()=>{if(w.state=="installed")hello(w)})};
+ sw.addEventListener("message",e=>{if(e.data&&e.data.type=="update")$("upd").hidden=false});
+ sw.addEventListener("controllerchange",()=>{if(go)location.reload()});
+ $("updgo").onclick=()=>{go=true;$("updgo").disabled=true;if(reg&&reg.waiting)reg.waiting.postMessage({type:"skip"});else location.reload()};
+ const first=!sw.controller;
+ sw.register("sw.js").then(r=>{reg=r;if(r.waiting)hello(r.waiting);watch(r.installing);
+  r.addEventListener("updatefound",()=>watch(r.installing));
+  // An installed app can stay open for days, so look for a new version each time it comes back to the front.
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)r.update().catch(()=>{})});
+  // First visit: fonts and the Firebase SDK loaded before the worker existed. Hand over their addresses, again later for a slow line.
+  if(first)sw.ready.then(x=>[3000,15000,45000].forEach(ms=>setTimeout(()=>x.active&&x.active.postMessage({type:"warm",urls:performance.getEntriesByType("resource").map(e=>e.name)}),ms)))}).catch(()=>{})})();
 function start(){syncCards();dropEmpty();recGen();S.tx.forEach(t=>{if(t.cat=="Other")t.cat=guess(t.desc)});save();
  panel=S.tx.some(t=>!String(t.id).startsWith("rec-"))?null:"imp";
  $("bakbtn").hidden=C.on;$("accbtn").hidden=!C.on;$("who").textContent=C.user?C.user.email:"";

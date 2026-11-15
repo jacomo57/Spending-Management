@@ -40,4 +40,4 @@ Goal: two users only (the owner and their partner), each with a private, indepen
 - Seed an invite code: `PATCH http://127.0.0.1:8080/v1/projects/demo-spend/databases/(default)/documents/invites/DEMO-INVITE-1` with header `Authorization: Bearer owner` and body `{"fields":{}}`.
 
 ## History
-1. Per-card counting rules. 2. Emulator installed (Node 24, Java 21 Temurin, firebase-tools 15). 3. In-app sign-up, sign-in, invite code, delete account. 4. Load/save sync. 5. Two-account and two-device test on the emulator (2026-11-14). 6. Real project connected (2026-11-15). 7. Installable PWA: Step 1 in `ROADMAP.md` (password reset emails and offline use are untested until then).
+1. Per-card counting rules. 2. Emulator installed (Node 24, Java 21 Temurin, firebase-tools 15). 3. In-app sign-up, sign-in, invite code, delete account. 4. Load/save sync. 5. Two-account and two-device test on the emulator (2026-11-14). 6. Real project connected (2026-11-15). 7. Installable PWA built (2026-11-15): offline open and syncing an offline edit are tested on the emulator; password reset emails are still untested.

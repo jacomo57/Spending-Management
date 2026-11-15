@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <!--
 SPEND, SORTED: spec (keep updated with each edit)
-Files: index.html (markup), style.css, app.js (data, import, rendering), cloud.js (accounts + sync), vendor/xlsx.full.min.js (SheetJS 0.20.3, loaded on first Excel file). Tests: npm test.
+Files: index.html (markup), style.css, app.js (data, import, rendering), cloud.js (accounts + sync), sw.js (service worker), manifest.webmanifest, icons/, vendor/xlsx.full.min.js (SheetJS 0.20.3, loaded on first Excel file). Tests: npm test.
+Installable app (PWA): manifest + icons, so it can be added to a phone's home screen or installed from Chrome/Edge. sw.js saves the app's files: the page is fetched from the network first (saved copy offline or after 4s), the app's files and the Firebase SDK and fonts come from the saved copy. Firebase sign-in and data calls are never stored by it. The version after style.css, app.js and cloud.js and VERSION in sw.js are written by tools/stamp.mjs before every npm test; never edit them by hand. A new version shows on the next load; an app left open shows "Update available, Reload". On localhost the service worker is off unless the address has ?sw=1.
 Storage: localStorage "spend-v1" in local-only mode; Firestore per account in cloud mode. No bank connection.
 Panels: Import, Cards, Recurring, Backup (copy/paste, local-only mode), Account (cloud mode), Delete all (press twice).
 Import: CSV/Excel/pasted text. Finds each header row (several sheets are fine), uses the purchase date and the charged amount ("סכום חיוב", not "סכום עסקה"). Identical rows in one file are all kept; importing again skips only copies already saved on that card. Refunds come in as negative amounts. Installments ("תשלום 3 מתוך 5") are dated in their own month and labelled "3/5". The card's last 4 digits are read from the file to suggest a card name. A bank-style file (most amounts negative) imports the negatives as spending and leaves income out. Tested on real Isracard and Max files (2026-11-15).
@@ -13,8 +14,8 @@ Categorizing: learned merchant first, then EN + HE keywords, then the issuer's o
 Recurring (monthly, card "Recurring" unless another is chosen): starts empty; the user adds their own bills in the Recurring panel.
 Accounts + cloud sync (Firebase, see docs/backend.md): only active when FB_REAL is set or on localhost (emulators). Sign in, Create account (needs invite code), Forgot password, Account panel (Sign out, Download my data, Restore from file with second press + undo, Delete my account with password + press twice). Data per account in Firestore, live sync between devices, "Saved / Saving… / Offline" status.
 FB_REAL is set (project spending-management-608d5), so the live site requires sign-in.
-Tested automatically on the emulator (npm test): sign up/in, wrong invite, two-device sync, per-account privacy, delete all, download + restore, delete account, import cases above.
-UNTESTED: offline use, password reset email, category drag, recurring, undo, income rows of bank files, .xls (old Excel) files, pasted email text with refunds (refunds are only read from tables).
+Tested automatically on the emulator (npm test): sign up/in, wrong invite, two-device sync, per-account privacy, delete all, download + restore, delete account, import cases above, installable files, update notice, opening offline and syncing an offline edit.
+UNTESTED: installing on a real phone, the 4s slow-network fallback, password reset email, category drag, recurring, undo, income rows of bank files, .xls (old Excel) files, pasted email text with refunds (refunds are only read from tables).
 Undo: 8s button + Ctrl/Cmd+Z, session only.
 IDEAS: see ROADMAP.md.
 -->
@@ -23,9 +24,16 @@ IDEAS: see ROADMAP.md.
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Spend, sorted</title>
+<meta name="theme-color" content="#f3f5f2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121715" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Spend">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
+<link rel="stylesheet" href="style.css?v=5d1bffddf4">
 </head>
 <body>
 <main>
@@ -107,7 +115,8 @@ IDEAS: see ROADMAP.md.
 </div>
 </main>
 <div class="toast" id="toast" hidden role="status"></div>
-<script src="app.js"></script>
-<script src="cloud.js"></script>
+<div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
+<script src="app.js?v=5d1bffddf4"></script>
+<script src="cloud.js?v=5d1bffddf4"></script>
 </body>
 </html>

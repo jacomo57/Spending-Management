@@ -1,7 +1,7 @@
 // Smoke tests for Spend, sorted. Run with: npm test
 // Starts its own static server (PORT, default 8770) and, if they are not already running, the Firebase emulators.
 // Uses the Edge or Chrome already installed on the PC (no browser download). All accounts are throwaway emulator accounts.
-// ONLY=smoke or ONLY=local runs one group. HEADED=1 shows the browser.
+// ONLY=smoke, ONLY=local or ONLY=pwa runs one group. HEADED=1 shows the browser.
 import { chromium } from "playwright-core";
 import http from "node:http";
 import fs from "node:fs";
@@ -17,15 +17,28 @@ const URL = `http://localhost:${PORT}/`;
 const ONLY = process.env.ONLY || "";
 const XLSX = createRequire(import.meta.url)("xlsx");
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "spend-test-"));
-const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json" };
+const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".svg": "image/svg+xml" };
 
+// site.down: the server drops every connection (the site is unreachable). site.over: files served with other content (a "deploy").
+const site = { down: false, over: {} };
 const server = http.createServer((q, r) => {
+  if (site.down) return q.socket.destroy();
   let rel = decodeURIComponent(q.url.split("?")[0]).replace(/^\/+/, "") || "index.html";
   const p = path.resolve(ROOT, rel);
   if (!p.startsWith(ROOT + path.sep) || /(^|[\\/])\./.test(rel) || !fs.existsSync(p) || !fs.statSync(p).isFile()) { r.writeHead(404); return r.end() }
   r.writeHead(200, { "Content-Type": TYPES[path.extname(p)] || "application/octet-stream", "Cache-Control": "no-store" });
+  if (rel in site.over) return r.end(site.over[rel]);
   fs.createReadStream(p).pipe(r);
 });
+// Pretend a new version was published: sw.js and index.html carry a new version name, and the page a mark we can read.
+function deploy(tag) {
+  const f = n => fs.readFileSync(path.join(ROOT, n), "utf8");
+  site.over["sw.js"] = f("sw.js").replace(/const VERSION="[^"]*"/, `const VERSION="${tag}"`);
+  site.over["index.html"] = f("index.html").replace(/\?v=[\w-]*/g, "?v=" + tag).replace("<title>", `<meta name="deploy" content="${tag}"><title>`);
+}
+const mark = p => p.evaluate(() => (document.querySelector('meta[name="deploy"]') || {}).content || "");
+const controlled = p => p.waitForFunction(() => navigator.serviceWorker.controller, null, { timeout: 20000 });
+const cached = (p, name) => p.evaluate(async n => (await (await caches.open(n)).keys()).map(r => r.url), name);
 
 const up = async u => { try { await fetch(u); return true } catch (e) { return false } };
 const emuUp = async () => (await up("http://127.0.0.1:8080/")) && (await up("http://127.0.0.1:9099/"));
@@ -249,16 +262,69 @@ async function local() {
   });
 }
 
+// Installable app. The service worker is off on localhost unless the address has ?sw=1.
+async function pwa() {
+  const A = mail("p");
+  await test("installable: manifest, icons, and the app's files are saved by the service worker", async () => {
+    const p = await open("?local=1&sw=1"); await controlled(p);
+    const m = await p.evaluate(async () => { const h = document.querySelector('link[rel="manifest"]').href, j = await (await fetch(h)).json(); return { j, icons: await Promise.all(j.icons.map(async i => { const r = await fetch(new URL(i.src, h)); return r.status + " " + r.headers.get("content-type") })) } });
+    eq(m.j.display, "standalone", "display"); eq(m.j.start_url, "./", "start_url");
+    eq(m.icons.join(), "200 image/png,200 image/png,200 image/png", "icons");
+    eq(m.j.icons.some(i => i.purpose == "maskable"), true, "maskable icon");
+    const v = await p.evaluate(() => APPV), urls = await cached(p, "spend-" + v);
+    for (const f of ["", "app.js?v=" + v, "cloud.js?v=" + v, "style.css?v=" + v, "vendor/xlsx.full.min.js", "icons/icon-192.png"]) eq(urls.includes(URL + f), true, "saved " + (f || "page"));
+  });
+  await test("a new deploy shows on the next load; an app left open gets the Reload notice", async () => {
+    const p = await open("?local=1&sw=1"); await controlled(p);
+    try {
+      deploy("t2"); await p.reload();
+      eq(await mark(p), "t2", "page after first deploy"); eq(await p.evaluate(() => APPV), "t2", "page version");
+      await p.waitForFunction(async () => { const k = await caches.keys(); return k.includes("spend-t2") && k.filter(x => x != "spend-rt-1").length == 1 }, null, { timeout: 20000 });
+      eq(await p.locator("#upd").isVisible(), false, "no notice when the page is already new");
+      deploy("t3"); await p.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update()));
+      await p.locator("#upd").waitFor({ timeout: 20000 });
+      eq(await mark(p), "t2", "page before pressing Reload");
+      await Promise.all([p.waitForEvent("load"), p.click("#updgo")]);
+      await p.waitForFunction(() => (document.querySelector('meta[name="deploy"]') || {}).content == "t3", null, { timeout: 20000 });
+      eq(await p.locator("#upd").isVisible(), false, "notice gone after reload");
+    } finally { site.over = {} }
+  });
+  await test("opens offline with the saved data; an offline edit syncs after reconnecting", async () => {
+    const p = await open("?sw=1"); await signUp(p, A);
+    await p.click("#sample"); await total(p, "₪ 3,325"); await saved(p); await controlled(p);
+    // The Firebase SDK was loaded before the worker existed; the page hands its addresses over a few seconds later.
+    await p.waitForFunction(async () => { const u = (await (await caches.open("spend-rt-1")).keys()).map(r => r.url).join(" "); return /firebase-app\.js/.test(u) && /firebase-auth\.js/.test(u) && /firebase-firestore\.js/.test(u) }, null, { timeout: 30000 });
+    const c = p.context();
+    try {
+      site.down = true; await c.setOffline(true);
+      await p.reload(); await p.locator("#app").waitFor({ timeout: 20000 });
+      await total(p, "₪ 3,325"); eq(await rows(p), 17, "purchases offline");
+      await p.click('tr:has(input[value="Booking.com Hotel"]) [data-del]');
+      await total(p, "₪ 2,635");
+      await p.waitForFunction(() => /^Offline/.test(document.getElementById("sync").textContent), null, { timeout: 10000 });
+    } finally { site.down = false; await c.setOffline(false) }
+    await saved(p);
+    const d2 = await open(); await signIn(d2, A); await total(d2, "₪ 2,635");
+    await delAccount(d2);
+  });
+  await test("without ?sw=1 localhost removes the service worker (so edits always show while developing)", async () => {
+    const p = await open("?local=1&sw=1"); await controlled(p);
+    await p.goto(URL + "?local=1");
+    await p.waitForFunction(async () => !(await navigator.serviceWorker.getRegistrations()).length, null, { timeout: 10000 });
+  });
+}
+
 let code = 1;
 try {
   await new Promise(r => server.listen(PORT, r));
   browser = await chromium.launch({ channel: process.env.BROWSER || "msedge", headless: !process.env.HEADED })
     .catch(() => chromium.launch({ channel: "chrome", headless: !process.env.HEADED }));
   if (!ONLY || ONLY == "local") await local();
-  if (!ONLY || ONLY == "smoke") {
+  if (ONLY != "local") {
     await startEmu();
     await fetch(`http://127.0.0.1:8080/v1/projects/demo-spend/databases/(default)/documents/invites/${CODE}`, { method: "PATCH", headers: { Authorization: "Bearer owner", "Content-Type": "application/json" }, body: '{"fields":{}}' });
-    await smoke();
+    if (ONLY != "pwa") await smoke();
+    if (ONLY != "smoke") await pwa();
   }
   console.log(`\n${count - fails < 0 ? 0 : count} tests, failures: ${fails}`);
   code = fails ? 1 : 0;

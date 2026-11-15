@@ -56,7 +56,9 @@ Still untested from earlier work: offline use, password-reset email, category dr
 
 ## Step 1: Installable app (PWA)
 
-- [ ] Done
+- [ ] Built and pushed 2026-11-15. Left: the user installs it on their phone and on the PC and reports back; then tick this.
+- **Result:** `manifest.webmanifest`, icons, `sw.js`, an "Update available, Reload" notice, 4 new tests (18 in all). Chosen beyond the list, and why: a version stamp (`tools/stamp.mjs`, runs by itself before `npm test`) names the CSS and JS files per version, so a new page never runs with old code; the saved files are also refreshed in the background, so a forgotten stamp fixes itself on the second load; the page falls back to the saved copy after 4 seconds on a bad connection; on localhost the service worker is off unless the address has `?sw=1`, so edits always show while developing.
+- **Not checked:** installing on a real phone or from Chrome's install button (the tests check the files a browser needs for it), the 4-second fallback, iPhone behaviour.
 - **Model:** Fable for the service worker (a caching mistake leaves phones stuck on an old version); the manifest and icons are simple.
 - **Can run alongside Step 2** in a separate worktree.
 - **Do:** `manifest.webmanifest`, icons (192, 512, maskable, Apple touch), theme colours for light and dark, `sw.js`.
