@@ -18,7 +18,7 @@ Personal spending tracker for one user in Israel (Hebrew + English). Each card h
 ## The app
 - Single file: `index.html`. The spec comment at the top lists features, untested parts and ideas. Keep it updated with every change.
 - Two modes, chosen in `index.html` by `FB_REAL`/`EMU`:
-  - Local-only (`?local=1` on localhost, or if `FB_REAL` is set back to `null`): data in localStorage key `spend-v1`, Backup panel shown, no sign-in.
+  - Local-only (`?local=1` on localhost (never touches Firebase), or if `FB_REAL` is set back to `null`): data in localStorage key `spend-v1`, Backup panel shown, no sign-in.
   - Cloud (localhost against the emulators; the live site against the real project, since `FB_REAL` is set): sign-in required, data in Firestore, Account panel shown, Backup hidden, localStorage unused.
 - No bank connection. In local-only mode the page contacts no other sites except fonts and the Excel library; in cloud mode it also loads the Firebase SDK from gstatic and talks to Firebase.
 - The "Sort N unrecognized with Claude" button was removed (it needed the artifact environment's Claude API). Unrecognized merchants stay in Other for manual sorting.

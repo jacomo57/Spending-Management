@@ -5,7 +5,7 @@ Storage: localStorage "spend-v1" in local-only mode; Firestore per account in cl
 Panels: Import (CSV/Excel/pasted text, dedupe, card name + how it counts), Cards, Recurring, Backup (copy/paste), Delete all (press twice).
 Cards: S.cards[name] = percent that counts (full 100, half 50, custom, not counted 0). Rename a card in the Cards panel. A joint card is a card set to half. Old data (kind mine/joint + S.half) converts once in syncCards.
 Summary: total, a figure per card (when more than one), currency.
-Categories: editable, add, bars (click to filter), sort by size or own order (drag grip), colors stay per category. Other = catch-all.
+Categories: editable, add, bars (click to filter), sort by size or own order (drag grip), colors stay per category. Other = catch-all. New accounts start with 9 default categories (no "Bills & home" or "House stuff"; their merchants sort into Rent & payments and Shopping). Accounts that already saved their categories keep them.
 Expenses: inline edit, add, month + card filters, column sort, Ignore checkbox.
 Categorizing: EN + HE keywords first; changing a category teaches the merchant; anything unrecognized stays in Other for manual sorting.
 Recurring (monthly, card "Recurring" unless another is chosen): starts empty; the user adds their own bills in the Recurring panel.
@@ -179,7 +179,7 @@ const CATS={
 "Fun & travel":["קולנוע","חדר כושר","כושר","ספא","סטודיו","cinema","סינמה","cinema city","yes planet","netflix","spotify","hotel","מלון","booking","airbnb","el al","אל על","israir","arkia","flight","ryanair","wizz","easyjet","ticket","eventim","leaan","museum","theater","תיאטרון","gym","הולמס","holmes","concert","steam","playstation","xbox"],
 "Subscriptions":["subscription","apple.com/bill","icloud","google one","google *","youtube","disney","hbo","prime video","chatgpt","openai","anthropic","claude","dropbox","adobe","notion","microsoft","patreon","audible","membership"]
 };
-let ORDER=[...Object.keys(CATS),"Other"];
+let ORDER=[];
 const COL={};
 let S={tx:[],rules:{},cur:"₪"};
 let cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null;
@@ -188,8 +188,9 @@ let cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null;
 // If it is set to null the site falls back to local-only mode (localStorage, no sign-in).
 // On localhost the page talks to the local Firebase emulators only, never the real project. Add ?local=1 for local-only mode.
 const FB_VER="13.3.0",FB_REAL={apiKey:"AIzaSyBeXWekBAG26oele2v7hAMDmLnIDW6D_uk",authDomain:"spending-management-608d5.firebaseapp.com",projectId:"spending-management-608d5",storageBucket:"spending-management-608d5.firebasestorage.app",messagingSenderId:"206144783820",appId:"1:206144783820:web:fd52344da11667da054969"};
-const EMU=/^(localhost|127\.0\.0\.1)$/.test(location.hostname)&&!/[?&]local=1/.test(location.search);
-const FBC=EMU?{apiKey:"demo-key",authDomain:"demo-spend.firebaseapp.com",projectId:"demo-spend"}:FB_REAL;
+const LOCALHOST=/^(localhost|127\.0\.0\.1)$/.test(location.hostname),LOCALONLY=LOCALHOST&&/[?&]local=1/.test(location.search);
+const EMU=LOCALHOST&&!LOCALONLY;
+const FBC=EMU?{apiKey:"demo-key",authDomain:"demo-spend.firebaseapp.com",projectId:"demo-spend"}:LOCALONLY?null:FB_REAL;
 const C={on:!!FBC,un:{},ready:false,user:null,syn:{settings:null,months:{}},pend:0,err:"",unsub:[],mode:null};
 if(!C.on)try{const r=localStorage.getItem("spend-v1");if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
 function save(){if(C.on)return cloudSave();try{localStorage.setItem("spend-v1",JSON.stringify(S))}catch(e){}}
@@ -208,7 +209,10 @@ function renameCard(old,nv){crdMsg="";if(!nv||nv==old)return render();
  if(CL.includes(nv)){crdMsg="That name is already used.";return render()}
  S.tx.forEach(t=>{if(t.card==old)t.card=nv});S.recur.forEach(r=>{if((r.card||"Recurring")==old)r.card=nv});
  if(S.cards[old]!=null){S.cards[nv]=S.cards[old];delete S.cards[old]}if(cardF==old)cardF=nv;save();render()}
-function syncCats(){if(!Array.isArray(S.cats))S.cats=Object.keys(CATS);if(!S.alias)S.alias={};ORDER=[...S.cats,"Other"];if(!S.hue)S.hue={};S.cats.forEach(c=>{if(S.hue[c]==null)S.hue[c]=(Object.keys(S.hue).length*41+150)%360});ORDER.forEach(c=>COL[c]=c=="Other"?"hsl(150 8% 55%)":`hsl(${S.hue[c]} 55% 46%)`)}
+// Default categories for a new account. "Bills & home" and "House stuff" are not offered by default; their keywords
+// stay in CATS and are routed by FB to "Rent & payments" and "Shopping" (unless the user adds categories with those names).
+const NODEF=["Bills & home","House stuff"];
+function syncCats(){if(!Array.isArray(S.cats))S.cats=Object.keys(CATS).filter(c=>!NODEF.includes(c));if(!S.alias)S.alias={};ORDER=[...S.cats,"Other"];if(!S.hue)S.hue={};S.cats.forEach(c=>{if(S.hue[c]==null)S.hue[c]=(Object.keys(S.hue).length*41+150)%360});ORDER.forEach(c=>COL[c]=c=="Other"?"hsl(150 8% 55%)":`hsl(${S.hue[c]} 55% 46%)`)}
 syncCats();
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
