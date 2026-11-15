@@ -22,7 +22,7 @@ Problems found, most important first. All are fixed in Step 0 unless marked othe
 2. **The importer has never been tried on a real statement file.** Header detection is guesswork for Israeli issuers: the description pattern has `בית עסק` but files say `בית העסק`, and when a file has both "transaction amount" and "charged amount" columns the first one wins, which may be the foreign-currency figure. Needs real files from the user's cards (kept out of the repo).
 3. **There is no backup of account data.** The Backup button is hidden when signed in, and the free Firebase plan keeps no history. A sync bug or an accidental "Delete all data" after the 8-second undo is permanent. Bring back a "Download my data" file and a restore.
 4. **No automated tests of the app itself.** Every change is re-checked by hand in the browser, which is slow and misses regressions. Node is installed now, so a small Playwright suite against the emulator can cover sign-up, import, totals, sync and delete.
-5. **Refunds and credits are ignored on import** (negative rows are thrown away), so a returned purchase still counts in full.
+5. **Refunds and credits are ignored on import** (negative rows are thrown away), so a returned purchase still counts in full. (Refunds fixed in Step 0; income is Step 3.)
 6. **Security rules are published by pasting into the console.** The repo and the live rules can drift apart. Use `firebase deploy --only firestore:rules` (the user runs `firebase login` once).
 7. **The web API key is unrestricted.** Not a secret, but it should be limited to the site's addresses in Google Cloud console (user step, 2 minutes).
 8. **Excel library is an old version** (SheetJS 0.18.5 from cdnjs, with known security advisories for malicious files). Low risk since only the user's own bank files are opened, but the maintained build should be used.
@@ -38,7 +38,9 @@ Still untested from earlier work: offline use, password-reset email, category dr
 
 ## Step 0: Safety net and fixes
 
-- [ ] Done
+- [x] Done 2026-11-15, except the user's two parts below (`firebase login`, restrict the API key).
+- **Result:** `npm test` runs 14 browser tests (import cases in local mode; sign-up, sync, privacy, delete, download/restore on the emulator). Code split into `index.html`, `style.css`, `app.js`, `cloud.js`. Both real statements (Isracard, Max with two sheets) import with totals equal to the statement. Also done beyond the list: installments dated in their own month and labelled `3/5`, Max's category column used for unknown merchants, card name suggested from the file, picking the same file twice now works.
+- **Not checked:** rules deploy from the command line (needs `firebase login`), a real statement that contains a refund (none in the two files; negative charged amount is assumed), old `.xls` files, the Account panel's new buttons by eye (covered by a test only).
 - **Model:** Fable. It changes how purchases are stored and moves all the code.
 - **Why first:** every later step is safer and cheaper once tests exist and the files are split.
 - **Do, in this order:**
@@ -49,7 +51,7 @@ Still untested from earlier work: offline use, password-reset email, category dr
   5. "Download my data" (one JSON file) and "Restore from file" in the Account panel.
   6. Switch to the maintained SheetJS build; add `.gitattributes`; remove dead fields; move backend detail from CLAUDE.md to `docs/backend.md`.
   7. Make the local server port configurable so two sessions can test at once.
-- **User's part:** send 1 to 3 real statement files (they stay local, never committed) so the importer can be tested and fixed on them; run `firebase login` once; restrict the API key (Google Cloud console, Credentials, the browser key, HTTP referrers: `jacomo57.github.io/*` and `localhost`).
+- **User's part (still open):** run `firebase login` once, then `npm run deploy:rules`; restrict the API key (Google Cloud console, Credentials, the browser key, HTTP referrers: `jacomo57.github.io/*` and `localhost`). Done already: send 1 to 3 real statement files (they stay local, never committed) so the importer can be tested and fixed on them; run `firebase login` once; restrict the API key (Google Cloud console, Credentials, the browser key, HTTP referrers: `jacomo57.github.io/*` and `localhost`).
 - **Done when:** tests pass with one command, real statements import with correct totals, the live site works, and rules deploy from the command line.
 
 ## Step 1: Installable app (PWA)
@@ -72,17 +74,18 @@ Still untested from earlier work: offline use, password-reset email, category dr
 - **Test:** browser pane at 375px and 768px, light and dark, with Hebrew and long descriptions; no sideways scrolling anywhere.
 - **Done when:** every screen is usable one-handed at 375px and the desktop layout is unchanged.
 
-## Step 3: Budgets, search, comparisons
+## Step 3: Income, budgets, search, comparisons
 
 - [ ] Done
-- **Model:** Fable to design and build budgets (new saved data, must sync and stay compatible); Sonnet is fine for search and the comparison view once budgets are in.
-- **Do, as three separate commits:**
+- **Model:** Fable to design and build income and budgets (new saved data, must sync and stay compatible); Sonnet is fine for search and the comparison view once budgets are in.
+- **Do, as four separate commits:**
+  0. **Income and money back** (asked for 2026-11-15; refunds on a card statement already work since Step 0 as minus amounts). Add money that comes in outside the cards: salary, a transfer from the partner, Bit/PayBox paybacks, a tax refund. Design to settle first: an income entry is a row with `inc:1` and a positive amount, kept in the same month documents, never counted as spending. "+ Add income" next to "+ Add purchase"; recurring income (salary) in the Recurring panel; bank-style imports keep their positive rows as income instead of dropping them. The summary shows In, Spent and Left for the month. A payback can be tied to a category so it lowers that category (the partner returns half of a purchase) or left as plain income. Budgets, comparisons and reports below must all use the same definition of "spent".
   1. **Search:** one box above the expenses table; matches description, category, card and amount; works with the month and card filters; shows the total of what is found.
   2. **Budgets:** an overall monthly budget plus an optional one per category, saved in settings (`S.budget = {total, cats:{name:amount}}`). Category bars show spent against budget and change colour near and over the limit; the summary shows "left this month" and, during the current month, a simple pace line ("on track" or "X over pace"). Budgets follow a category when it is renamed.
   3. **Month over month:** pick two months (default: this month against last); per category show both amounts and the change; a 6 to 12 month trend strip for total spending.
 - **Worth adding here if time allows:** a "Learned merchants" list to see and fix remembered categories; a note field per purchase; a yearly view.
 - **Test:** extend the Playwright suite; budgets must survive sign-out and appear on a second device.
-- **Done when:** all three work on desktop and phone, sync across devices, and old accounts open without errors.
+- **Done when:** all four work on desktop and phone, sync across devices, and old accounts open without errors.
 
 ## Step 4: Reports
 
@@ -100,7 +103,7 @@ Still untested from earlier work: offline use, password-reset email, category dr
 ## Step 5: Ideas for later
 
 App:
-- Importer presets for the user's actual card issuers, including installments (תשלומים) and foreign-currency purchases.
+- Re-importing after editing a purchase's description or amount adds it again (the duplicate check compares the current values). Remember the imported values per purchase if this gets annoying.
 - Split one purchase across categories; tags.
 - Budget alerts when a category passes 80% and 100%.
 - "Partner owes" view for a joint card: what each side paid against their share.

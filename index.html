@@ -1,20 +1,22 @@
 <!DOCTYPE html>
 <!--
 SPEND, SORTED: spec (keep updated with each edit)
+Files: index.html (markup), style.css, app.js (data, import, rendering), cloud.js (accounts + sync), vendor/xlsx.full.min.js (SheetJS 0.20.3, loaded on first Excel file). Tests: npm test.
 Storage: localStorage "spend-v1" in local-only mode; Firestore per account in cloud mode. No bank connection.
-Panels: Import (CSV/Excel/pasted text, dedupe, card name + how it counts), Cards, Recurring, Backup (copy/paste), Delete all (press twice).
+Panels: Import, Cards, Recurring, Backup (copy/paste, local-only mode), Account (cloud mode), Delete all (press twice).
+Import: CSV/Excel/pasted text. Finds each header row (several sheets are fine), uses the purchase date and the charged amount ("סכום חיוב", not "סכום עסקה"). Identical rows in one file are all kept; importing again skips only copies already saved on that card. Refunds come in as negative amounts. Installments ("תשלום 3 מתוך 5") are dated in their own month and labelled "3/5". The card's last 4 digits are read from the file to suggest a card name. A bank-style file (most amounts negative) imports the negatives as spending and leaves income out. Tested on real Isracard and Max files (2026-11-15).
 Cards: S.cards[name] = percent that counts (full 100, half 50, custom, not counted 0). Rename a card in the Cards panel. A joint card is a card set to half. Old data (kind mine/joint + S.half) converts once in syncCards.
 Summary: total, a figure per card (when more than one), currency.
 Categories: editable, add, bars (click to filter), sort by size or own order (drag grip), colors stay per category. Other = catch-all. New accounts start with 9 default categories (no "Bills & home" or "House stuff"; their merchants sort into Rent & payments and Shopping). Accounts that already saved their categories keep them.
-Expenses: inline edit, add, month + card filters, column sort, Ignore checkbox.
-Categorizing: EN + HE keywords first; changing a category teaches the merchant; anything unrecognized stays in Other for manual sorting.
+Expenses: inline edit, add, month + card filters, column sort, Ignore checkbox. A negative amount is a refund and lowers the totals. An added purchase left empty is dropped on the next start.
+Categorizing: learned merchant first, then EN + HE keywords, then the issuer's own category column if the file has one (Max); anything else stays in Other for manual sorting.
 Recurring (monthly, card "Recurring" unless another is chosen): starts empty; the user adds their own bills in the Recurring panel.
-Accounts + cloud sync (Firebase, see "Backend plan" in CLAUDE.md): only active when FB_REAL is set or on localhost (emulators). Sign in, Create account (needs invite code), Forgot password, Account panel (Sign out, Delete my account with password + press twice). Data per account in Firestore, live sync between devices, "Saved / Saving… / Offline" status. Backup panel is local-only mode.
-FB_REAL is set (project spending-management-608d5), so the live site now requires sign-in. Tested on the emulator only: sign up/in/out, delete account, two-device sync, per-account privacy.
-UNTESTED (cloud): offline use, password reset email, creating the first real account.
+Accounts + cloud sync (Firebase, see docs/backend.md): only active when FB_REAL is set or on localhost (emulators). Sign in, Create account (needs invite code), Forgot password, Account panel (Sign out, Download my data, Restore from file with second press + undo, Delete my account with password + press twice). Data per account in Firestore, live sync between devices, "Saved / Saving… / Offline" status.
+FB_REAL is set (project spending-management-608d5), so the live site requires sign-in.
+Tested automatically on the emulator (npm test): sign up/in, wrong invite, two-device sync, per-account privacy, delete all, download + restore, delete account, import cases above.
+UNTESTED: offline use, password reset email, category drag, recurring, undo, income rows of bank files, .xls (old Excel) files, pasted email text with refunds (refunds are only read from tables).
 Undo: 8s button + Ctrl/Cmd+Z, session only.
-UNTESTED: category drag, recurring, newest sort/ignore/undo.
-IDEAS: phone-friendly table, monthly budgets, search, month-over-month, partner sync, emailed report, Caspion, PWA.
+IDEAS: see ROADMAP.md.
 -->
 <html lang="en">
 <head>
@@ -23,68 +25,7 @@ IDEAS: phone-friendly table, monthly budgets, search, month-over-month, partner 
 <title>Spend, sorted</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
-<style>
-:root{--bg:#f3f5f2;--ink:#16211d;--mute:#5f6d67;--card:#fff;--line:#dfe5e0;--acc:#0f7a5c;--onacc:#fff;--bad:#c4452b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121715;--ink:#e8eeea;--mute:#98a8a0;--card:#1a211e;--line:#2a342f;--acc:#3fc79b;--onacc:#0b1411;--bad:#ff8a70;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#121715;--ink:#e8eeea;--mute:#98a8a0;--card:#1a211e;--line:#2a342f;--acc:#3fc79b;--onacc:#0b1411;--bad:#ff8a70;color-scheme:dark}
-html{scroll-padding-top:env(safe-area-inset-top,0px)}
-*{box-sizing:border-box}
-[hidden]{display:none!important}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif}
-main{max-width:900px;margin:0 auto;padding:16px 16px 60px}
-h1{font-size:26px;font-weight:800;letter-spacing:-.02em;margin:4px 0 12px}
-h2{font-size:17px;font-weight:800;margin:0}
-section{margin:28px 0 0}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-select,input,textarea,button{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
-button{cursor:pointer}
-button.pri{background:var(--acc);color:var(--onacc);border-color:var(--acc);font-weight:600}
-button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-button.danger{color:var(--bad);background:none;border-color:transparent}
-:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
-.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px}
-.grid{display:grid;gap:10px}
-textarea{width:100%;min-height:90px;font-family:ui-monospace,Menlo,monospace;font-size:12px}
-.sum{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-top:24px}
-.big{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-end}
-.big .n{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1}
-.big .l,.sub{color:var(--mute);font-size:13px}
-.set{display:grid;gap:6px;font-size:13px;color:var(--mute)}
-.set label{display:flex;gap:8px;align-items:center}
-.cats{display:grid;gap:2px;margin-top:10px}
-.cat{display:grid;grid-template-columns:20px minmax(110px,180px) 1fr 28px;gap:8px;align-items:center;border:1px solid transparent;border-radius:8px;padding:2px 4px}
-.cat.sel{border-color:var(--ink)}
-.grip{cursor:grab;color:var(--mute);touch-action:none;user-select:none;text-align:center;font-size:15px;line-height:1;letter-spacing:-2px}
-.cat{transition:transform .18s ease}
-.cat.lift{transition:box-shadow .18s;background:var(--card);box-shadow:0 8px 22px rgba(0,0,0,.24);position:relative;z-index:2;cursor:grabbing}
-@media (prefers-reduced-motion:reduce){.cat{transition:none}}
-.cn{border-color:transparent;background:transparent;font-weight:600;width:100%}
-.cn:hover,.cn:focus{border-color:var(--line);background:var(--card)}
-.bw{display:grid;grid-template-columns:1fr 84px;gap:10px;align-items:center;cursor:pointer;min-height:30px}
-.bar{height:12px;background:var(--line);border-radius:6px;overflow:hidden}
-.bar i{display:block;height:100%;border-radius:6px}
-.amt{text-align:right;font-variant-numeric:tabular-nums}
-.x{border:0;background:none;color:var(--mute);padding:2px 6px}
-.tw{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-top:10px}
-table{border-collapse:collapse;width:100%;min-width:860px}
-th,td{padding:3px 6px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
-th{font-size:13px;color:var(--mute);font-weight:600;padding:8px 10px}
-td input,td select{width:100%;border-color:transparent;background:transparent;padding:5px 6px}
-td input:hover,td input:focus,td select:hover{border-color:var(--line);background:var(--card)}
-td.amt input{text-align:right;width:100px}
-small.c{display:block;color:var(--mute);font-size:11px;padding-right:8px}
-.empty{text-align:center;padding:30px 16px;color:var(--mute)}
-.msg{color:var(--acc);font-size:13px}
-th button{border:0;background:none;padding:0;font:inherit;font-weight:600;color:inherit;cursor:pointer;border-radius:4px}
-th button:hover{color:var(--ink)}
-th.k,td.k{text-align:center}
-td input[type=checkbox]{width:18px;height:18px;margin:0 auto;display:block;padding:0}
-tr.skip td{opacity:.5}
-tr.skip td.k{opacity:1}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);border-radius:10px;padding:8px 8px 8px 14px;display:flex;gap:10px;align-items:center;box-shadow:0 8px 22px rgba(0,0,0,.28);z-index:20;max-width:calc(100% - 24px);font-size:14px}
-.toast button{background:none;color:inherit;border-color:currentColor;font-weight:600;padding:4px 10px}
-</style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <main>
@@ -112,12 +53,13 @@ tr.skip td.k{opacity:1}
 <div class="panel" id="p-acc" hidden><div class="grid">
   <div>Signed in as <b id="who"></b>. Everything you change is saved to your account and shows on every device where you sign in.</div>
   <div class="row"><button id="signout">Sign out</button><span class="msg" id="outmsg"></span></div>
+  <div class="row"><button id="dl">Download my data</button><button id="rsbtn">Restore from file</button><input type="file" id="rsfile" accept=".json,application/json" hidden><span class="msg" id="rsmsg"></span></div>
   <div class="row"><input id="delpass" type="password" placeholder="Your password" autocomplete="current-password" aria-label="Your password" style="width:170px"><button class="danger" id="delacc">Delete my account</button><span class="msg" id="accmsg"></span></div>
 </div></div>
 
 <div class="panel" id="p-imp" hidden><div class="grid">
   <div class="row"><input id="card" placeholder="Card name, e.g. Visa 1234" list="cardlist"><datalist id="cardlist"></datalist><select id="irule" aria-label="How this card counts"></select></div>
-  <div>Upload the statement file from your card issuer (Excel or CSV), or copy the purchases out of the monthly email and paste them below. The app finds the dates, merchants and amounts itself.</div>
+  <div>Upload the statement file from your card issuer (Excel or CSV), or copy the purchases out of the monthly email and paste them below. The app finds the dates, merchants and amounts itself. Refunds come in as minus amounts, and importing the same file twice adds nothing.</div>
   <input type="file" id="file" accept=".csv,.tsv,.txt,.xlsx,.xls">
   <textarea id="paste" placeholder="date,description,amount&#10;2026-11-03,Shufersal Deal,214.50"></textarea>
   <div class="row"><button class="pri" id="go">Import and sort</button><button id="sample">Load sample data</button><span class="msg" id="msg"></span></div>
@@ -160,382 +102,12 @@ tr.skip td.k{opacity:1}
   </div>
   <div class="row" style="margin-top:10px"><button id="addp">+ Add purchase</button></div>
   <div class="tw"><table><thead><tr id="head"></tr></thead><tbody id="rows"></tbody></table></div>
-  <p class="sub">Click any field to edit it. Change a category and the app remembers it for that merchant. Click a column title to sort. Tick Ignore to leave a purchase out of the totals.</p>
+  <p class="sub">Click any field to edit it. Change a category and the app remembers it for that merchant. Click a column title to sort. Tick Ignore to leave a purchase out of the totals. A refund is a purchase with a minus amount.</p>
 </section>
 </div>
 </main>
 <div class="toast" id="toast" hidden role="status"></div>
-<script>
-const CATS={
-"Groceries":["סופרמרקט","מכולת","מינימרקט","ירקות","פירות","קצביית","מעדניית","shufersal","שופרסל","rami levy","רמי לוי","victory","ויקטורי","yochananof","יוחננוף","osher ad","אושר עד","mega","tiv taam","טיב טעם","supermarket","grocery","market","אלונית","am:pm","ampm","tesco","aldi","lidl","carrefour","whole foods","trader joe"],
-"Eating out":["מסעדת","בית קפה","מאפיית","מאפיה","פיצרייה","גלידה","שווארמה","חומוס","בורגר","סושי","קונדיטוריה","wolt","וולט","10bis","תן ביס","cafe","קפה","coffee","aroma","ארומה","restaurant","מסעדה","pizza","פיצה","burger","sushi","bar ","pub","mcdonald","starbucks","falafel","פלאפל","bakery","מאפה","doordash","uber eats","deliveroo","grubhub","diner","bistro","eatery"],
-"Transport":["מונית","תחנת דלק","חניון","אוטובוס","מוסך","gett","uber","pango","פנגו","cellopark","סלופארק","fuel","delek","דלק","paz","פז","sonol","סונול","rav kav","רב קו","israel railways","רכבת","bus","taxi","parking","חניה","shell","bp ","lyft","metro","toll","כביש 6"],
-"Bills & home":["electric","חשמל","iec","water","מים","arnona","ארנונה","gas ","גז","internet","bezeq","בזק","partner","פרטנר","cellcom","סלקום","hot ","utility","comcast","verizon"],
-"Rent & payments":["rent ","שכירות","שכר דירה","ועד בית","mortgage","משכנתא","loan","הלוואה","הוראת קבע","העברה","transfer","paybox","פייבוקס","paypal","ביטוח לאומי","מס הכנסה","מע״מ"],
-"Insurance":["insurance","ביטוח","הראל","מגדל","הפניקס","מנורה","איילון","שומרה","הכשרה","harel","migdal","phoenix","menora","ayalon","clal","aig","geico","allstate","state farm"],
-"House stuff":["ikea","איקאה","ace hardware","אייס","home center","הום סנטר","homecenter","zara home","זארה הום","hardware","חומרי בניין","טמבור","tambour","אינסטלטור","plumber","מנעולן","locksmith","ניקיון","מנקה","cleaning","רהיט","furniture","מטבח","גינה","home depot","bed bath"],
-"Health":["בית מרקחת","שיניים","אופטיקה","וטרינר","פיזיותרפיה","מרפאה","pharm","סופר פארם","super-pharm","pharmacy","מכבי","maccabi","clalit","כללית","meuhedet","מאוחדת","dental","רופא","doctor","clinic","קליניקה","cvs","walgreens","optic"],
-"Shopping":["פרח","flower","florist","מתנה","gift","בגדי","נעלי","הנעלה","אופנה","ספרים","סטימצקי","ריהוט","צעצועי","amazon","aliexpress","ebay","zara","h&m","castro","קסטרו","fox","פוקס","renuar","shein","next","terminal x","ksp","ivory","איבורי","bug","nike","adidas","mango","golf","target","walmart","etsy","apple store","best buy"],
-"Fun & travel":["קולנוע","חדר כושר","כושר","ספא","סטודיו","cinema","סינמה","cinema city","yes planet","netflix","spotify","hotel","מלון","booking","airbnb","el al","אל על","israir","arkia","flight","ryanair","wizz","easyjet","ticket","eventim","leaan","museum","theater","תיאטרון","gym","הולמס","holmes","concert","steam","playstation","xbox"],
-"Subscriptions":["subscription","apple.com/bill","icloud","google one","google *","youtube","disney","hbo","prime video","chatgpt","openai","anthropic","claude","dropbox","adobe","notion","microsoft","patreon","audible","membership"]
-};
-let ORDER=[];
-const COL={};
-let S={tx:[],rules:{},cur:"₪"};
-let cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null;
-// Accounts + cloud sync (Firebase): see "Backend plan" in CLAUDE.md. The cloud code is at the bottom of this script.
-// FB_REAL = the real project's firebaseConfig (public by design; firestore.rules is the protection).
-// If it is set to null the site falls back to local-only mode (localStorage, no sign-in).
-// On localhost the page talks to the local Firebase emulators only, never the real project. Add ?local=1 for local-only mode.
-const FB_VER="13.3.0",FB_REAL={apiKey:"AIzaSyBeXWekBAG26oele2v7hAMDmLnIDW6D_uk",authDomain:"spending-management-608d5.firebaseapp.com",projectId:"spending-management-608d5",storageBucket:"spending-management-608d5.firebasestorage.app",messagingSenderId:"206144783820",appId:"1:206144783820:web:fd52344da11667da054969"};
-const LOCALHOST=/^(localhost|127\.0\.0\.1)$/.test(location.hostname),LOCALONLY=LOCALHOST&&/[?&]local=1/.test(location.search);
-const EMU=LOCALHOST&&!LOCALONLY;
-const FBC=EMU?{apiKey:"demo-key",authDomain:"demo-spend.firebaseapp.com",projectId:"demo-spend"}:LOCALONLY?null:FB_REAL;
-const C={on:!!FBC,un:{},ready:false,user:null,syn:{settings:null,months:{}},pend:0,err:"",unsub:[],mode:null};
-if(!C.on)try{const r=localStorage.getItem("spend-v1");if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
-function save(){if(C.on)return cloudSave();try{localStorage.setItem("spend-v1",JSON.stringify(S))}catch(e){}}
-// Card rules: S.cards[name] = percent of that card's purchases that counts (100 full, 50 half, 0 not counted).
-// syncCards also converts the old format (purchase.kind mine/joint + S.half) once.
-function syncCards(){if(S.cards)return;S.cards={};const j=S.half===false?100:50,mine=new Set(S.tx.filter(t=>t.kind!="joint").map(t=>t.card));
- S.tx.forEach(t=>{if(!t.card)t.card=t.kind=="joint"?"Joint":"Mine";if(t.kind=="joint"){if(mine.has(t.card))t.card+=" (joint)";S.cards[t.card]=j}delete t.kind});
- (S.recur||[]).forEach(r=>{if(r.kind=="joint"){r.card="Recurring (joint)";S.cards[r.card]=j}delete r.kind});delete S.half}
-syncCards();
-const pct=c=>S.cards[c]==null?100:S.cards[c];
-const v=t=>t.amt*pct(t.card)/100;
-const rl=p=>p==100?"":p==50?"counts at half":p==0?"not counted":"counts at "+p+"%";
-const ruleOpts=(p,custom)=>[[100,"Counts in full"],[50,"Counts at half"],[0,"Not counted"]].map(([x,l])=>`<option value="${x}"${p==x?" selected":""}>${l}</option>`).join("")+(![100,50,0].includes(p)?`<option value="${p}" selected>Custom: ${p}%</option>`:custom?`<option value="c">Custom %…</option>`:"");
-function impRule(){$("irule").innerHTML=ruleOpts(pct($("card").value.trim()||"My card"))}
-function renameCard(old,nv){crdMsg="";if(!nv||nv==old)return render();
- if(CL.includes(nv)){crdMsg="That name is already used.";return render()}
- S.tx.forEach(t=>{if(t.card==old)t.card=nv});S.recur.forEach(r=>{if((r.card||"Recurring")==old)r.card=nv});
- if(S.cards[old]!=null){S.cards[nv]=S.cards[old];delete S.cards[old]}if(cardF==old)cardF=nv;save();render()}
-// Default categories for a new account. "Bills & home" and "House stuff" are not offered by default; their keywords
-// stay in CATS and are routed by FB to "Rent & payments" and "Shopping" (unless the user adds categories with those names).
-const NODEF=["Bills & home","House stuff"];
-function syncCats(){if(!Array.isArray(S.cats))S.cats=Object.keys(CATS).filter(c=>!NODEF.includes(c));if(!S.alias)S.alias={};ORDER=[...S.cats,"Other"];if(!S.hue)S.hue={};S.cats.forEach(c=>{if(S.hue[c]==null)S.hue[c]=(Object.keys(S.hue).length*41+150)%360});ORDER.forEach(c=>COL[c]=c=="Other"?"hsl(150 8% 55%)":`hsl(${S.hue[c]} 55% 46%)`)}
-syncCats();
-const $=id=>document.getElementById(id);
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const key=d=>d.toLowerCase().replace(/[\d*#\/\\.\-_]+/g," ").replace(/\s+/g," ").trim().slice(0,24);
-const FB={"Bills & home":"Rent & payments","House stuff":"Shopping"};
-const cur=b=>S.alias[b]||b;
-function tgt(c){let a=cur(c);if(!S.cats.includes(a)&&S.cats.includes(c))a=c;if(!S.cats.includes(a)&&FB[c])a=cur(FB[c]);return S.cats.includes(a)?a:"Other"}
-function guess(d){const k=key(d);if(S.rules[k])return S.rules[k];const l=d.toLowerCase();
- for(const c in CATS)if(CATS[c].some(w=>l.includes(w)))return tgt(c);return "Other"}
-function splitLine(l,d){const o=[];let c="",q=false;for(let i=0;i<l.length;i++){const ch=l[i];
- if(ch=='"'){if(q&&l[i+1]=='"'){c+='"';i++}else q=!q}else if(ch==d&&!q){o.push(c);c=""}else c+=ch}o.push(c);return o.map(s=>s.trim())}
-function num(s){if(s==null)return NaN;s=String(s);const neg=/^\(.*\)$/.test(s.trim())||/-/.test(s);
- s=s.replace(/[^\d.,]/g,"");if(!s)return NaN;
- if(s.includes(",")&&s.includes("."))s=s.lastIndexOf(",")>s.lastIndexOf(".")?s.replace(/\./g,"").replace(",","."):s.replace(/,/g,"");
- else if(s.includes(",")){s=/,\d{1,2}$/.test(s)?s.replace(",","."):s.replace(/,/g,"")}
- const v=parseFloat(s);return neg?-v:v}
-function date(s){s=String(s).trim();let m;
- if(m=s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/))return `${m[1]}-${m[2].padStart(2,"0")}-${m[3].padStart(2,"0")}`;
- if(m=s.match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/)){let y=m[3].length==2?"20"+m[3]:m[3];return `${y}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`}return null}
-function loose(text){const out=[];
- text.split(/\r?\n/).forEach(l=>{const m=l.match(/\d{4}-\d{2}-\d{2}|\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}/);if(!m)return;
-  const dt=date(m[0]);const rest=l.replace(m[0]," ").replace(/\d{1,2}[\/.]\d{1,2}[\/.]\d{2,4}/g," ");
-  const toks=[...rest.matchAll(/\(?-?\d[\d,]*(?:\.\d+)?\)?/g)].filter(t=>!isNaN(num(t[0])));
-  if(!toks.length)return;const t=toks[toks.length-1];const a=Math.abs(num(t[0]));
-  const desc=(rest.slice(0,t.index)+" "+rest.slice(t.index+t[0].length)).replace(/[₪$€]|ILS|[|\t]+/g," ").replace(/\s+/g," ").trim();
-  if(dt&&a&&/\D{3}/.test(desc))out.push({date:dt,desc,amt:a})});
- return out}
-function parse(text){const lines=text.split(/\r?\n/).filter(l=>l.trim());if(!lines.length)return[];
- const d=[";","\t",","].map(x=>[x,(lines.slice(0,8).join("\n").match(new RegExp(x=="\t"?"\t":"\\"+x,"g"))||[]).length]).sort((a,b)=>b[1]-a[1])[0][0];
- let rows=lines.map(l=>splitLine(l,d));{const hi=rows.slice(0,25).findIndex(r=>r.some(x=>/date|תאריך/i.test(x))&&r.some(x=>/amount|sum|סכום|חיוב|debit|charge/i.test(x)));if(hi>0)rows=rows.slice(hi)}let di=-1,si=-1,ai=-1;
- const h=rows[0].map(x=>x.toLowerCase());
- const hasHead=!rows[0].some(x=>date(x)&&/\d/.test(x))&&h.some(x=>/date|תאריך|desc|amount|סכום|name|merchant|עסק/.test(x));
- if(hasHead){h.forEach((x,i)=>{if(di<0&&/date|תאריך/.test(x))di=i;
-  else if(si<0&&/desc|merchant|name|details|payee|memo|בית עסק|תיאור|פרטים/.test(x))si=i;
-  else if(ai<0&&/amount|sum|debit|charge|סכום|חיוב/.test(x))ai=i});rows=rows.slice(1)}
- if(di<0){const r=rows[0]||[];di=r.findIndex(x=>date(x));}
- if(ai<0){const r=rows[0]||[];for(let i=r.length-1;i>=0;i--)if(i!=di&&!isNaN(num(r[i]))&&/\d/.test(r[i])){ai=i;break}}
- if(si<0){const r=rows[0]||[];si=r.findIndex((x,i)=>i!=di&&i!=ai&&/\D{3}/.test(x))}
- if(di<0||ai<0||si<0)return loose(text);
- const out=rows.map(r=>({date:date(r[di]),desc:r[si],a:num(r[ai])})).filter(x=>x.date&&x.desc&&!isNaN(x.a)&&x.a!==0);
- const neg=out.filter(x=>x.a<0).length>out.length/2;
- return out.filter(x=>neg?x.a<0:x.a>0).map(x=>({date:x.date,desc:x.desc,amt:Math.abs(x.a)}))}
-function add(list,card){const seen=new Set(S.tx.map(t=>[t.date,t.desc,t.amt,t.card].join("|")));let n=0;
- list.forEach(x=>{const id=[x.date,x.desc,x.amt,card].join("|");if(seen.has(id))return;seen.add(id);
- S.tx.push({id:Math.random().toString(36).slice(2),date:x.date,desc:x.desc,amt:x.amt,card,cat:guess(x.desc)});n++});
- save();return n}
-function fmt(n){return S.cur+" "+n.toLocaleString(undefined,{maximumFractionDigits:0})}
-function mname(m){const[y,mo]=m.split("-");return new Date(y,mo-1,1).toLocaleString(undefined,{month:"long",year:"numeric"})}
-function fsel(e){const d=e&&e.dataset;if(!d)return null;
- if(d.skip)return `[data-skip="${d.skip}"]`;
- if(d.tid)return `[data-tid="${d.tid}"][data-f="${d.f}"]`;
- if(d.id)return `[data-id="${d.id}"]`;
- if(d.rid)return `[data-rid="${d.rid}"][data-f="${d.f}"]`;
- if(d.ci)return `[data-ci="${d.ci}"][data-f="${d.f}"]`;
- if(d.ren!==undefined)return `[data-ren="${d.ren}"]`;return null}
-const later=f=>setTimeout(f,0);
-const undo=[];let toastT=null;
-function pushUndo(label,fn){undo.push({label,fn});if(undo.length>20)undo.shift();showToast()}
-function showToast(){const el=$("toast");clearTimeout(toastT);if(!undo.length){el.hidden=true;return}
- const u=undo[undo.length-1];el.innerHTML=`<span>${esc(u.label)}</span><button id="undo">Undo</button>`;el.hidden=false;toastT=setTimeout(()=>{el.hidden=true},8000)}
-function doUndo(){const u=undo.pop();if(!u)return;u.fn();save();render();showToast()}
-document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key=="z"&&!/INPUT|TEXTAREA|SELECT/.test(e.target.tagName||"")&&undo.length){e.preventDefault();doUndo()}});
-let pendingMonth=null,focusTid=null;
-function addPurchase(){const id=Math.random().toString(36).slice(2),d=new Date().toISOString().slice(0,10);
- S.tx.push({id,date:d,desc:"",amt:0,card:cardF!="all"?cardF:CL.find(c=>c!="Recurring")||"My card",cat:cat||"Other"});
- pendingMonth=d.slice(0,7);focusTid=id;save();render()}
-function render(){
- const fs=fsel(document.activeElement);
- syncCats();if(!Array.isArray(S.recur))S.recur=[];
- $("cur").value=S.cur;syncCards();
- CL=[...new Set([...S.tx.map(t=>t.card),...S.recur.map(r=>r.card||"Recurring")])].sort((a,b)=>a.localeCompare(b));
- if(cardF!="all"&&!CL.includes(cardF))cardF="all";
- const rc=[...new Set(["Recurring",...CL])],copt=s=>rc.map(c=>`<option${c==s?" selected":""}>${esc(c)}</option>`).join("");
- ["imp","crd","rec","bak","acc"].forEach(p=>{$("p-"+p).hidden=panel!=p});
- document.querySelectorAll("[data-p]").forEach(b=>b.classList.toggle("on",b.dataset.p==panel));
- $("cardrules").innerHTML=CL.map((c,i)=>{const p=pct(c),n=S.tx.filter(t=>t.card==c).length;return `<div class="row"><input data-ci="${i}" data-f="name" value="${esc(c)}" style="width:170px" aria-label="Card name"><select data-ci="${i}" data-f="rule" aria-label="How this card counts">${ruleOpts(p,1)}</select>${[100,50,0].includes(p)?"":`<input data-ci="${i}" data-f="pct" type="number" min="0" max="100" value="${p}" style="width:70px" aria-label="Percent that counts"><span class="sub">%</span>`}<span class="sub">${n} purchase${n==1?"":"s"}</span></div>`}).join("")||`<span class="msg">No cards yet. Import or add a purchase first.</span>`;
- $("crdmsg").textContent=crdMsg;
- if(!$("irule").options.length)impRule();
- {const rv=$("rcard").value;$("rcard").innerHTML=copt(rc.includes(rv)?rv:"Recurring")}
- $("reclist").innerHTML=S.recur.map(r=>`<div class="row"><input data-rid="${r.id}" data-f="desc" value="${esc(r.desc)}" style="width:150px" aria-label="Description"><input data-rid="${r.id}" data-f="amt" type="number" step="0.01" value="${r.amt}" style="width:90px" aria-label="Amount"><input data-rid="${r.id}" data-f="day" type="number" min="1" max="28" value="${r.day}" style="width:60px" aria-label="Day of month"><select data-rid="${r.id}" data-f="card" aria-label="Card">${copt(r.card||"Recurring")}</select><button class="x" data-delrec="${r.id}" aria-label="Delete">✕</button></div>`).join("")||`<span class="msg">None yet.</span>`;
- $("cardlist").innerHTML=CL.map(c=>`<option value="${esc(c)}">`).join("");
- $("cardf").innerHTML='<option value="all">All cards</option>'+CL.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");$("cardf").value=cardF;
- const months=[...new Set(S.tx.map(t=>t.date.slice(0,7)))].sort().reverse();
- const cm=pendingMonth||$("month").value||"all";pendingMonth=null;
- $("month").innerHTML='<option value="all">All time</option>'+months.map(m=>`<option value="${m}">${mname(m)}</option>`).join("");
- $("month").value=months.includes(cm)||cm=="all"?cm:"all";
- const m=$("month").value;
- const base=S.tx.filter(t=>(m=="all"||t.date.startsWith(m))&&(cardF=="all"||t.card==cardF));
- const act=base.filter(t=>!t.skip),ign=base.filter(t=>t.skip),tot=act.reduce((a,t)=>a+v(t),0);
- const per={};act.forEach(t=>per[t.card]=(per[t.card]||0)+v(t));
- const shown=Object.keys(per).sort((a,b)=>per[b]-per[a]||a.localeCompare(b)),one=shown.length==1?rl(pct(shown[0])):"";
- $("big").innerHTML=`<div><div class="n">${fmt(tot)}</div><div class="l">spent${one?" · "+one:""}</div></div>`+
-  (shown.length>1?shown.map(c=>`<div><div style="font-size:22px;font-weight:600">${fmt(per[c])}</div><div class="l">${esc(c)}${rl(pct(c))?" · "+rl(pct(c)):""}</div></div>`).join(""):"")+(ign.length?`<div class="l">Not counting ${ign.length} ignored (${fmt(ign.reduce((a,t)=>a+v(t),0))})</div>`:"");
- const by={};act.forEach(t=>by[t.cat]=(by[t.cat]||0)+v(t));
- const mx=Math.max(1,...Object.values(by));
- const bw=(c,x)=>`<span class="bw" data-c="${esc(c)}"><span class="bar"><i style="width:${x/mx*100}%;background:${COL[c]||"var(--mute)"}"></i></span><span class="amt">${fmt(x)}</span></span>`;
- const ord=S.cats.map((_,i)=>i);if(S.catSort!="manual")ord.sort((a,b)=>(by[S.cats[b]]||0)-(by[S.cats[a]]||0));
- $("cats").innerHTML=ord.map(i=>{const c=S.cats[i];return `<div class="cat${cat==c?" sel":""}" data-row="${i}"><span class="grip" title="Drag to reorder" aria-label="Drag to reorder">⋮⋮</span><input class="cn" data-ren="${i}" value="${esc(c)}" aria-label="Category name">${bw(c,by[c]||0)}<button class="x" data-delcat="${i}" aria-label="Delete category">✕</button></div>`}).join("")+(by.Other?`<div class="cat${cat=="Other"?" sel":""}"><span></span><span class="cn" style="padding:6px 8px">Other</span>${bw("Other",by.Other)}<span></span></div>`:"");
- $("catmsg").textContent=catMsg;
- document.querySelectorAll("[data-cs]").forEach(b=>b.classList.toggle("on",b.dataset.cs==(S.catSort=="manual"?"manual":"size")));
- $("chip").innerHTML=cat?`<button id="clearcat">${esc(cat)} ✕</button>`:"";
- const sk=S.sk||"date",sd=S.sd=="asc"?1:-1,val=t=>sk=="amt"?v(t):String(t[sk]||"").toLowerCase();
- const list=base.filter(t=>!cat||t.cat==cat).sort((a,b)=>{const x=val(a),y=val(b),c=typeof x=="number"?x-y:x.localeCompare(y);return (c*sd)||b.date.localeCompare(a.date)});
- const cols=[["date","Date"],["desc","Description"],["cat","Category"],["card","Card"],["amt","Amount"]];
- $("head").innerHTML=cols.map(([k,l])=>`<th${k=="amt"?' class="amt"':""} aria-sort="${sk==k?(sd==1?"ascending":"descending"):"none"}"><button data-sort="${k}">${l}${sk==k?(sd==1?" ▲":" ▼"):""}</button></th>`).join("")+`<th class="k">Ignore</th><th></th>`;
- $("rows").innerHTML=list.length?list.map(t=>{const os=ORDER.includes(t.cat)?ORDER:[...ORDER,t.cat];
-  return `<tr${t.skip?' class="skip"':""}><td><input type="date" data-tid="${t.id}" data-f="date" value="${t.date}"></td>
-  <td><input data-tid="${t.id}" data-f="desc" placeholder="Description" value="${esc(t.desc)}" style="min-width:190px"></td>
-  <td><select data-id="${t.id}">${os.map(c=>`<option${c==t.cat?" selected":""}>${esc(c)}</option>`).join("")}</select></td>
-  <td><input data-tid="${t.id}" data-f="card" list="cardlist" value="${esc(t.card||"")}" style="width:115px"></td>
-  <td class="amt"><input type="number" step="0.01" data-tid="${t.id}" data-f="amt" value="${t.amt}">${pct(t.card)==100?"":`<small class="c amt">${pct(t.card)?"counts "+fmt(v(t)):"not counted"}</small>`}</td>
-  <td class="k"><input type="checkbox" data-skip="${t.id}"${t.skip?" checked":""} aria-label="Ignore this purchase"></td><td class="k"><button class="x" data-del="${t.id}" aria-label="Delete">✕</button></td></tr>`}).join("")
-  :`<tr><td colspan="7" class="empty">${S.tx.length?"Nothing matches these filters.":"No purchases yet. Press Import above, or load the sample data to try it out."}</td></tr>`;
- if(fs){const el=document.querySelector(fs);if(el&&el!==document.activeElement)el.focus()}
- if(focusCat!=null){const el=document.querySelector(`[data-ren="${focusCat}"]`);if(el){el.focus();el.select()}focusCat=null}
- if(focusTid){const el=document.querySelector(`[data-tid="${focusTid}"][data-f="desc"]`);if(el)el.focus();focusTid=null}
-}
-$("go").onclick=()=>{const p=parse($("paste").value);const m=$("msg");
- if(!p){m.textContent="Couldn’t find date, description and amount columns. Check the first row has headers like Date, Description, Amount.";return}
- if(!p.length){m.textContent="No purchases found in that text.";return}
- const card=$("card").value.trim()||"My card";S.cards[card]=+$("irule").value;
- const n=add(p,card);m.textContent=`Added ${n} purchase${n==1?"":"s"}${p.length-n?`, skipped ${p.length-n} duplicates`:""}.`;$("paste").value="";render()};
-$("sample").onclick=()=>{const a=[["2026-11-02","Shufersal Deal Ramat Gan",312.4],["2026-11-03","Wolt Tel Aviv",89],["2026-11-04","Pango Parking",24],["2026-11-05","Netflix.com",54.9],["2026-11-06","Super-Pharm",67.5],["2026-11-08","Aroma Cafe",38],["2026-11-09","Zara",259],["2026-10-28","Rami Levy",420.1],["2026-10-30","Cinema City",96],["2026-10-21","Delek Fuel",250]];
- const b=[["2026-11-01","Arnona Tel Aviv",640],["2026-11-03","Rami Levy",488.3],["2026-11-07","Electric IEC",402],["2026-11-08","Wolt Dinner",142],["2026-11-10","Booking.com Hotel",1380],["2026-10-29","Yochananof",276.8],["2026-10-25","Partner Internet",99]];
- if(S.cards["Joint card"]==null)S.cards["Joint card"]=50;
- add(a.map(x=>({date:x[0],desc:x[1],amt:x[2]})),"My Visa");add(b.map(x=>({date:x[0],desc:x[1],amt:x[2]})),"Joint card");render()};
-$("card").oninput=impRule;
-function recGen(){
- if(!Array.isArray(S.recur))S.recur=[];if(!S.recDone)S.recDone={};
- S.recSeeded=true;
- const today=new Date().toISOString().slice(0,10),nowM=today.slice(0,7);
- S.recur.forEach(r=>{let m=r.start,g=0;
-  while(m&&m<=nowM&&g++<120){const k=r.id+":"+m,dt=m+"-"+String(Math.min(r.day||1,28)).padStart(2,"0");
-   if(!S.recDone[k]&&dt<=today){S.recDone[k]=1;S.tx.push({id:"rec-"+k,date:dt,desc:r.desc,amt:r.amt,card:r.card||"Recurring",cat:guess(r.desc)})}
-   const[y,mo]=m.split("-").map(Number);m=mo==12?(y+1)+"-01":y+"-"+String(mo+1).padStart(2,"0")}});
- save()}
-function addRec(){const d=$("rdesc").value.trim(),a=parseFloat($("ramt").value);if(!d||!a)return;
- S.recur.push({id:"r"+Math.random().toString(36).slice(2,8),desc:d,amt:a,day:Math.min(28,Math.max(1,parseInt($("rday").value)||1)),card:$("rcard").value||"Recurring",start:new Date().toISOString().slice(0,7)});
- $("rdesc").value="";$("ramt").value="";recGen();render()}
-function renameCat(i,nv){nv=nv.trim();const old=S.cats[i];catMsg="";
- if(!nv||nv==old)return render();
- if(nv=="Other"||S.cats.includes(nv)){catMsg="That name is already used.";return render()}
- S.cats[i]=nv;if(S.hue)S.hue[nv]=S.hue[old];S.tx.forEach(t=>{if(t.cat==old)t.cat=nv});
- for(const k in S.rules)if(S.rules[k]==old)S.rules[k]=nv;
- for(const b in CATS)if((S.alias[b]||b)==old)S.alias[b]=nv;
- if(cat==old)cat=nv;save();render()}
-function addCat(){let n="New category",i=2;while(S.cats.includes(n))n="New category "+i++;
- S.cats.push(n);focusCat=S.cats.length-1;catMsg="";save();render()}
-function delCat(i){const old=S.cats[i],oAlias={...S.alias},oRules={},oTx=S.tx.filter(t=>t.cat==old).map(t=>t.id);for(const k in S.rules)if(S.rules[k]==old)oRules[k]=old;S.cats.splice(i,1);
- S.tx.forEach(t=>{if(t.cat==old)t.cat="Other"});
- for(const k in S.rules)if(S.rules[k]==old)delete S.rules[k];
- for(const b in CATS)if((S.alias[b]||b)==old)S.alias[b]="Other";
- if(cat==old)cat=null;catMsg="";pushUndo("Deleted category “"+old+"”",()=>{S.cats.splice(Math.min(i,S.cats.length),0,old);S.alias=oAlias;Object.assign(S.rules,oRules);S.tx.forEach(t=>{if(oTx.includes(t.id))t.cat=old})});save();render()}
-let wp=false;$("wipe").onclick=()=>{if(!wp){wp=true;$("wipe").textContent="Press again to delete everything";$("wmsg").textContent="This removes all purchases, recurring items and learned corrections.";setTimeout(()=>{wp=false;$("wipe").textContent="Delete all data";$("wmsg").textContent=""},6000);return}
- const snap={tx:S.tx,rules:S.rules,recur:S.recur,recDone:S.recDone};S.tx=[];S.rules={};S.recur=[];S.recDone={};pushUndo("Deleted all data",()=>{S.tx=snap.tx.concat(S.tx);S.rules=Object.assign({},snap.rules,S.rules);S.recur=snap.recur.concat(S.recur);S.recDone=Object.assign({},snap.recDone,S.recDone)});save();wp=false;cat=null;$("wipe").textContent="Delete all data";$("wmsg").textContent="All clear.";render()};
-$("bkshow").onclick=()=>{$("bk").value=JSON.stringify(S);$("bk").select();let ok=false;try{ok=document.execCommand("copy")}catch(e){}$("bkmsg").textContent=ok?"Backup copied. Paste it somewhere safe.":"Select all the text and copy it."};
-$("bkrestore").onclick=()=>{try{const o=JSON.parse($("bk").value);if(!Array.isArray(o.tx))throw 0;S=Object.assign({tx:[],rules:{},cur:"₪"},o);syncCards();save();render();$("bkmsg").textContent="Restored "+S.tx.length+" purchases."}catch(e){$("bkmsg").textContent="That doesn’t look like a backup."}};
-let drag=null;
-document.addEventListener("pointerdown",e=>{const h=e.target.closest&&e.target.closest(".grip");if(!h)return;
- const box=$("cats"),rows=[...box.querySelectorAll(".cat[data-row]")],row=h.closest(".cat"),from=rows.indexOf(row);if(from<0)return;
- const tops=rows.map(r=>r.getBoundingClientRect().top),step=rows.length>1?tops[1]-tops[0]:row.offsetHeight;
- drag={rows,row,from,to:from,step,y:e.clientY,moved:false};
- try{h.setPointerCapture(e.pointerId)}catch(_){}e.preventDefault()});
-document.addEventListener("pointermove",e=>{if(!drag)return;const d=drag;
- if(!d.moved){if(Math.abs(e.clientY-d.y)<5)return;d.moved=true;d.row.classList.add("lift")}
- const n=d.rows.length,dy=Math.max(-d.from*d.step,Math.min((n-1-d.from)*d.step,e.clientY-d.y));
- d.row.style.transform=`translateY(${dy}px) scale(1.02)`;
- d.to=Math.max(0,Math.min(n-1,Math.round(d.from+dy/d.step)));
- d.rows.forEach((r,k)=>{if(r===d.row)return;r.style.transform=d.from<d.to&&k>d.from&&k<=d.to?`translateY(${-d.step}px)`:d.from>d.to&&k>=d.to&&k<d.from?`translateY(${d.step}px)`:""})});
-function endDrag(){if(!drag)return;const d=drag;drag=null;if(!d.moved)return;
- d.row.classList.remove("lift");d.row.style.transform=`translateY(${(d.to-d.from)*d.step}px)`;
- setTimeout(()=>{const arr=d.rows.map(r=>S.cats[+r.dataset.row]);
-  if(arr.length==S.cats.length&&arr.every(Boolean)){arr.splice(d.to,0,arr.splice(d.from,1)[0]);S.cats=arr;S.catSort="manual";save()}render()},180)}
-document.addEventListener("pointerup",endDrag);document.addEventListener("pointercancel",endDrag);
-document.addEventListener("click",e=>{const t=e.target;
- if(t.dataset.cs){S.catSort=t.dataset.cs;save();render()}
- if(t.dataset.p){panel=panel==t.dataset.p?null:t.dataset.p;render();return}
- const b=t.closest&&t.closest("[data-c]");if(b){cat=cat==b.dataset.c?null:b.dataset.c;render()}
- if(t.id=="clearcat"){cat=null;render()}
- if(t.id=="addcat")addCat();
- if(t.id=="addp")addPurchase();
- if(t.id=="radd")addRec();
- if(t.dataset.delcat!==undefined)delCat(+t.dataset.delcat);
- if(t.dataset.delrec){const i=S.recur.findIndex(x=>x.id==t.dataset.delrec);if(i>=0){const it=S.recur[i];S.recur.splice(i,1);pushUndo("Deleted recurring “"+it.desc.slice(0,28)+"”",()=>{S.recur.splice(Math.min(i,S.recur.length),0,it)})}save();render()}
- if(t.dataset.del){const i=S.tx.findIndex(x=>x.id==t.dataset.del);if(i>=0){const it=S.tx[i];S.tx.splice(i,1);pushUndo("Deleted “"+(it.desc||"purchase").slice(0,28)+"”",()=>{S.tx.splice(Math.min(i,S.tx.length),0,it)})}save();render()}
- if(t.id=="undo")doUndo();
- const sb=t.closest&&t.closest("[data-sort]");if(sb){const c=sb.dataset.sort;if((S.sk||"date")==c)S.sd=(S.sd||"desc")=="asc"?"desc":"asc";else{S.sk=c;S.sd=(c=="amt"||c=="date")?"desc":"asc"}save();render()}});
-document.addEventListener("change",e=>{const t=e.target;
- if(t.dataset.skip){const x=S.tx.find(y=>y.id==t.dataset.skip);if(x){if(t.checked)x.skip=1;else delete x.skip;save();render()}}
- else if(t.dataset.tid){const x=S.tx.find(y=>y.id==t.dataset.tid),f=t.dataset.f;
-  if(x){let val=t.value;
-   if(f=="amt"){val=parseFloat(val);if(!(val>0))return later(render)}
-   if(f=="date"&&!val)return later(render);
-   if(f=="desc"&&!val.trim())return later(render);
-   x[f]=(f=="desc"||f=="card")?val.trim():val;if(f=="desc"&&x.cat=="Other")x.cat=guess(x.desc);save();later(render)}}
- else if(t.dataset.rid){const r=S.recur.find(x=>x.id==t.dataset.rid),f=t.dataset.f;
-  if(r){r[f]=f=="amt"?(parseFloat(t.value)||0):f=="day"?Math.min(28,Math.max(1,parseInt(t.value)||1)):t.value;recGen();save();later(render)}}
- else if(t.dataset.ren!==undefined){const i=+t.dataset.ren,nv=t.value;later(()=>renameCat(i,nv))}
- else if(t.dataset.id){const x=S.tx.find(y=>y.id==t.dataset.id);if(x){x.cat=t.value;const k=key(x.desc);if(k){S.rules[k]=t.value;S.tx.forEach(y=>{if(key(y.desc)==k)y.cat=t.value})}save();later(render)}}
- else if(t.id=="month")render();
- else if(t.dataset.ci){const c=CL[+t.dataset.ci],f=t.dataset.f;if(c==null)return;
-  if(f=="name"){const nv=t.value.trim();later(()=>renameCard(c,nv))}
-  else{S.cards[c]=t.value=="c"?25:Math.min(100,Math.max(0,parseFloat(t.value)||0));save();later(render)}}
- else if(t.id=="cardf"){cardF=t.value;render()}
- else if(t.id=="cur"){S.cur=t.value||"₪";save();render()}
- else if(t.id=="file"&&t.files[0]){const f=t.files[0],r=new FileReader();
-  if(/\.xlsx?$/i.test(f.name)){if(!window.XLSX){$("msg").textContent="Excel support didn’t load. Export the file as CSV instead, or paste the rows.";return}
-   r.onload=()=>{const w=XLSX.read(r.result,{type:"array"});$("paste").value=w.SheetNames.map(n=>XLSX.utils.sheet_to_csv(w.Sheets[n])).join("\n");$("msg").textContent="File read. Press Import and sort."};r.readAsArrayBuffer(f)}
-  else{r.onload=()=>{$("paste").value=r.result};r.readAsText(f)}}});
-function start(){syncCards();recGen();S.tx.forEach(t=>{if(t.cat=="Other")t.cat=guess(t.desc)});save();
- panel=S.tx.some(t=>!String(t.id).startsWith("rec-"))?null:"imp";
- $("bakbtn").hidden=C.on;$("accbtn").hidden=!C.on;$("who").textContent=C.user?C.user.email:"";
- $("boot").hidden=true;$("app").hidden=false;render();stat()}
-
-// ---- Accounts + cloud sync ----
-// Layout in Firestore, per account: users/{uid} (profile, proves a valid invite code),
-// users/{uid}/data/settings (everything in S except purchases) and users/{uid}/months/{YYYY-MM} (that month's purchases).
-// Each document is {v:1,json:"..."}. C.syn holds what this device last wrote or applied, so save() only writes real changes.
-const mk=t=>(t.date||"").slice(0,7)||"none";
-function ser(){const o=Object.assign({},S);delete o.tx;const g={};S.tx.forEach(t=>(g[mk(t)]=g[mk(t)]||[]).push(t));
- const out={settings:JSON.stringify(o),months:{}};for(const m in g)out.months[m]=JSON.stringify(g[m]);return out}
-function stat(){$("sync").textContent=!C.on||!C.ready?"":C.err||(C.pend?(navigator.onLine?"Saving…":"Offline. Changes will sync when you’re back online."):"Saved")}
-// C.un[key] counts this device's writes to a document that the server has not confirmed yet. While it is above zero,
-// incoming versions of that document are ignored (ours is newer and will win); when it reaches zero we re-check.
-function put(key,p){C.pend++;C.un[key]=(C.un[key]||0)+1;stat();
- const end=e=>{C.pend--;C.err=e?"Couldn’t save ("+(e.code||e.message)+"). Reload the page.":"";stat();if(!--C.un[key]&&C.ready&&C.again)C.again()};
- p.then(()=>end(),end)}
-function cloudSave(){if(!C.ready)return;const F=C.F,cur=ser(),at=(...p)=>F.doc(C.db,"users",C.user.uid,...p);
- if(cur.settings!==C.syn.settings){C.syn.settings=cur.settings;put("s",F.setDoc(at("data","settings"),{v:1,json:cur.settings}))}
- for(const m in cur.months)if(cur.months[m]!==C.syn.months[m]){C.syn.months[m]=cur.months[m];put("m:"+m,F.setDoc(at("months",m),{v:1,json:cur.months[m]}))}
- // A month with no purchases left is written as an empty list, never deleted, so "missing" can't be mistaken for "deleted".
- for(const m in C.syn.months)if(!(m in cur.months)&&C.syn.months[m]!=="[]"){C.syn.months[m]="[]";put("m:"+m,F.setDoc(at("months",m),{v:1,json:"[]"}))}}
-function stop(){C.unsub.forEach(f=>f());C.unsub=[];C.ready=false;C.again=null;C.un={}}
-function remoteRender(){const a=document.activeElement;
- if(a&&/^(INPUT|TEXTAREA)$/.test(a.tagName)&&a.type!="checkbox"&&$("app").contains(a)){if(!C.defer){C.defer=true;a.addEventListener("blur",()=>{C.defer=false;later(render)},{once:true})}}
- else render()}
-function listen(){const F=C.F,uid=C.user.uid,opt={includeMetadataChanges:true};let sS=null,mS=null,trust=false;stop();
- const parse=j=>{try{return JSON.parse(j)}catch(e){return null}};
- // Show the app only once the data is known to be complete: from the server, or from this device's own cache
- // (which has the settings document only if it synced before). Otherwise a new device could overwrite real data.
- const check=()=>{if(C.ready||!sS||!mS)return;
-  if(sS.exists()&&sS.metadata.fromCache)trust=true;
-  if(!(sS.exists()||!sS.metadata.fromCache)||!(trust||!mS.metadata.fromCache))return;
-  S=Object.assign({tx:[],rules:{},cur:"₪"},sS.exists()&&parse(sS.data().json)||{});S.tx=[];
-  mS.docs.slice().sort((a,b)=>a.id<b.id?-1:1).forEach(d=>{const a=parse(d.data().json);if(Array.isArray(a))S.tx.push(...a)});
-  syncCards();C.syn=ser();if(!sS.exists())C.syn.settings=null;mS.forEach(d=>{if(!(d.id in C.syn.months))C.syn.months[d.id]=d.data().json});
-  C.ready=true;C.err="";C.again=()=>{onS(sS);onM(mS)};start()};
- const fail=e=>{if(C.user&&C.user.uid!=uid)return;stop();
-  if(e.code=="permission-denied")authShow("code");else{$("boot").hidden=false;$("boot").textContent="Couldn’t load your data ("+(e.code||e.message)+"). Check your connection and reload."}};
- // After the first load, apply only confirmed changes that came from another device.
- const onS=d=>{sS=d;if(!C.ready)return check();
-  if(d.metadata.hasPendingWrites||C.un.s||!d.exists()||d.data().json===C.syn.settings)return;
-  const o=parse(d.data().json);if(!o)return;S=Object.assign({rules:{},cur:"₪"},o,{tx:S.tx});syncCards();C.syn.settings=ser().settings;remoteRender()};
- const onM=q=>{mS=q;if(!C.ready)return check();
-  const chg=[];q.forEach(d=>{const j=d.data().json;if(!d.metadata.hasPendingWrites&&!C.un["m:"+d.id]&&j!==C.syn.months[d.id])chg.push([d.id,parse(j),j])});
-  if(!chg.length)return;
-  chg.forEach(([m,a])=>{if(Array.isArray(a))S.tx=S.tx.filter(t=>mk(t)!=m).concat(a)});
-  const cur=ser();chg.forEach(([m,a,j])=>{C.syn.months[m]=cur.months[m]||j});remoteRender()};
- C.unsub.push(F.onSnapshot(F.doc(C.db,"users",uid,"data","settings"),opt,onS,fail));
- C.unsub.push(F.onSnapshot(F.collection(C.db,"users",uid,"months"),opt,onM,fail))}
-const AE={"auth/invalid-credential":"Wrong email or password.","auth/wrong-password":"Wrong email or password.","auth/user-not-found":"Wrong email or password.","auth/email-already-in-use":"That email already has an account. Sign in instead.","auth/weak-password":"Use a password of at least 6 characters.","auth/invalid-email":"That email doesn’t look right.","auth/missing-password":"Enter your password.","auth/too-many-requests":"Too many attempts. Wait a few minutes and try again.","auth/network-request-failed":"No connection. Check your internet and try again.","permission-denied":"That invite code isn’t valid."};
-const authErr=e=>AE[e&&e.code]||"Something went wrong ("+(e&&(e.code||e.message)||"unknown")+").";
-function authShow(m){C.mode=m;$("auth").hidden=!m;$("boot").hidden=true;if(!m)return;$("app").hidden=true;
- $("atitle").textContent=m=="in"?"Sign in":m=="up"?"Create account":"One more step";
- $("ahelp").textContent=m=="code"?"This account isn’t set up yet. Enter your invite code to finish.":m=="up"?"You need an invite code to create an account.":"";
- $("aemail").hidden=$("apass").hidden=m=="code";$("acode").hidden=m=="in";
- $("apass").autocomplete=m=="up"?"new-password":"current-password";
- $("ago").textContent=m=="in"?"Sign in":m=="up"?"Create account":"Finish";
- $("aswap").textContent=m=="in"?"Create account":m=="up"?"I have an account":"Sign out";
- $("aforgot").hidden=m!="in";$("amsg").textContent=""}
-function enter(){authShow(null);$("boot").textContent="Loading your data…";$("boot").hidden=false;listen()}
-// The invite code is the id of a document in /invites; the rules only let the profile be created if it exists.
-function claim(code){if(/\//.test(code))return Promise.reject({code:"permission-denied"});
- return C.F.setDoc(C.F.doc(C.db,"users",C.auth.currentUser.uid),{invite:code,created:Date.now()})}
-async function authGo(){const B=C.B,em=$("aemail").value.trim(),pw=$("apass").value,code=$("acode").value.trim(),msg=t=>{$("amsg").textContent=t};
- if(C.busy)return;msg("");
- if(C.mode!="code"&&(!em||!pw))return msg("Enter your email and password.");
- if(C.mode!="in"&&!code)return msg("Enter your invite code.");
- if(!navigator.onLine)return msg(AE["auth/network-request-failed"]);
- C.busy=true;$("ago").disabled=true;
- try{
-  if(C.mode=="in")await B.signInWithEmailAndPassword(C.auth,em,pw);
-  else if(C.mode=="up"){C.signing=true;
-   try{const cred=await B.createUserWithEmailAndPassword(C.auth,em,pw);
-    try{await claim(code)}catch(e){await B.deleteUser(cred.user).catch(()=>{});throw e}}
-   finally{C.signing=false}
-   enter()}
-  else{await claim(code);enter()}
-  $("apass").value="";$("acode").value=""}
- catch(e){msg(authErr(e))}
- finally{C.busy=false;$("ago").disabled=false}}
-async function forgot(){const em=$("aemail").value.trim();if(!em)return $("amsg").textContent="Type your email first.";
- try{await C.B.sendPasswordResetEmail(C.auth,em);$("amsg").textContent="If that email has an account, a reset link is on its way."}catch(e){$("amsg").textContent=authErr(e)}}
-// Leaving an account: forget this device's cached copy of the data, then start clean.
-async function bye(){try{await C.F.terminate(C.db);await C.F.clearIndexedDbPersistence(C.db)}catch(e){}location.reload()}
-async function signOutNow(){
- if(C.pend&&!C.outArm){C.outArm=true;$("outmsg").textContent="Some changes haven’t synced yet. Press again to sign out and lose them.";setTimeout(()=>{C.outArm=false;$("outmsg").textContent=""},6000);return}
- stop();C.leaving=true;try{await C.B.signOut(C.auth)}catch(e){}bye()}
-async function delAccount(){const B=C.B,F=C.F,u=C.auth.currentUser,pw=$("delpass").value,msg=t=>{$("accmsg").textContent=t};
- if(!pw)return msg("Type your password to confirm.");
- if(!navigator.onLine)return msg("Connect to the internet first.");
- if(!C.delArm){C.delArm=true;msg("Press again to delete your account and all its data. This can’t be undone.");setTimeout(()=>{C.delArm=false},6000);return}
- C.delArm=false;
- try{await B.reauthenticateWithCredential(u,B.EmailAuthProvider.credential(u.email,pw))}catch(e){return msg(/invalid-credential|wrong-password/.test(e.code)?"Wrong password.":authErr(e))}
- stop();C.leaving=true;$("app").hidden=true;$("boot").textContent="Deleting your account…";$("boot").hidden=false;
- try{const q=await F.getDocsFromServer(F.collection(C.db,"users",u.uid,"months"));
-  await Promise.all(q.docs.map(d=>F.deleteDoc(d.ref)));
-  await F.deleteDoc(F.doc(C.db,"users",u.uid,"data","settings"));await F.deleteDoc(F.doc(C.db,"users",u.uid));
-  await B.deleteUser(u);bye()}
- catch(e){$("boot").textContent="Couldn’t finish deleting ("+(e.code||e.message)+"). Reload the page and try again."}}
-async function cloudBoot(){$("app").hidden=true;$("boot").hidden=false;
- try{const u="https://www.gstatic.com/firebasejs/"+FB_VER+"/firebase-";
-  const[A,B,F]=await Promise.all([import(u+"app.js"),import(u+"auth.js"),import(u+"firestore.js")]);
-  const app=A.initializeApp(FBC);C.B=B;C.F=F;C.auth=B.getAuth(app);
-  try{C.db=F.initializeFirestore(app,{localCache:F.persistentLocalCache({tabManager:F.persistentMultipleTabManager()})})}catch(e){C.db=F.getFirestore(app)}
-  if(EMU){B.connectAuthEmulator(C.auth,"http://127.0.0.1:9099",{disableWarnings:true});F.connectFirestoreEmulator(C.db,"127.0.0.1",8080)}
-  B.onAuthStateChanged(C.auth,usr=>{C.user=usr;if(C.signing||C.leaving)return;stop();if(usr)enter();else authShow("in")})}
- catch(e){$("boot").textContent="Couldn’t reach the sign-in service. Check your connection and reload."}}
-$("auth").onsubmit=e=>{e.preventDefault();authGo()};
-$("aswap").onclick=()=>{if(C.mode=="code")signOutNow();else authShow(C.mode=="in"?"up":"in")};
-$("aforgot").onclick=forgot;$("signout").onclick=signOutNow;$("delacc").onclick=delAccount;
-addEventListener("online",stat);addEventListener("offline",stat);
-if(C.on)cloudBoot();else start();
-</script>
+<script src="app.js"></script>
+<script src="cloud.js"></script>
 </body>
 </html>

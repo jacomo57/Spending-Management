@@ -1,13 +1,14 @@
-# Tiny static file server for local testing (this PC has no node or python).
-# Serves the repo root on http://localhost:8765/
+# Tiny static file server for local testing. Serves the repo root on http://localhost:8765/
+# Another port: set the PORT environment variable first (so two sessions can test at once).
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $types = @{ '.html'='text/html; charset=utf-8'; '.js'='text/javascript; charset=utf-8'; '.css'='text/css; charset=utf-8'; '.json'='application/json; charset=utf-8'; '.webmanifest'='application/manifest+json'; '.png'='image/png'; '.svg'='image/svg+xml'; '.ico'='image/x-icon' }
+$port = if ($env:PORT) { $env:PORT } else { 8765 }
 $listener = New-Object System.Net.HttpListener
-$listener.Prefixes.Add('http://localhost:8765/')
+$listener.Prefixes.Add("http://localhost:$port/")
 # Second origin = separate browser storage, used to act as a "second device" in tests.
-$listener.Prefixes.Add('http://127.0.0.1:8765/')
+$listener.Prefixes.Add("http://127.0.0.1:$port/")
 $listener.Start()
-Write-Host "Serving $root on http://localhost:8765/"
+Write-Host "Serving $root on http://localhost:$port/"
 while ($listener.IsListening) {
   $ctx = $listener.GetContext()
   try {

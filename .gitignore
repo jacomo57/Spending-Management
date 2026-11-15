@@ -10,3 +10,5 @@ backup*
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+
+node_modules/
