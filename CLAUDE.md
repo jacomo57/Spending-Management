@@ -5,6 +5,7 @@ Personal spending tracker for one user in Israel (Hebrew + English). Each card h
 ## How to work with me
 - Keep answers short and clear. Keep the app uncluttered.
 - Make targeted edits, not full rewrites.
+- End every piece of work with a short summary I can read instead of the process: what changed, what was checked, what was not, and what I need to do (asked 2026-11-15).
 - I have not tested everything in a browser. When I report a problem, reproduce and verify the fix before saying it works.
 - Agency (granted 2026-11-14): decide and build on your own, including new files, new dependencies and data-format changes (just tell me what you chose and why). The current data is test data, so no migration is needed. Still stop and ask for: creating accounts or sign-ups (I do those; you give click-by-click steps), secrets/API keys (never in the public repo), anything that could cost money, and anything that exposes personal data publicly.
 
@@ -34,4 +35,4 @@ Personal spending tracker for one user in Israel (Hebrew + English). Each card h
 
 ## Next steps
 - The plan lives in `ROADMAP.md`: review findings, then Steps 0 to 5, each with the model to use, what to do, how to test, and the user's part. One step per session. Tick steps off there as they finish.
-- Order: Step 0 (done; only restricting the API key is left, a user step) first, then 1 (PWA; built, waiting for the user to install it on their phone) and 2 (phone layout), then 3 (income, budgets, search, comparisons), then 4 (reports).
+- Order: Steps 0 and 1 (PWA) are done; next 2 (phone layout), then 3 (income, budgets, search, comparisons), then 4 (reports).

@@ -127,6 +127,13 @@ async function smoke() {
     await d1.click("#sample");
     await total(d1, "₪ 3,325"); eq(await rows(d1), 17, "purchases"); await saved(d1);
   });
+  await test("Show button reveals and hides the password", async () => {
+    const p = await open(); await p.locator("#auth").waitFor();
+    await p.fill("#apass", "abc123");
+    await p.click("#ashow"); eq(await p.getAttribute("#apass", "type"), "text", "after Show"); eq(await p.textContent("#ashow"), "Hide", "button");
+    eq(await p.inputValue("#apass"), "abc123", "typed text kept");
+    await p.click("#ashow"); eq(await p.getAttribute("#apass", "type"), "password", "after Hide");
+  });
   await test("wrong invite code is refused", async () => {
     const p = await open();
     await p.locator("#auth").waitFor(); await p.click("#aswap");

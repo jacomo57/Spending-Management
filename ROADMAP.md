@@ -38,7 +38,7 @@ Still untested from earlier work: offline use, password-reset email, category dr
 
 ## Step 0: Safety net and fixes
 
-- [x] Done 2026-11-15, except one user part below (restrict the API key).
+- [x] Done 2026-11-15. The user restricted the API key the same day.
 - **Result:** `npm test` runs 14 browser tests (import cases in local mode; sign-up, sync, privacy, delete, download/restore on the emulator). Code split into `index.html`, `style.css`, `app.js`, `cloud.js`. Both real statements (Isracard, Max with two sheets) import with totals equal to the statement. Also done beyond the list: installments dated in their own month and labelled `3/5`, Max's category column used for unknown merchants, card name suggested from the file, picking the same file twice now works.
 - **Not checked:** a real statement that contains a refund (none in the two files; negative charged amount is assumed), old `.xls` files, the Account panel's new buttons by eye (covered by a test only).
 - **Model:** Fable. It changes how purchases are stored and moves all the code.
@@ -51,12 +51,12 @@ Still untested from earlier work: offline use, password-reset email, category dr
   5. "Download my data" (one JSON file) and "Restore from file" in the Account panel.
   6. Switch to the maintained SheetJS build; add `.gitattributes`; remove dead fields; move backend detail from CLAUDE.md to `docs/backend.md`.
   7. Make the local server port configurable so two sessions can test at once.
-- **User's part (still open):** restrict the API key (Google Cloud console, Credentials, the browser key, HTTP referrers: `jacomo57.github.io/*` and `localhost`). Done already: `firebase login` and `npm run deploy:rules` (worked 2026-11-15 on the PC; in PowerShell use `npm.cmd` if scripts are blocked); send 1 to 3 real statement files (they stay local, never committed) so the importer can be tested and fixed on them; run `firebase login` once; restrict the API key (Google Cloud console, Credentials, the browser key, HTTP referrers: `jacomo57.github.io/*` and `localhost`).
+- **User's part (all done):** restricted the API key (Google Cloud console, Credentials, the browser key, HTTP referrers). Also done: `firebase login` and `npm run deploy:rules` (worked 2026-11-15 on the PC; in PowerShell use `npm.cmd` if scripts are blocked); send 1 to 3 real statement files (they stay local, never committed) so the importer can be tested and fixed on them; run `firebase login` once; restrict the API key (Google Cloud console, Credentials, the browser key, HTTP referrers: `jacomo57.github.io/*` and `localhost`).
 - **Done when:** tests pass with one command, real statements import with correct totals, the live site works, and rules deploy from the command line.
 
 ## Step 1: Installable app (PWA)
 
-- [ ] Built and pushed 2026-11-15. Left: the user installs it on their phone and on the PC and reports back; then tick this.
+- [x] Done 2026-11-15. The user installed it and reported that it looks good.
 - **Result:** `manifest.webmanifest`, icons, `sw.js`, an "Update available, Reload" notice, 4 new tests (18 in all). Chosen beyond the list, and why: a version stamp (`tools/stamp.mjs`, runs by itself before `npm test`) names the CSS and JS files per version, so a new page never runs with old code; the saved files are also refreshed in the background, so a forgotten stamp fixes itself on the second load; the page falls back to the saved copy after 4 seconds on a bad connection; on localhost the service worker is off unless the address has `?sw=1`, so edits always show while developing.
 - **Not checked:** installing on a real phone or from Chrome's install button (the tests check the files a browser needs for it), the 4-second fallback, iPhone behaviour.
 - **Model:** Fable for the service worker (a caching mistake leaves phones stuck on an old version); the manifest and icons are simple.

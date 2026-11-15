@@ -49,7 +49,7 @@ const authErr=e=>AE[e&&e.code]||"Something went wrong ("+(e&&(e.code||e.message)
 function authShow(m){C.mode=m;$("auth").hidden=!m;$("boot").hidden=true;if(!m)return;$("app").hidden=true;
  $("atitle").textContent=m=="in"?"Sign in":m=="up"?"Create account":"One more step";
  $("ahelp").textContent=m=="code"?"This account isn’t set up yet. Enter your invite code to finish.":m=="up"?"You need an invite code to create an account.":"";
- $("aemail").hidden=$("apass").hidden=m=="code";$("acode").hidden=m=="in";
+ $("aemail").hidden=$("apassrow").hidden=m=="code";$("acode").hidden=m=="in";
  $("apass").autocomplete=m=="up"?"new-password":"current-password";
  $("ago").textContent=m=="in"?"Sign in":m=="up"?"Create account":"Finish";
  $("aswap").textContent=m=="in"?"Create account":m=="up"?"I have an account":"Sign out";
@@ -72,7 +72,7 @@ async function authGo(){const B=C.B,em=$("aemail").value.trim(),pw=$("apass").va
    finally{C.signing=false}
    enter()}
   else{await claim(code);enter()}
-  $("apass").value="";$("acode").value=""}
+  $("apass").value="";$("acode").value="";showPass(false)}
  catch(e){msg(authErr(e))}
  finally{C.busy=false;$("ago").disabled=false}}
 async function forgot(){const em=$("aemail").value.trim();if(!em)return $("amsg").textContent="Type your email first.";
@@ -102,6 +102,8 @@ async function cloudBoot(){$("app").hidden=true;$("boot").hidden=false;
   if(EMU){B.connectAuthEmulator(C.auth,"http://127.0.0.1:9099",{disableWarnings:true});F.connectFirestoreEmulator(C.db,"127.0.0.1",8080)}
   B.onAuthStateChanged(C.auth,usr=>{C.user=usr;if(C.signing||C.leaving)return;stop();if(usr)enter();else authShow("in")})}
  catch(e){$("boot").textContent="Couldn’t reach the sign-in service. Check your connection and reload."}}
+function showPass(on){$("apass").type=on?"text":"password";$("ashow").textContent=on?"Hide":"Show";$("ashow").setAttribute("aria-pressed",on)}
+$("ashow").onclick=()=>showPass($("apass").type=="password");
 $("auth").onsubmit=e=>{e.preventDefault();authGo()};
 $("aswap").onclick=()=>{if(C.mode=="code")signOutNow();else authShow(C.mode=="in"?"up":"in")};
 $("aforgot").onclick=forgot;$("signout").onclick=signOutNow;$("delacc").onclick=delAccount;

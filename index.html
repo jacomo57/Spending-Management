@@ -12,7 +12,7 @@ Categories: editable, add, bars (click to filter), sort by size or own order (dr
 Expenses: inline edit, add, month + card filters, column sort, Ignore checkbox. A negative amount is a refund and lowers the totals. An added purchase left empty is dropped on the next start.
 Categorizing: learned merchant first, then EN + HE keywords, then the issuer's own category column if the file has one (Max); anything else stays in Other for manual sorting.
 Recurring (monthly, card "Recurring" unless another is chosen): starts empty; the user adds their own bills in the Recurring panel.
-Accounts + cloud sync (Firebase, see docs/backend.md): only active when FB_REAL is set or on localhost (emulators). Sign in, Create account (needs invite code), Forgot password, Account panel (Sign out, Download my data, Restore from file with second press + undo, Delete my account with password + press twice). Data per account in Firestore, live sync between devices, "Saved / Saving… / Offline" status.
+Accounts + cloud sync (Firebase, see docs/backend.md): only active when FB_REAL is set or on localhost (emulators). Sign in (with a Show/Hide button for the password), Create account (needs invite code), Forgot password, Account panel (Sign out, Download my data, Restore from file with second press + undo, Delete my account with password + press twice). Data per account in Firestore, live sync between devices, "Saved / Saving… / Offline" status.
 FB_REAL is set (project spending-management-608d5), so the live site requires sign-in.
 Tested automatically on the emulator (npm test): sign up/in, wrong invite, two-device sync, per-account privacy, delete all, download + restore, delete account, import cases above, installable files, update notice, opening offline and syncing an offline edit.
 UNTESTED: installing on a real phone, the 4s slow-network fallback, password reset email, category drag, recurring, undo, income rows of bank files, .xls (old Excel) files, pasted email text with refunds (refunds are only read from tables).
@@ -33,7 +33,7 @@ IDEAS: see ROADMAP.md.
 <meta name="apple-mobile-web-app-title" content="Spend">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=5d1bffddf4">
+<link rel="stylesheet" href="style.css?v=eec6e36b79">
 </head>
 <body>
 <main>
@@ -43,7 +43,7 @@ IDEAS: see ROADMAP.md.
   <h2 id="atitle">Sign in</h2>
   <div class="sub" id="ahelp"></div>
   <input id="aemail" type="email" placeholder="Email" autocomplete="username" aria-label="Email">
-  <input id="apass" type="password" placeholder="Password" autocomplete="current-password" aria-label="Password">
+  <div class="row" id="apassrow" style="flex-wrap:nowrap"><input id="apass" type="password" placeholder="Password" autocomplete="current-password" aria-label="Password" style="flex:1;min-width:0"><button type="button" id="ashow" aria-pressed="false">Show</button></div>
   <input id="acode" placeholder="Invite code" autocomplete="off" aria-label="Invite code" hidden>
   <div class="row"><button class="pri" id="ago">Sign in</button><button type="button" id="aswap">Create account</button><button type="button" class="danger" id="aforgot">Forgot password?</button></div>
   <span class="msg" id="amsg" role="status"></span>
@@ -116,7 +116,7 @@ IDEAS: see ROADMAP.md.
 </main>
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=5d1bffddf4"></script>
-<script src="cloud.js?v=5d1bffddf4"></script>
+<script src="app.js?v=eec6e36b79"></script>
+<script src="cloud.js?v=eec6e36b79"></script>
 </body>
 </html>
