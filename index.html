@@ -10,7 +10,8 @@ Expenses: inline edit, add, month + card filters, column sort, Ignore checkbox.
 Categorizing: EN + HE keywords first; changing a category teaches the merchant; anything unrecognized stays in Other for manual sorting.
 Recurring (monthly, card "Recurring" unless another is chosen): starts empty; the user adds their own bills in the Recurring panel.
 Accounts + cloud sync (Firebase, see "Backend plan" in CLAUDE.md): only active when FB_REAL is set or on localhost (emulators). Sign in, Create account (needs invite code), Forgot password, Account panel (Sign out, Delete my account with password + press twice). Data per account in Firestore, live sync between devices, "Saved / Saving… / Offline" status. Backup panel is local-only mode.
-UNTESTED (cloud): offline use, password reset email, the real Firebase project (FB_REAL is still null, so the live site is local-only).
+FB_REAL is set (project spending-management-608d5), so the live site now requires sign-in. Tested on the emulator only: sign up/in/out, delete account, two-device sync, per-account privacy.
+UNTESTED (cloud): offline use, password reset email, creating the first real account.
 Undo: 8s button + Ctrl/Cmd+Z, session only.
 UNTESTED: category drag, recurring, newest sort/ignore/undo.
 IDEAS: phone-friendly table, monthly budgets, search, month-over-month, partner sync, emailed report, Caspion, PWA.
@@ -184,9 +185,9 @@ let S={tx:[],rules:{},cur:"₪"};
 let cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null;
 // Accounts + cloud sync (Firebase): see "Backend plan" in CLAUDE.md. The cloud code is at the bottom of this script.
 // FB_REAL = the real project's firebaseConfig (public by design; firestore.rules is the protection).
-// While it is null the live site stays local-only (localStorage), exactly as before.
+// If it is set to null the site falls back to local-only mode (localStorage, no sign-in).
 // On localhost the page talks to the local Firebase emulators only, never the real project. Add ?local=1 for local-only mode.
-const FB_VER="13.3.0",FB_REAL=null;
+const FB_VER="13.3.0",FB_REAL={apiKey:"AIzaSyBeXWekBAG26oele2v7hAMDmLnIDW6D_uk",authDomain:"spending-management-608d5.firebaseapp.com",projectId:"spending-management-608d5",storageBucket:"spending-management-608d5.firebasestorage.app",messagingSenderId:"206144783820",appId:"1:206144783820:web:fd52344da11667da054969"};
 const EMU=/^(localhost|127\.0\.0\.1)$/.test(location.hostname)&&!/[?&]local=1/.test(location.search);
 const FBC=EMU?{apiKey:"demo-key",authDomain:"demo-spend.firebaseapp.com",projectId:"demo-spend"}:FB_REAL;
 const C={on:!!FBC,un:{},ready:false,user:null,syn:{settings:null,months:{}},pend:0,err:"",unsub:[],mode:null};
