@@ -33,4 +33,4 @@ Personal spending tracker for one user in Israel (Hebrew + English). Each card h
 
 ## Next steps
 - The plan lives in `ROADMAP.md`: review findings, then Steps 0 to 5, each with the model to use, what to do, how to test, and the user's part. One step per session. Tick steps off there as they finish.
-- Order: Step 0 (done except the user's two parts) first, then 1 (PWA) and 2 (phone layout), then 3 (income, budgets, search, comparisons), then 4 (reports).
+- Order: Step 0 (done; only restricting the API key is left, a user step) first, then 1 (PWA) and 2 (phone layout), then 3 (income, budgets, search, comparisons), then 4 (reports).

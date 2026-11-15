@@ -38,9 +38,9 @@ Still untested from earlier work: offline use, password-reset email, category dr
 
 ## Step 0: Safety net and fixes
 
-- [x] Done 2026-11-15, except the user's two parts below (`firebase login`, restrict the API key).
+- [x] Done 2026-11-15, except one user part below (restrict the API key).
 - **Result:** `npm test` runs 14 browser tests (import cases in local mode; sign-up, sync, privacy, delete, download/restore on the emulator). Code split into `index.html`, `style.css`, `app.js`, `cloud.js`. Both real statements (Isracard, Max with two sheets) import with totals equal to the statement. Also done beyond the list: installments dated in their own month and labelled `3/5`, Max's category column used for unknown merchants, card name suggested from the file, picking the same file twice now works.
-- **Not checked:** rules deploy from the command line (needs `firebase login`), a real statement that contains a refund (none in the two files; negative charged amount is assumed), old `.xls` files, the Account panel's new buttons by eye (covered by a test only).
+- **Not checked:** a real statement that contains a refund (none in the two files; negative charged amount is assumed), old `.xls` files, the Account panel's new buttons by eye (covered by a test only).
 - **Model:** Fable. It changes how purchases are stored and moves all the code.
 - **Why first:** every later step is safer and cheaper once tests exist and the files are split.
 - **Do, in this order:**
@@ -51,7 +51,7 @@ Still untested from earlier work: offline use, password-reset email, category dr
   5. "Download my data" (one JSON file) and "Restore from file" in the Account panel.
   6. Switch to the maintained SheetJS build; add `.gitattributes`; remove dead fields; move backend detail from CLAUDE.md to `docs/backend.md`.
   7. Make the local server port configurable so two sessions can test at once.
-- **User's part (still open):** run `firebase login` once, then `npm run deploy:rules`; restrict the API key (Google Cloud console, Credentials, the browser key, HTTP referrers: `jacomo57.github.io/*` and `localhost`). Done already: send 1 to 3 real statement files (they stay local, never committed) so the importer can be tested and fixed on them; run `firebase login` once; restrict the API key (Google Cloud console, Credentials, the browser key, HTTP referrers: `jacomo57.github.io/*` and `localhost`).
+- **User's part (still open):** restrict the API key (Google Cloud console, Credentials, the browser key, HTTP referrers: `jacomo57.github.io/*` and `localhost`). Done already: `firebase login` and `npm run deploy:rules` (worked 2026-11-15 on the PC; in PowerShell use `npm.cmd` if scripts are blocked); send 1 to 3 real statement files (they stay local, never committed) so the importer can be tested and fixed on them; run `firebase login` once; restrict the API key (Google Cloud console, Credentials, the browser key, HTTP referrers: `jacomo57.github.io/*` and `localhost`).
 - **Done when:** tests pass with one command, real statements import with correct totals, the live site works, and rules deploy from the command line.
 
 ## Step 1: Installable app (PWA)
