@@ -1,16 +1,20 @@
-const CATS={
-"Groceries":["סופרמרקט","חצי חינם","סטופמרקט","מכולת","מינימרקט","ירקות","פירות","קצביית","מעדניית","shufersal","שופרסל","rami levy","רמי לוי","victory","ויקטורי","yochananof","יוחננוף","osher ad","אושר עד","mega","tiv taam","טיב טעם","supermarket","grocery","market","אלונית","am:pm","ampm","tesco","aldi","lidl","carrefour","whole foods","trader joe"],
-"Eating out":["מסעדת","בייקרי","בית קפה","מאפיית","מאפיה","פיצרייה","גלידה","שווארמה","חומוס","בורגר","סושי","קונדיטוריה","wolt","וולט","10bis","תן ביס","cafe","קפה","coffee","aroma","ארומה","restaurant","מסעדה","pizza","פיצה","burger","sushi","bar ","pub","mcdonald","starbucks","falafel","פלאפל","bakery","מאפה","doordash","uber eats","deliveroo","grubhub","diner","bistro","eatery"],
-"Transport":["מונית","תחנת דלק","חניון","אוטובוס","מוסך","gett","uber","pango","פנגו","cellopark","סלופארק","fuel","delek","דלק","paz","פז","sonol","סונול","rav kav","רב קו","israel railways","רכבת","bus","taxi","parking","חניה","shell","bp ","lyft","metro","toll","כביש 6"],
-"Bills & home":["electric","חשמל","iec","water","מים","arnona","ארנונה","gas ","גז","internet","bezeq","בזק","partner","פרטנר","cellcom","סלקום","hot ","utility","comcast","verizon"],
-"Rent & payments":["rent ","שכירות","שכר דירה","ועד בית","mortgage","משכנתא","loan","הלוואה","הוראת קבע","העברה","transfer","paybox","פייבוקס","paypal","ביטוח לאומי","מס הכנסה","מע״מ"],
-"Insurance":["insurance","ביטוח","הראל","מגדל","הפניקס","מנורה","איילון","שומרה","הכשרה","harel","migdal","phoenix","menora","ayalon","clal","aig","geico","allstate","state farm"],
-"House stuff":["ikea","איקאה","ace hardware","אייס","home center","הום סנטר","homecenter","zara home","זארה הום","hardware","חומרי בניין","טמבור","tambour","אינסטלטור","plumber","מנעולן","locksmith","ניקיון","מנקה","cleaning","רהיט","furniture","מטבח","גינה","home depot","bed bath"],
-"Health":["בית מרקחת","פארם","שיניים","אופטיקה","וטרינר","פיזיותרפיה","מרפאה","pharm","סופר פארם","super-pharm","pharmacy","מכבי","maccabi","clalit","כללית","meuhedet","מאוחדת","dental","רופא","doctor","clinic","קליניקה","cvs","walgreens","optic"],
-"Shopping":["פרח","מקס סטוק","flower","florist","מתנה","gift","בגדי","נעלי","הנעלה","אופנה","ספרים","סטימצקי","ריהוט","צעצועי","amazon","aliexpress","ebay","zara","h&m","castro","קסטרו","fox","פוקס","renuar","shein","next","terminal x","ksp","ivory","איבורי","bug","nike","adidas","mango","golf","target","walmart","etsy","apple store","best buy"],
-"Fun & travel":["קולנוע","חדר כושר","כושר","ספא","סטודיו","cinema","סינמה","cinema city","yes planet","netflix","spotify","hotel","מלון","booking","airbnb","el al","אל על","israir","arkia","flight","ryanair","wizz","easyjet","ticket","eventim","leaan","museum","theater","תיאטרון","gym","הולמס","holmes","concert","steam","playstation","xbox"],
-"Subscriptions":["subscription","apple.com/bill","icloud","google one","google *","youtube","disney","hbo","prime video","chatgpt","openai","anthropic","claude","dropbox","adobe","notion","microsoft","patreon","audible","membership"]
-};
+// Keyword groups, checked in this order; the first group with a matching word wins. A category may appear more than once
+// (the two extra groups hold what used to be "Bills & home" and "House stuff"), so the order of the words never changed.
+const CATS=[
+["Groceries",["סופרמרקט","חצי חינם","סטופמרקט","מכולת","מינימרקט","ירקות","פירות","קצביית","מעדניית","shufersal","שופרסל","rami levy","רמי לוי","victory","ויקטורי","yochananof","יוחננוף","osher ad","אושר עד","mega","tiv taam","טיב טעם","supermarket","grocery","market","אלונית","am:pm","ampm","tesco","aldi","lidl","carrefour","whole foods","trader joe"]],
+["Eating out",["מסעדת","בייקרי","בית קפה","מאפיית","מאפיה","פיצרייה","גלידה","שווארמה","חומוס","בורגר","סושי","קונדיטוריה","wolt","וולט","10bis","תן ביס","cafe","קפה","coffee","aroma","ארומה","restaurant","מסעדה","pizza","פיצה","burger","sushi","bar ","pub","mcdonald","starbucks","falafel","פלאפל","bakery","מאפה","doordash","uber eats","deliveroo","grubhub","diner","bistro","eatery"]],
+["Transport",["מונית","תחנת דלק","חניון","אוטובוס","מוסך","gett","uber","pango","פנגו","cellopark","סלופארק","fuel","delek","דלק","paz","פז","sonol","סונול","rav kav","רב קו","israel railways","רכבת","bus","taxi","parking","חניה","shell","bp ","lyft","metro","toll","כביש 6"]],
+["Rent & payments",["electric","חשמל","iec","water","מים","arnona","ארנונה","gas ","גז","internet","bezeq","בזק","partner","פרטנר","cellcom","סלקום","hot ","utility","comcast","verizon"]],
+["Rent & payments",["rent ","שכירות","שכר דירה","ועד בית","mortgage","משכנתא","loan","הלוואה","הוראת קבע","העברה","transfer","paybox","פייבוקס","paypal","ביטוח לאומי","מס הכנסה","מע״מ"]],
+["Insurance",["insurance","ביטוח","הראל","מגדל","הפניקס","מנורה","איילון","שומרה","הכשרה","harel","migdal","phoenix","menora","ayalon","clal","aig","geico","allstate","state farm"]],
+["Shopping",["ikea","איקאה","ace hardware","אייס","home center","הום סנטר","homecenter","zara home","זארה הום","hardware","חומרי בניין","טמבור","tambour","אינסטלטור","plumber","מנעולן","locksmith","ניקיון","מנקה","cleaning","רהיט","furniture","מטבח","גינה","home depot","bed bath"]],
+["Health",["בית מרקחת","פארם","שיניים","אופטיקה","וטרינר","פיזיותרפיה","מרפאה","pharm","סופר פארם","super-pharm","pharmacy","מכבי","maccabi","clalit","כללית","meuhedet","מאוחדת","dental","רופא","doctor","clinic","קליניקה","cvs","walgreens","optic"]],
+["Shopping",["פרח","מקס סטוק","flower","florist","מתנה","gift","בגדי","נעלי","הנעלה","אופנה","ספרים","סטימצקי","ריהוט","צעצועי","amazon","aliexpress","ebay","zara","h&m","castro","קסטרו","fox","פוקס","renuar","shein","next","terminal x","ksp","ivory","איבורי","bug","nike","adidas","mango","golf","target","walmart","etsy","apple store","best buy"]],
+["Fun & travel",["קולנוע","חדר כושר","כושר","ספא","סטודיו","cinema","סינמה","cinema city","yes planet","netflix","spotify","hotel","מלון","booking","airbnb","el al","אל על","israir","arkia","flight","ryanair","wizz","easyjet","ticket","eventim","leaan","museum","theater","תיאטרון","gym","הולמס","holmes","concert","steam","playstation","xbox"]],
+["Subscriptions",["subscription","apple.com/bill","icloud","google one","google *","youtube","disney","hbo","prime video","chatgpt","openai","anthropic","claude","dropbox","adobe","notion","microsoft","patreon","audible","membership"]],
+];
+// The default categories of a new account, in the order they are offered.
+const BASE=[...new Set(CATS.map(c=>c[0]).reverse())].reverse();
 let ORDER=[];
 const COL=Object.create(null);
 // Maps keyed by a name that the user or a statement supplies (merchant, card, category) have no prototype, so a name like
@@ -57,10 +61,7 @@ function renameCard(old,nv){crdMsg="";if(!nv||nv==old)return render();
  if(CL.includes(nv)){crdMsg="That name is already used.";return render()}
  S.tx.forEach(t=>{if(t.card==old)t.card=nv});S.recur.forEach(r=>{if(!r.inc&&(r.card||"Recurring")==old)r.card=nv});
  if(S.cards[old]!=null){S.cards[nv]=S.cards[old];delete S.cards[old]}if(cardF==old)cardF=nv;save();render()}
-// Default categories for a new account. "Bills & home" and "House stuff" are not offered by default; their keywords
-// stay in CATS and are routed by FB to "Rent & payments" and "Shopping" (unless the user adds categories with those names).
-const NODEF=["Bills & home","House stuff"];
-function syncCats(){fixMaps();if(!Array.isArray(S.cats))S.cats=Object.keys(CATS).filter(c=>!NODEF.includes(c));ORDER=[...S.cats,"Other"];S.cats.forEach(c=>{if(S.hue[c]==null)S.hue[c]=(Object.keys(S.hue).length*41+150)%360});ORDER.forEach(c=>COL[c]=c=="Other"?"hsl(150 8% 55%)":`hsl(${S.hue[c]} 55% 46%)`)}
+function syncCats(){fixMaps();if(!Array.isArray(S.cats))S.cats=BASE.slice();ORDER=[...S.cats,"Other"];S.cats.forEach(c=>{if(S.hue[c]==null)S.hue[c]=(Object.keys(S.hue).length*41+150)%360});ORDER.forEach(c=>COL[c]=c=="Other"?"hsl(150 8% 55%)":`hsl(${S.hue[c]} 55% 46%)`)}
 syncCats();
 const $=id=>document.getElementById(id);
 // Today in the user's own time zone (toISOString is UTC, which is a day behind in Israel from midnight to about 3am).
@@ -69,13 +70,12 @@ const ymd=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,10);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const key=d=>d.toLowerCase().replace(/[\d*#\/\\.\-_]+/g," ").replace(/\s+/g," ").trim().slice(0,24);
-const FB={"Bills & home":"Rent & payments","House stuff":"Shopping"};
 const cur=b=>S.alias[b]||b;
-function tgt(c){let a=cur(c);if(!S.cats.includes(a)&&S.cats.includes(c))a=c;if(!S.cats.includes(a)&&FB[c])a=cur(FB[c]);return S.cats.includes(a)?a:"Other"}
+function tgt(c){let a=cur(c);if(!S.cats.includes(a)&&S.cats.includes(c))a=c;return S.cats.includes(a)?a:"Other"}
 // The issuer's own category column (Max has one). Used only when the merchant itself is not recognized.
-const HINT=[["מזון","Groceries"],["מסעד","Eating out"],["תחבורה","Transport"],["דלק","Transport"],["רפואה","Health"],["ביטוח","Insurance"],["פנאי","Fun & travel"],["טיסות","Fun & travel"],["תיירות","Fun & travel"],["אופנה","Shopping"],["טיפוח","Shopping"],["מחשבים","Shopping"],["ספרים","Shopping"],["עיצוב הבית","House stuff"],["עירייה","Bills & home"],["תקשורת","Bills & home"],["העברת","Rent & payments"]];
+const HINT=[["מזון","Groceries"],["מסעד","Eating out"],["תחבורה","Transport"],["דלק","Transport"],["רפואה","Health"],["ביטוח","Insurance"],["פנאי","Fun & travel"],["טיסות","Fun & travel"],["תיירות","Fun & travel"],["אופנה","Shopping"],["טיפוח","Shopping"],["מחשבים","Shopping"],["ספרים","Shopping"],["עיצוב הבית","Shopping"],["עירייה","Rent & payments"],["תקשורת","Rent & payments"],["העברת","Rent & payments"]];
 function guess(d,hint){const k=key(d);if(S.rules[k])return S.rules[k];const l=d.toLowerCase();
- for(const c in CATS)if(CATS[c].some(w=>l.includes(w)))return tgt(c);
+ for(const[c,ws]of CATS)if(ws.some(w=>l.includes(w)))return tgt(c);
  const h=hint&&HINT.find(x=>hint.includes(x[0]));return h?tgt(h[1]):"Other"}
 function splitLine(l,d){const o=[];let c="",q=false;for(let i=0;i<l.length;i++){const ch=l[i];
  if(ch=='"'){if(q&&l[i+1]=='"'){c+='"';i++}else q=!q}else if(ch==d&&!q){o.push(c);c=""}else c+=ch}o.push(c);return o.map(s=>s.trim())}
@@ -430,7 +430,7 @@ function renameCat(i,nv){nv=nv.trim();const old=S.cats[i];catMsg="";
  S.cats[i]=nv;if(S.hue)S.hue[nv]=S.hue[old];S.tx.forEach(t=>{if(t.cat==old)t.cat=nv});
  {const b=bud().cats;if(b[old]!=null){b[nv]=b[old];delete b[old]}}
  for(const k in S.rules)if(S.rules[k]==old)S.rules[k]=nv;
- for(const b in CATS)if((S.alias[b]||b)==old)S.alias[b]=nv;
+ for(const b of BASE)if((S.alias[b]||b)==old)S.alias[b]=nv;
  if(cat==old)cat=nv;save();render()}
 // A merchant's category was chosen: remember it and re-sort every purchase from that merchant.
 function learn(k,c){S.rules[k]=c;S.tx.forEach(y=>{if(!y.inc&&key(y.desc)==k)y.cat=c})}
@@ -439,7 +439,7 @@ function addCat(){let n="New category",i=2;while(S.cats.includes(n))n="New categ
 function delCat(i){const old=S.cats[i],oAlias=bare(S.alias),oRules=bare(),oTx=S.tx.filter(t=>t.cat==old).map(t=>t.id);for(const k in S.rules)if(S.rules[k]==old)oRules[k]=old;S.cats.splice(i,1);const oBud=bud().cats[old];delete S.budget.cats[old];
  S.tx.forEach(t=>{if(t.cat==old)t.cat="Other"});
  for(const k in S.rules)if(S.rules[k]==old)delete S.rules[k];
- for(const b in CATS)if((S.alias[b]||b)==old)S.alias[b]="Other";
+ for(const b of BASE)if((S.alias[b]||b)==old)S.alias[b]="Other";
  if(cat==old)cat=null;catMsg="";pushUndo("Deleted category “"+old+"”",()=>{S.cats.splice(Math.min(i,S.cats.length),0,old);S.alias=oAlias;Object.assign(S.rules,oRules);if(oBud)bud().cats[old]=oBud;S.tx.forEach(t=>{if(oTx.includes(t.id))t.cat=old})});save();render()}
 let wp=false;$("wipe").onclick=()=>{if(!wp){wp=true;$("wipe").textContent="Press again to delete everything";$("wmsg").textContent="This removes all purchases, recurring items and learned corrections.";setTimeout(()=>{wp=false;$("wipe").textContent="Delete all data";$("wmsg").textContent=""},6000);return}
  const snap={tx:S.tx,rules:S.rules,recur:S.recur,recDone:S.recDone};S.tx=[];S.rules=bare();S.recur=[];S.recDone=bare();pushUndo("Deleted all data",()=>{S.tx=snap.tx.concat(S.tx);S.rules=Object.assign(bare(snap.rules),S.rules);S.recur=snap.recur.concat(S.recur);S.recDone=Object.assign(bare(snap.recDone),S.recDone)});save();wp=false;cat=null;$("wipe").textContent="Delete all data";$("wmsg").textContent="All clear.";render()};
