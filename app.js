@@ -151,12 +151,36 @@ function parse(text){const lines=text.split(/\r?\n/).filter(l=>l.trim());if(!lin
 // When a file is imported again, a row is skipped only for as many identical copies as are already saved on that card.
 // A saved row is matched by how it looked when imported (t.src), so editing it does not bring it back; an edited row also
 // matches by what it says now (a hand-typed row that was corrected to the statement's values). Returns [purchases added, income added].
-function add(list,card){const id=rid,have=bare(),alt=bare();let n=0,ni=0;
- S.tx.forEach(t=>{if(t.card==card){const k=t.src||id(t);have[k]=(have[k]||0)+1;if(t.src){const c=id(t);alt[c]=(alt[c]||0)+1}}});
+// A purchase added by Quick add or from the phone inbox is marked t.auto=1 ("not on a statement yet"). When a statement row with the
+// same amount arrives within 2 days of it (same card first, then any card), the two are one purchase: the saved row takes the
+// statement's date, description and card, keeps its category, note and split, and loses the mark. Third number returned = rows matched.
+function add(list,card){const id=rid,have=bare(),alt=bare(),pend=S.tx.filter(t=>t.auto&&!t.inc),far=(a,b)=>Math.abs(new Date(a)-new Date(b))/864e5;let n=0,ni=0,nm=0;
+ S.tx.forEach(t=>{if(t.card==card&&!t.auto){const k=t.src||id(t);have[k]=(have[k]||0)+1;if(t.src){const c=id(t);alt[c]=(alt[c]||0)+1}}});
  list.forEach(x=>{const k=id(x);if(have[k]>0){have[k]--;return}if(alt[k]>0){alt[k]--;return}
+  if(!x.inc){const ok=pend.filter(t=>Math.abs(t.amt-x.amt)<.005&&far(t.date,x.date)<=2).sort((a,b)=>(b.card==card)-(a.card==card)||far(a.date,x.date)-far(b.date,x.date)),t=ok[0];
+   if(t){pend.splice(pend.indexOf(t),1);if(t.desc&&t.desc!=x.desc&&!t.note)t.note=t.desc.slice(0,500);if(t.cat=="Other")t.cat=guess(x.desc,x.hint);
+    t.date=x.date;t.desc=x.desc;t.amt=x.amt;t.card=card;delete t.auto;nm++;return}}
   const t={id:uid(),date:x.date,desc:x.desc,amt:x.amt,card,cat:x.inc?"":guess(x.desc,x.hint)};
   if(x.inc){t.inc=1;ni++}else n++;S.tx.push(t)});
- save();return[n,ni]}
+ save();return[n,ni,nm]}
+// Phone inbox (cloud.js listens; docs/backend.md): an item is short texts sent by a phone automation: amt, desc, card, date, or the
+// raw title and text of a payment notification, which are read here. Nothing is dropped: an item without a readable amount
+// becomes a row with amount 0 so it can be fixed by hand. inboxAdd([[id,data]]) -> rows added; an id already saved is skipped.
+function inboxRow(id,d){const s=k=>typeof d[k]=="string"?d[k].replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g,"").trim():"",
+  num=x=>{const n=parseFloat(String(x).replace(/,/g,"").replace(/[^\d.-]/g,""));return isFinite(n)?Math.round(n*100)/100:0},
+  title=s("title"),text=s("text"),all=(title+" "+text).trim(),N="([\\d,]+(?:\\.\\d{1,2})?)",
+  cur=all.match(new RegExp("(?:₪|ILS|NIS)\\s*"+N))||all.match(new RegExp(N+"\\s*(?:₪|ILS|NIS|ש\"ח|ש״ח)")),any=cur||all.match(/([\d,]+\.\d{2})/),
+  amt=s("amt")?num(s("amt")):any?num(any[1]):0,desc=(s("desc")||title||text).slice(0,200),
+  dm=s("date").match(/^(\d{4})-(\d{1,2})-(\d{1,2})/),de=s("date").match(/^(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})/),
+  date=dm?dm[1]+"-"+p2(dm[2])+"-"+p2(dm[3]):de?de[3]+"-"+p2(de[2])+"-"+p2(de[1]):ymd(),
+  cards=[...new Set(S.tx.filter(t=>!t.inc&&t.card&&t.card!="Recurring").sort((a,b)=>b.date.localeCompare(a.date)).map(t=>t.card))],
+  want=s("card"),l4=(want.match(/(\d{4})\s*$/)||all.match(/[•*·.x]{2,}\s*(\d{4})/i)||[])[1],
+  card=cards.find(c=>want&&c.toLowerCase()==want.toLowerCase())||(l4&&cards.find(c=>c.includes(l4)))||(want&&!/^\D*\d{4}$/.test(want)?want:"")||cards[0]||"My card",
+  t={id,date:/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date)?date:ymd(),desc,amt,card,cat:desc?guess(desc):"Other",auto:1};
+ // Read from a notification without a shekel amount (foreign money, or nothing found): keep the original words in the note.
+ if(!s("amt")&&!cur&&all)t.note=all.slice(0,500);
+ return t}
+function inboxAdd(list){const ids=[];list.forEach(([id,d])=>{const k="in-"+String(id).replace(/[^\w:.-]/g,"");if(!d||S.tx.some(t=>t.id==k))return;S.tx.push(inboxRow(k,d));ids.push(k)});return ids}
 // Excel: every sheet becomes tab-separated text in the paste box (dates as yyyy-mm-dd, numbers unformatted). The library loads on first use.
 function loadXlsx(){return window.XLSX?Promise.resolve():new Promise((ok,no)=>{const s=document.createElement("script");s.src="vendor/xlsx.full.min.js";s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
 function sheetText(ws){if(!ws["!ref"])return "";const R=XLSX.utils.decode_range(ws["!ref"]),out=[];
@@ -259,6 +283,7 @@ function clean(o){const id=x=>String(x||"").replace(/[^\w:.-]/g,"")||uid();
  if(!o||!Array.isArray(o.tx)||o.tx.some(t=>!t||!/^\d{4}-\d{2}-\d{2}$/.test(t.date)||typeof t.amt!="number"))return null;
  o.tx.forEach(t=>{t.id=id(t.id);t.desc=String(t.desc||"");if(t.src!=null)t.src=String(t.src);if(t.note!=null)t.note=String(t.note).slice(0,500);
   if(t.inc){t.inc=1;t.amt=Math.abs(t.amt);t.card=String(t.card||"");t.cat=String(t.cat||"")}else{delete t.inc;t.card=String(t.card||"My card");t.cat=String(t.cat||"Other")}
+  if(t.auto&&!t.inc)t.auto=1;else delete t.auto;
   if(Array.isArray(t.split))t.split=t.split.filter(p=>p&&typeof p.amt=="number"&&isFinite(p.amt)).map(p=>({cat:String(p.cat||"Other"),amt:p.amt}));fitSplit(t)});
  if(!Array.isArray(o.recur))o.recur=[];o.recur.forEach(r=>{r.id=id(r.id);r.amt=+r.amt||0;r.day=Math.min(28,Math.max(1,parseInt(r.day)||1));r.desc=String(r.desc||"");if(r.inc)r.inc=1;else delete r.inc});
  if(o.budget&&typeof o.budget=="object"){const c=bare(),s=o.budget.cats;if(s&&typeof s=="object")for(const k in s)if(+s[k]>0)c[k]=+s[k];o.budget={total:Math.max(0,+o.budget.total||0),cats:c}}else delete o.budget;
@@ -303,7 +328,7 @@ $("qab").onclick=qaOpen;$("qx").onclick=()=>{$("qa").hidden=true};
 $("qa").addEventListener("click",e=>{if(e.target==$("qa"))$("qa").hidden=true});
 document.addEventListener("keydown",e=>{if(e.key=="Escape"&&!$("qa").hidden)$("qa").hidden=true});
 $("qaf").onsubmit=e=>{e.preventDefault();const a=parseFloat($("qamt").value),d=$("qdesc").value.trim().slice(0,200);if(!a){$("qamt").focus();return}
- const t={id:uid(),date:ymd(),desc:d,amt:a,card:$("qcard").value||"My card",cat:d?guess(d):"Other"};S.tx.push(t);
+ const t={id:uid(),date:ymd(),desc:d,amt:a,card:$("qcard").value||"My card",cat:d?guess(d):"Other",auto:1};S.tx.push(t);
  $("qa").hidden=true;cardF="all";cat=null;q="";$("q").value="";pendingMonth=pk(t.date);save();render();
  pushUndo("Added "+fmt(a)+(d?" · "+d.slice(0,28):""),()=>{S.tx=S.tx.filter(x=>x.id!=t.id)})};
 function doUndo(){const u=undo.pop();if(!u)return;u.fn();save();render();showToast()}
@@ -396,8 +421,9 @@ function render(){
  const list=found.sort((a,b)=>{const x=val(a),y=val(b),c=typeof x=="number"?x-y:x.localeCompare(y);return (c*sd)||b.date.localeCompare(a.date)});
  const cols=[["date","Date"],["desc","Description"],["cat","Category"],["card","Card"],["amt","Amount"]];
  $("head").innerHTML=cols.map(([k,l])=>`<th${k=="amt"?' class="amt"':""} aria-sort="${sk==k?(sd==1?"ascending":"descending"):"none"}"><button data-sort="${k}">${l}${sk==k?(sd==1?" ▲":" ▼"):""}</button></th>`).join("")+`<th class="k">Ignore</th><th></th>`;
+ const soonest=dstr(new Date(Date.now()-40*864e5));
  $("rows").innerHTML=list.length?list.map(t=>{const os=ORDER.includes(t.cat)||t.inc&&!t.cat?ORDER:[...ORDER,t.cat],sl=sp(t),sg=t.amt<0?-1:1,
-   spl=sl.map((p,i)=>`<div class="sp"><select data-sp="${t.id}" data-i="${i}" data-f="cat" aria-label="Category of this part">${(ORDER.includes(p.cat)?ORDER:[...ORDER,p.cat]).map(c=>`<option value="${esc(c)}"${c==p.cat?" selected":""}>${ic(c)}${esc(c)}</option>`).join("")}</select><input type="number" step="0.01" min="0" data-sp="${t.id}" data-i="${i}" data-f="amt" value="${esc(Math.abs(p.amt)||"")}" placeholder="Amount" aria-label="Amount of this part"><button class="x" data-spdel="${t.id}" data-i="${i}" aria-label="Remove this part">✕</button></div>`).join("")+(sl.length?`<small class="c sr">${fmt(sg*parts(t)[0][1])} stays in ${esc(t.cat)}</small>`:""),note=t.inc?(t.cat?"paid back":"income"):[t.amt<0?"refund":"",pct(t.card)==100?"":pct(t.card)?"counts "+fmt(v(t)):"not counted"].filter(Boolean).join(" · ");
+   spl=sl.map((p,i)=>`<div class="sp"><select data-sp="${t.id}" data-i="${i}" data-f="cat" aria-label="Category of this part">${(ORDER.includes(p.cat)?ORDER:[...ORDER,p.cat]).map(c=>`<option value="${esc(c)}"${c==p.cat?" selected":""}>${ic(c)}${esc(c)}</option>`).join("")}</select><input type="number" step="0.01" min="0" data-sp="${t.id}" data-i="${i}" data-f="amt" value="${esc(Math.abs(p.amt)||"")}" placeholder="Amount" aria-label="Amount of this part"><button class="x" data-spdel="${t.id}" data-i="${i}" aria-label="Remove this part">✕</button></div>`).join("")+(sl.length?`<small class="c sr">${fmt(sg*parts(t)[0][1])} stays in ${esc(t.cat)}</small>`:""),note=t.inc?(t.cat?"paid back":"income"):[t.amt<0?"refund":"",pct(t.card)==100?"":pct(t.card)?"counts "+fmt(v(t)):"not counted",t.auto&&t.date>=soonest?"not on a statement yet":""].filter(Boolean).join(" · ");
   return `<tr class="${t.skip?"skip":""}${t.inc?" inc":""}"><td class="d"><input type="date" data-tid="${t.id}" data-f="date" value="${t.date}"></td>
   <td class="ds"><input dir="auto" data-tid="${t.id}" data-f="desc" placeholder="Description" value="${esc(t.desc)}" style="min-width:190px"><input dir="auto" class="nt" data-tid="${t.id}" data-f="note" placeholder="+ note" value="${esc(t.note||"")}" aria-label="Note"></td>
   <td class="ct"><select data-id="${t.id}">${t.inc?`<option value="">Income</option>`:""}${os.map(c=>`<option value="${esc(c)}"${c==t.cat?" selected":""}>${t.inc?"Back: ":""}${ic(c)}${esc(c)}</option>`).join("")}${t.inc?"":`<option data-split="1" value="${esc(t.cat)}">Split…</option>`}</select>${spl}</td>
@@ -489,7 +515,7 @@ $("go").onclick=()=>{const m=$("msg"),sl=/נטו|וטנ/.test($("paste").value)&
  if(!p){m.textContent="Couldn’t find date, description and amount columns. Check the first row has headers like Date, Description, Amount.";return}
  if(!p.length){m.textContent="No purchases found in that text.";return}
  const card=$("card").value.trim()||"My card";S.cards[card]=+$("irule").value;
- const[n,ni]=add(p,card),sk=p.length-n-ni;m.textContent=`Added ${n} purchase${n==1?"":"s"}${ni?` and ${ni} income`:""}${sk?`, skipped ${sk} already saved`:""}.`;$("paste").value="";$("file").value="";render()};
+ const[n,ni,nm]=add(p,card),sk=p.length-n-ni-nm;m.textContent=`Added ${n} purchase${n==1?"":"s"}${ni?` and ${ni} income`:""}${nm?`, matched ${nm} you had already added`:""}${sk?`, skipped ${sk} already saved`:""}.`;$("paste").value="";$("file").value="";render()};
 $("sample").onclick=()=>{const a=[["2026-11-02","Shufersal Deal Ramat Gan",312.4],["2026-11-03","Wolt Tel Aviv",89],["2026-11-04","Pango Parking",24],["2026-11-05","Netflix.com",54.9],["2026-11-06","Super-Pharm",67.5],["2026-11-08","Aroma Cafe",38],["2026-11-09","Zara",259],["2026-10-28","Rami Levy",420.1],["2026-10-30","Cinema City",96],["2026-10-21","Delek Fuel",250]];
  const b=[["2026-11-01","Arnona Tel Aviv",640],["2026-11-03","Rami Levy",488.3],["2026-11-07","Electric IEC",402],["2026-11-08","Wolt Dinner",142],["2026-11-10","Booking.com Hotel",1380],["2026-10-29","Yochananof",276.8],["2026-10-25","Partner Internet",99]];
  if(S.cards["Joint card"]==null)S.cards["Joint card"]=50;

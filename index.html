@@ -30,6 +30,7 @@ Icons (2026-11-16): each category has an emoji icon. The starting categories hav
 Month start day, fixed charges, pace (2026-11-16): Budgets panel "Month starts on day" (S.mstart, 1 to 28, default 1) makes every month run from that day to the day before the next, named by its dates (pk(date) gives a period key, mrange(m) its first and last day; cloud.js still stores calendar months, nothing there changed). Fixed charges are worked out, not saved (fixedSet()): same words, one row a month, about the same amount (within 15%) in 3 or more months, or a recurring item. The top shows "Fixed X · everything else Y". For the current month with all cards: a day allowance ("X a day for N days left", after the fixed charges still to come, shown when a budget is set), a forecast ("Z by the end of the month at this pace" = spent + fixed still to come + the other spending's daily pace), "Ahead of pace" for categories whose free part (budget minus their fixed charges) is used faster than the month passes, and a "still to come" list of fixed charges seen last month and not yet due. No alert when a fixed charge changes price (asked not to). Tested (local mode).
 Quick add (2026-11-16): "+ Quick add" (first button) or the app icon's long-press shortcut "Add purchase" (manifest shortcut, address ?add=1, removed from the address once opened) shows a sheet: amount, optional merchant (suggestions from your most used), card (the last one used). Save adds a purchase dated today with a guessed category and an Undo toast. Opening: the page now opens on the current month (or the latest month with data) instead of All time, so budgets and pace show without picking a month. Ideas: read Google Wallet notifications on Android (needs a separate automation app and an inbox the phone may write to; not built), iPhone Wallet automation in Shortcuts.
 Bars (2026-11-16): the "Bars: amount / budget" button above the categories (S.barMode, saved) picks what the category bars show: every bar against the largest category, or a bar with a budget filling toward it (one without a budget stays empty). The "of ₪X" note next to the amount is always shown; the warning colour (rose, --warn) starts at 80% of a budget and red (--bad) when over, in both modes.
+Phone inbox and statement matching (2026-11-16): Account panel "Add from your phone" makes a key and shows an address; a phone automation that sends the key can add a purchase without signing in or opening the app (details and rules: docs/backend.md). Rows from the phone and from Quick add are marked t.auto=1 and show "not on a statement yet" for 40 days; when a statement row with the same amount within 2 days is imported (same card first, then any card) the two become one row: the statement's date, description and card, your category, note and split (your own description moves to the note). The import message says "matched N you had already added". Tested on the emulator: key on/new/off, wrong key refused, typed item, raw notification text (English and Hebrew shape, made-up), merge, no double rows after reload. UNTESTED: the real project's address from a real phone, MacroDroid itself, a real Google Wallet notification's wording, two devices open at once when an item arrives.
 Undo: 8s button + Ctrl/Cmd+Z, session only.
 IDEAS: see ROADMAP.md.
 -->
@@ -49,7 +50,7 @@ IDEAS: see ROADMAP.md.
 <meta name="apple-mobile-web-app-title" content="Spend">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=16a9836b07">
+<link rel="stylesheet" href="style.css?v=44338986f4">
 </head>
 <body>
 <main>
@@ -81,6 +82,7 @@ IDEAS: see ROADMAP.md.
   <div class="cl">Signed in as <b id="who"></b></div>
   <div class="row cl"><button id="signout">Sign out</button><span class="msg" id="outmsg"></span></div>
   <div class="row"><button id="dl">Download my data</button><button id="rsbtn">Restore from file</button><input type="file" id="rsfile" accept=".json,application/json" hidden><span class="msg" id="rsmsg"></span></div>
+  <div class="grid cl" id="phone"></div>
   <div class="row cl"><input id="delpass" type="password" placeholder="Your password" autocomplete="current-password" aria-label="Your password" style="width:170px"><button class="danger" id="delacc">Delete my account</button><span class="msg" id="accmsg"></span></div>
 </div></div>
 
@@ -155,7 +157,7 @@ IDEAS: see ROADMAP.md.
 </form></div>
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=16a9836b07"></script>
-<script src="cloud.js?v=16a9836b07"></script>
+<script src="app.js?v=44338986f4"></script>
+<script src="cloud.js?v=44338986f4"></script>
 </body>
 </html>

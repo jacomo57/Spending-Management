@@ -38,6 +38,27 @@ service cloud.firestore {
       match /data/{doc} {
         allow read, delete: if ownerWithProfile();
         allow create, update: if ownerWithProfile() && doc == 'settings' && validDoc();
+        // data/phone holds the phone key: {key: "<20 to 100 characters>"}. Only the owner can read or change it.
+        allow create, update: if ownerWithProfile() && doc == 'phone'
+          && request.resource.data.keys().hasOnly(['key'])
+          && request.resource.data.key is string
+          && request.resource.data.key.size() >= 20 && request.resource.data.key.size() <= 100;
+      }
+      // Phone inbox: a phone automation adds an expense here WITHOUT signing in, by sending the phone key.
+      // It can only create a small document of short texts; it can never read, list, change or delete anything.
+      // The owner's app reads the inbox, turns each item into a purchase and deletes it. No key document = inbox closed.
+      function shortText(k, n) {
+        return !(k in request.resource.data) || (request.resource.data[k] is string && request.resource.data[k].size() <= n);
+      }
+      match /inbox/{id} {
+        allow read, delete: if ownerWithProfile();
+        allow create: if request.resource.data.keys().hasOnly(['key', 'amt', 'desc', 'card', 'date', 'title', 'text'])
+          && request.resource.data.key is string
+          && request.resource.data.key.size() >= 20 && request.resource.data.key.size() <= 100
+          && exists(/databases/$(database)/documents/users/$(uid))
+          && get(/databases/$(database)/documents/users/$(uid)/data/phone).data.key == request.resource.data.key
+          && shortText('amt', 40) && shortText('desc', 200) && shortText('card', 60) && shortText('date', 40)
+          && shortText('title', 200) && shortText('text', 500);
       }
       // A month is named YYYY-MM; "none" holds rows without a date (the app's mk() in cloud.js).
       match /months/{doc} {

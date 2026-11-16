@@ -71,9 +71,39 @@ Expect 'A adds an invite code' (Call Patch "invites/MY-OWN" $ta '{"fields":{}}')
 Expect 'A deletes the invite code' (Call Delete "invites/DEMO-INVITE-1" $ta) 403
 Expect 'Signed-out visitor reads A settings' (Call Get "users/$ua/data/settings" $null) 403
 Expect 'Signed-out visitor creates a profile' (Call Patch "users/someone" $null (& $prof 'DEMO-INVITE-1')) 403
+# Phone inbox: written without signing in, with the phone key.
+$k1 = 'emulator-phone-key-0123456789'; $k2 = 'another-phone-key-0123456789ab'
+$key = { param($k) '{"fields":{"key":{"stringValue":"' + $k + '"}}}' }
+$item = { param($k, $extra) '{"fields":{"key":{"stringValue":"' + $k + '"},"amt":{"stringValue":"45.00"},"desc":{"stringValue":"Kiosk"}' + $extra + '}}' }
+Expect 'Phone adds to A inbox before a key exists' (Call Post "users/$ua/inbox" $null (& $item $k1 '')) 403
+Expect 'A saves a phone key that is too short' (Call Patch "users/$ua/data/phone" $ta (& $key 'short')) 403
+Expect 'A saves a phone key with an extra field' (Call Patch "users/$ua/data/phone" $ta '{"fields":{"key":{"stringValue":"emulator-phone-key-0123456789"},"x":{"integerValue":"1"}}}') 403
+Expect 'B saves a phone key for A' (Call Patch "users/$ua/data/phone" $tb (& $key $k2)) 403
+Expect 'A saves a phone key' (Call Patch "users/$ua/data/phone" $ta (& $key $k1)) 200
+Expect 'B reads A phone key' (Call Get "users/$ua/data/phone" $tb) 403
+Expect 'Signed-out visitor reads A phone key' (Call Get "users/$ua/data/phone" $null) 403
+Expect 'Phone adds with the key' (Call Post "users/$ua/inbox" $null (& $item $k1 '')) 200
+Expect 'Phone adds with all the fields' (Call Post "users/$ua/inbox" $null (& $item $k1 ',"card":{"stringValue":"Visa"},"date":{"stringValue":"2026-11-16"},"title":{"stringValue":"Kiosk"},"text":{"stringValue":"paid"}')) 200
+Expect 'Phone adds with a wrong key' (Call Post "users/$ua/inbox" $null (& $item $k2 '')) 403
+Expect 'Phone adds without a key' (Call Post "users/$ua/inbox" $null '{"fields":{"amt":{"stringValue":"45"}}}') 403
+Expect 'Phone adds with an unknown field' (Call Post "users/$ua/inbox" $null (& $item $k1 ',"json":{"stringValue":"x"}')) 403
+Expect 'Phone adds a number where text is expected' (Call Post "users/$ua/inbox" $null '{"fields":{"key":{"stringValue":"emulator-phone-key-0123456789"},"amt":{"doubleValue":45}}}') 403
+Expect 'Phone adds a text that is too long' (Call Post "users/$ua/inbox" $null (& $item $k1 (',"text":{"stringValue":"' + ('x' * 501) + '"}'))) 403
+Expect 'Phone adds to B inbox with A key' (Call Post "users/$ub/inbox" $null (& $item $k1 '')) 403
+Expect 'Phone writes a month with the key' (Call Patch "users/$ua/months/2026-09" $null (& $item $k1 '')) 403
+Expect 'Phone lists A inbox' (Call Get "users/$ua/inbox" $null) 403
+Expect 'B lists A inbox' (Call Get "users/$ua/inbox" $tb) 403
+Expect 'B adds to A inbox with the key while signed in' (Call Post "users/$ua/inbox" $tb (& $item $k1 '')) 200
+Expect 'A lists own inbox' (Call Get "users/$ua/inbox" $ta) 200
+Expect 'A changes the phone key' (Call Patch "users/$ua/data/phone" $ta (& $key $k2)) 200
+Expect 'Phone adds with the old key' (Call Post "users/$ua/inbox" $null (& $item $k1 '')) 403
+Expect 'A deletes the phone key' (Call Delete "users/$ua/data/phone" $ta) 200
+Expect 'Phone adds after the key is deleted' (Call Post "users/$ua/inbox" $null (& $item $k2 '')) 403
 Expect 'A deletes own month' (Call Delete "users/$ua/months/2026-11" $ta) 200
 Expect 'A deletes own settings' (Call Delete "users/$ua/data/settings" $ta) 200
+Expect 'A saves a phone key again' (Call Patch "users/$ua/data/phone" $ta (& $key $k1)) 200
 Expect 'A deletes own profile' (Call Delete "users/$ua" $ta) 200
+Expect 'Phone adds with a left-over key after the profile is deleted' (Call Post "users/$ua/inbox" $null (& $item $k1 '')) 403
 Expect 'A reads own settings after deleting profile' (Call Get "users/$ua/data/settings" $ta) 403
 Expect 'B deletes own profile' (Call Delete "users/$ub" $tb) 200
 foreach ($t in $ta, $tb) { Invoke-RestMethod -Method Post -Uri "$auth/accounts:delete?key=demo" -ContentType 'application/json' -Body (@{ idToken = $t } | ConvertTo-Json) | Out-Null }

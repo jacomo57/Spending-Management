@@ -33,8 +33,10 @@ Personal spending tracker for one user in Israel (Hebrew + English). Each card h
 - `npm test` runs `tests/run.mjs`: Playwright with the installed Edge (no browser download), its own server on port 8770 (`PORT` to change), starts the emulators if needed. Must end with `failures: 0`. `ONLY=local`, `ONLY=smoke` or `ONLY=pwa` runs one group.
 - Browser pane: launch config `spend` (`.claude/serve.ps1`, http://localhost:8765 and http://127.0.0.1:8765; `PORT` env changes it). The two addresses have separate browser storage, so one acts as a "second device".
 - Cloud mode in the browser pane needs the emulators (`npm run emulators`) and a seeded invite code (see `docs/backend.md`).
-- After any change to `firestore.rules`: run `.claude/rules-test.ps1` (45 checks, `failures: 0`), then `npm run deploy:rules`.
+- After any change to `firestore.rules`: run `.claude/rules-test.ps1` (71 checks, `failures: 0`), then `npm run deploy:rules`.
 
 ## Next steps
 - The plan lives in `ROADMAP.md`. Everything in Steps 0 to 4 is done, plus split purchases, tags, category icons, the keyword merge and the security audit follow-ups. Google sign-in and Caspion were dropped by the user.
-- Still open: publish only the app files to GitHub Pages (workflow written; the user switches Pages, Source to GitHub Actions), then the optional ideas in Step 5 (budget alerts, Partner owes, Hebrew interface, `dev` branch, GitHub Issues).
+- Also done (2026-11-16): publish only the app files (Pages from GitHub Actions), month start day, pace and forecast, fixed charges, Quick add, bar view choice, the phone inbox and statement matching (`docs/backend.md`, Phone inbox).
+- In progress: phone entry with MacroDroid. Next: a macro file and click-by-click guide for the quick-entry popup, then the Google Wallet notification macro (needs the exact text of one real notification from the user).
+- Optional ideas left in Step 5: Partner owes, Hebrew interface, `dev` branch, GitHub Issues.

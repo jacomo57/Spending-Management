@@ -95,6 +95,7 @@ The rule: Fable for anything that changes what is saved, how it syncs, how the n
 | 5: sign in with Google or a passkey | Fable, plus console steps by the user | Dropped by the user 2026-11-16 |
 | 5: Caspion bank downloads | Fable, needs an always-on machine | Dropped by the user 2026-11-16 |
 | 5: month start day, pace and forecast, fixed charges and what is still to come | Fable (new `S.mstart`, `fixedSet()`) | Done 2026-11-16 (price-change flags left out on purpose) |
+| 5: Quick add; bars by amount or budget; phone inbox (add without opening the app) and matching with the statement | Fable (rules, `cloud.js`, import) | Done 2026-11-16; MacroDroid macros still to do |
 | 5: icons for the categories, with a picker | Fable (new saved map `S.icon`) | Done 2026-11-16 |
 | 5: `dev` branch, GitHub Issues, short CLAUDE.md | Any model; the user decides | Later |
 

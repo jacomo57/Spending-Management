@@ -31,7 +31,7 @@ function listen(){const F=C.F,uid=C.user.uid,opt={includeMetadataChanges:true};l
   S=Object.assign({tx:[],rules:{},cur:"₪"},sS.exists()&&own(parse(sS.data().json))||{});S.tx=[];
   mS.docs.slice().sort((a,b)=>a.id<b.id?-1:1).forEach(d=>{const a=parse(d.data().json);if(Array.isArray(a))S.tx.push(...a)});
   fixMaps();C.syn=ser();if(!sS.exists())C.syn.settings=null;mS.forEach(d=>{if(!(d.id in C.syn.months))C.syn.months[d.id]=d.data().json});
-  C.ready=true;C.err="";C.again=()=>{onS(sS);onM(mS)};start()};
+  C.ready=true;C.err="";C.again=()=>{onS(sS);onM(mS)};start();phoneListen()};
  const fail=e=>{if(C.user&&C.user.uid!=uid)return;stop();
   if(e.code=="permission-denied")authShow("code");else{$("boot").hidden=false;$("boot").textContent="Couldn’t load your data ("+(e.code||e.message)+"). Check your connection and reload."}};
  // After the first load, apply only confirmed changes that came from another device.
@@ -45,6 +45,34 @@ function listen(){const F=C.F,uid=C.user.uid,opt={includeMetadataChanges:true};l
   const cur=ser();chg.forEach(([m,a,j])=>{C.syn.months[m]=cur.months[m]||j});remoteRender()};
  C.unsub.push(F.onSnapshot(F.doc(C.db,"users",uid,"data","settings"),opt,onS,fail));
  C.unsub.push(F.onSnapshot(F.collection(C.db,"users",uid,"months"),opt,onM,fail))}
+// ---- Phone inbox ---- (rules and layout: docs/backend.md)
+// users/{uid}/data/phone = {key}: while it exists, anything that sends that key can add items to users/{uid}/inbox without signing in
+// (a phone automation). This device turns each item into a purchase (inboxAdd in app.js; the row's id comes from the item's id, so two
+// devices that see the same item add the same row) and deletes the item. Only items confirmed by the server are handled.
+// Before the new rules are published both listeners fail with permission-denied; the panel then says so and nothing else changes.
+const phoneUrl=()=>(EMU?"http://127.0.0.1:8080":"https://firestore.googleapis.com")+"/v1/projects/"+FBC.projectId+"/databases/(default)/documents/users/"+C.user.uid+"/inbox";
+function phoneShow(msg){const el=$("phone"),k=C.pkey;if(!el)return;
+ el.innerHTML=`<b>Add from your phone</b><div class="sub">Lets a phone automation add a purchase without opening the app. Anyone with the key can add purchases (nothing else), so keep it on your phone only.</div>`+
+  (k?`<label class="row"><span style="width:70px">Address</span><input id="purl" readonly value="${esc(phoneUrl())}"><button data-copy="purl">Copy</button></label>
+  <label class="row"><span style="width:70px">Key</span><input id="pkeyv" readonly value="${esc(k)}"><button data-copy="pkeyv">Copy</button></label>
+  <div class="row"><button id="pnew">New key</button><button class="danger" id="poff">Turn off</button><span class="msg" id="pmsg">${esc(msg||"")}</span></div>`
+  :`<div class="row"><button id="pon">Turn on</button><span class="msg" id="pmsg">${esc(msg||"")}</span></div>`)}
+function phoneKey(on){const F=C.F,ref=F.doc(C.db,"users",C.user.uid,"data","phone");
+ if(!navigator.onLine)return phoneShow("Connect to the internet first.");
+ const key=btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(24)))).replace(/\+/g,"-").replace(/\//g,"_");
+ // The write's promise settles when the server has answered; only then does the panel show the new state.
+ C.pwait=true;phoneShow("Saving…");
+ (on?F.setDoc(ref,{key}):F.deleteDoc(ref)).then(()=>{C.pwait=false;C.pkey=on?key:"";phoneShow()},e=>{C.pwait=false;phoneShow("Couldn’t change it ("+(e.code||e.message)+").")})}
+function phoneListen(){const F=C.F,uid=C.user.uid;C.pkey="";C.pwait=false;phoneShow();
+ // The panel shows a key only once the server has it (and "Turn on" only once it is gone), so what is shown is what works.
+ C.unsub.push(F.onSnapshot(F.doc(C.db,"users",uid,"data","phone"),{includeMetadataChanges:true},d=>{if(C.pwait||d.metadata.hasPendingWrites)return;C.pkey=d.exists()?String(d.data().key||""):"";phoneShow()},()=>phoneShow("Not available yet.")));
+ C.unsub.push(F.onSnapshot(F.collection(C.db,"users",uid,"inbox"),{includeMetadataChanges:true},q=>{if(q.metadata.fromCache||!C.ready)return;
+  const got=[];q.forEach(d=>{if(!d.metadata.hasPendingWrites)got.push([d.id,d.data()])});if(!got.length)return;
+  const ids=inboxAdd(got);got.forEach(([id])=>F.deleteDoc(F.doc(C.db,"users",uid,"inbox",id)).catch(()=>{}));
+  if(ids.length){save();remoteRender();pushUndo("Added "+ids.length+" from your phone",()=>{S.tx=S.tx.filter(t=>!ids.includes(t.id))})}},()=>{}))}
+document.addEventListener("click",e=>{const t=e.target;if(!t||!t.id&&!t.dataset)return;
+ if(t.id=="pon"||t.id=="pnew")phoneKey(true);else if(t.id=="poff")phoneKey(false);
+ else if(t.dataset.copy){const i=$(t.dataset.copy);if(i){i.select();(navigator.clipboard?navigator.clipboard.writeText(i.value):Promise.reject()).then(()=>{t.textContent="Copied"},()=>{try{document.execCommand("copy");t.textContent="Copied"}catch(x){}})}}});
 const AE={"auth/invalid-credential":"Wrong email or password.","auth/wrong-password":"Wrong email or password.","auth/user-not-found":"Wrong email or password.","auth/email-already-in-use":"That email already has an account. Sign in instead.","auth/weak-password":"Use a password of at least 6 characters.","auth/invalid-email":"That email doesn’t look right.","auth/missing-password":"Enter your password.","auth/too-many-requests":"Too many attempts. Wait a few minutes and try again.","auth/network-request-failed":"No connection. Check your internet and try again.","permission-denied":"That invite code isn’t valid."};
 const authErr=e=>AE[e&&e.code]||"Something went wrong ("+(e&&(e.code||e.message)||"unknown")+").";
 function authShow(m){C.mode=m;$("auth").hidden=!m;$("boot").hidden=true;if(!m)return;$("app").hidden=true;
@@ -92,6 +120,8 @@ async function delAccount(){const B=C.B,F=C.F,u=C.auth.currentUser,pw=$("delpass
  stop();C.leaving=true;$("app").hidden=true;$("boot").textContent="Deleting your account…";$("boot").hidden=false;
  try{const q=await F.getDocsFromServer(F.collection(C.db,"users",u.uid,"months"));
   await Promise.all(q.docs.map(d=>F.deleteDoc(d.ref)));
+  // The phone key and anything waiting in the inbox (skipped quietly if the rules for them are not published yet).
+  try{await F.deleteDoc(F.doc(C.db,"users",u.uid,"data","phone"));const ib=await F.getDocsFromServer(F.collection(C.db,"users",u.uid,"inbox"));await Promise.all(ib.docs.map(d=>F.deleteDoc(d.ref)))}catch(e){}
   await F.deleteDoc(F.doc(C.db,"users",u.uid,"data","settings"));await F.deleteDoc(F.doc(C.db,"users",u.uid));
   await B.deleteUser(u);bye()}
  catch(e){$("boot").textContent="Couldn’t finish deleting ("+(e.code||e.message)+"). Reload the page and try again."}}

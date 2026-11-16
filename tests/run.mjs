@@ -209,6 +209,37 @@ async function smoke() {
     await p.evaluate(() => { S.tx = S.tx.filter(t => t.id != "big") });
     await delAccount(p);
   });
+  await test("phone inbox: the key lets a signed-out sender add a purchase; a wrong key is refused; a statement row merges with it", async () => {
+    const p = await open(); await signUp(p, mail("ph"));
+    await paste(p, "Visa 1234", "date,description,amount\n" + today + ",Zara,300"); await total(p, "₪ 300"); await saved(p);
+    await p.click("#accbtn"); await p.click("#pon"); await p.locator("#pkeyv").waitFor();
+    const url = await p.inputValue("#purl"), key = await p.inputValue("#pkeyv");
+    eq(key.length >= 20, true, "key length");
+    const send = (k, f) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fields: Object.fromEntries(Object.entries({ key: k, ...f }).map(([a, b]) => [a, { stringValue: b }])) }) }).then(r => r.status);
+    eq(await send("wrong-key-0123456789-0123456789", { amt: "45", desc: "Kiosk" }), 403, "wrong key");
+    eq(await send(key, { amt: "45.50", desc: "Shufersal", date: today }), 200, "typed item");
+    await total(p, "₪ 346");
+    // A raw payment notification: the amount, merchant and card are read from its words.
+    eq(await send(key, { title: "Aroma Cafe", text: "₪18.00 with Visa ••••1234" }), 200, "notification item");
+    await total(p, "₪ 364");
+    eq(await p.evaluate(() => S.tx.filter(t => t.auto).map(t => [t.desc, t.amt, t.card, t.cat, t.date == ymd()].join("|")).sort().join(" ; ")), "Aroma Cafe|18|Visa 1234|Eating out|true ; Shufersal|45.5|Visa 1234|Groceries|true", "rows from the phone");
+    await text(p, 'tr:has([data-f="desc"][value="Shufersal"]) small.amt', "not on a statement yet");
+    await saved(p);
+    eq(await p.evaluate(async () => (await C.F.getDocsFromServer(C.F.collection(C.db, "users", C.user.uid, "inbox"))).size), 0, "inbox emptied");
+    await p.reload(); await p.locator("#app").waitFor(); await total(p, "₪ 364"); eq(await rows(p), 3, "rows after reload");
+    // The statement arrives: same amounts, its own wording. The phone rows become the statement rows instead of doubling.
+    const msg = await paste(p, "Visa 1234", "date,description,amount\n" + today + ",SHUFERSAL DEAL 42,45.50\n" + today + ",AROMA TLV,18\n" + today + ",Zara,300");
+    eq(/matched 2 you had already added/.test(msg) && /Added 0 purchases/.test(msg), true, "import message: " + msg);
+    await total(p, "₪ 364"); eq(await rows(p), 3, "rows after the statement");
+    eq(await p.evaluate(() => S.tx.filter(t => t.auto).length + "|" + S.tx.map(t => t.desc).sort().join()), "0|AROMA TLV,SHUFERSAL DEAL 42,Zara", "merged rows");
+    // New key: the old one stops working. Turned off: nothing is accepted.
+    await p.click("#accbtn"); await p.click("#pnew"); await p.waitForFunction(k => { const e = document.getElementById("pkeyv"); return e && e.value != k }, key);
+    eq(await send(key, { amt: "5" }), 403, "old key after New key");
+    const key2 = await p.inputValue("#pkeyv"); eq(await send(key2, { amt: "5", desc: "x" }), 200, "new key works"); await total(p, "₪ 369");
+    await p.click("#poff"); await p.locator("#pon").waitFor();
+    eq(await send(key2, { amt: "5" }), 403, "after Turn off");
+    await delAccount(p);
+  });
   await test("delete account removes the login", async () => {
     await delAccount(d1);
     await signIn(d1, A);
@@ -552,7 +583,7 @@ async function local() {
     // Month start day from the Budgets panel: saved, and months are named by their dates.
     await p.click('[data-p="bud"]'); await setField(p.locator("#mstart"), "15");
     eq(await p.evaluate(() => S.mstart), 15, "saved start day");
-    eq(await p.evaluate(() => [...document.querySelectorAll("#month option")].slice(-1)[0].textContent.includes("–")), true, "month names show the dates");
+    await p.waitForFunction(() => [...document.querySelectorAll("#month option")].slice(-1)[0].textContent.includes("–"), null, { timeout: 15000 });
     await p.reload(); eq(await p.evaluate(() => S.mstart), 15, "start day after reload");
   });
   await test("quick add: button and ?add=1; today's date, guessed category, undo; opens on this month with its budget", async () => {
@@ -577,6 +608,31 @@ async function local() {
     eq(await w("Health"), "0%", "no-budget bar in budget mode"); eq(await w("Groceries"), "50%", "budget bar");
     await text(p, '.bw[data-c="Groceries"] .c', "of ₪ 1,000");
     await p.reload(); eq(await p.evaluate(() => S.barMode), "budget", "kept after reload");
+  });
+  await test("a quick-added purchase merges with its statement row; phone items are read (amount, date, card, odd input)", async () => {
+    const p = await open("?local=1");
+    await paste(p, "Max 5678", "date,description,amount\n2026-11-02,Zara,300");
+    await p.click("#qab"); await setField(p.locator("#qamt"), "62"); await p.fill("#qdesc", "lunch with dan"); await p.click("#qsave");
+    eq(await p.evaluate(() => S.tx.filter(t => t.auto).length), 1, "quick add is marked");
+    // Same amount, the day before, on another card: still the same purchase. A different amount is a new row.
+    const y = await p.evaluate(() => dstr(new Date(Date.now() - 864e5)));
+    const msg = await paste(p, "Visa", "date,description,amount\n" + y + ",CAFE NOIR TLV,62\n" + y + ",Kiosk,62.5");
+    eq(/Added 1 purchase, matched 1/.test(msg), true, "import message: " + msg);
+    eq(await p.evaluate(() => { const t = S.tx.find(t => t.desc == "CAFE NOIR TLV"); return [t.card, t.note, t.auto, S.tx.length].join("|") }), "Visa|lunch with dan||3", "merged row");
+    eq(/skipped 2 already saved/.test(await paste(p, "Visa", "date,description,amount\n" + y + ",CAFE NOIR TLV,62\n" + y + ",Kiosk,62.5")), true, "second import skips both");
+    // An old quick-added row (more than 2 days from the statement's date) is left alone.
+    await p.evaluate(() => { S.tx.push({ id: "old", date: "2026-01-01", desc: "x", amt: 77, card: "Visa", cat: "Other", auto: 1 }); save() });
+    await paste(p, "Visa", "date,description,amount\n2026-01-09,Far away,77");
+    eq(await p.evaluate(() => S.tx.filter(t => t.amt == 77).length), 2, "no merge across 8 days");
+    eq(await p.evaluate(() => [
+      inboxRow("a", { text: "‏45.00 ₪ ב-Shufersal באמצעות Max ‎••5678" }),
+      inboxRow("b", { amt: "1,234.5", desc: "Rent", date: "5/11/2026", card: "max 5678" }),
+      inboxRow("c", { title: "Amazon", text: "$12.00 with Visa" }),
+      inboxRow("d", { text: "hello" }),
+      inboxRow("e", { amt: 5, desc: { x: 1 }, date: "9999-99-99x", card: "Brand new" }),
+    ].map(t => [t.amt, t.date == ymd() ? "today" : t.date, t.card, t.note ? "note" : "", t.auto].join("|")).join(" ; ")),
+      "45|today|Max 5678||1 ; 1234.5|2026-11-05|Max 5678||1 ; 12|today|Visa|note|1 ; 0|today|Visa|note|1 ; 0|today|Brand new||1", "phone items");
+    eq(await p.evaluate(() => [inboxAdd([["x1", { amt: "9" }], ["x1", { amt: "9" }]]).join(), inboxAdd([["x1", { amt: "9" }]]).length].join("|")), "in-x1|0", "an item is added once");
   });
   await test("split a purchase across categories; #tags in notes filter and total", async () => {
     const p = await open("?local=1");

@@ -17,7 +17,9 @@ Goal: two users only (the owner and their partner), each with a private, indepen
 - `users/{uid}`: profile (invite code used; proves the account is allowed).
 - `users/{uid}/data/settings`: everything in `S` except purchases (cards, categories, recurring items, budgets `S.budget`, category icons `S.icon`, month start day `S.mstart`).
 - `users/{uid}/months/{YYYY-MM}`: that month's rows: purchases, and income rows (`inc:1`, positive amount; with a category it is a payback). Optional fields per row: `skip`, `src` (the imported values of an edited row).
-- Each document is `{v:1, json:"..."}`; the rules refuse any other shape, any other document name, and a `json` of 900,000 characters or more (the app then shows "Couldn't save"). Emptied months are written as `[]`, never deleted. Last write wins per document.
+- `users/{uid}/data/phone`: `{key}`, the phone key (20 to 100 characters, made in the Account panel). Owner only. No document = phone inbox closed.
+- `users/{uid}/inbox/{id}`: items sent by a phone automation WITHOUT signing in (see Phone inbox below). Short texts only: `key`, `amt`, `desc`, `card`, `date`, `title`, `text`.
+- Each settings or month document is `{v:1, json:"..."}`; the rules refuse any other shape, any other document name, and a `json` of 900,000 characters or more (the app then shows "Couldn't save"). Emptied months are written as `[]`, never deleted. Last write wins per document.
 - Offline uses Firestore's own cache (IndexedDB), cleared on sign-out. The app waits for server-confirmed data on a device that never synced, so it cannot overwrite real data with an empty state.
 - Known limit: the same month edited on two devices while one is offline. The later save replaces the earlier one for that whole month. Accepted for one person per account.
 
@@ -26,12 +28,21 @@ Goal: two users only (the owner and their partner), each with a private, indepen
 - Incoming snapshots are ignored while this device has unconfirmed writes to that document (`C.un`), and re-checked once they confirm.
 - A remote change never redraws the table while the user is typing in a field.
 
+## Phone inbox (2026-11-16)
+- Purpose: add a purchase from the phone without opening the app (MacroDroid: a quick-entry popup, later the Google Wallet payment notification).
+- The phone sends `POST https://firestore.googleapis.com/v1/projects/spending-management-608d5/databases/(default)/documents/users/{uid}/inbox` with no sign-in and a JSON body like `{"fields":{"key":{"stringValue":"..."},"amt":{"stringValue":"45"},"desc":{"stringValue":"Kiosk"}}}`. The Account panel shows the address and the key (Turn on, New key, Turn off).
+- Rules: create only, only if the profile exists and `key` equals the one in `data/phone`; only the listed fields, all short texts. The sender can never read, list, change or delete. The owner's app reads and deletes.
+- The app (`phoneListen()` in `cloud.js`, `inboxRow()`/`inboxAdd()` in `app.js`) turns each server-confirmed item into a purchase with id `in-{item id}` (so two open devices add the same row, not two), marks it `auto:1`, and deletes the item. `title`/`text` are a raw notification: amount (₪/ILS), merchant and the card's last 4 digits are read in the app, so the automation stays simple. An item without a readable amount becomes a row with amount 0.
+- `auto:1` rows (also made by Quick add) merge with the matching statement row on import (`add()`): same amount, within 2 days, same card first.
+- The key is a secret: never in the repo or chat. Claude tests with the emulator only.
+- Not handled: an installment or foreign-currency purchase (the statement amount differs, so both rows stay; delete one by hand).
+
 ## Backup
 - The free plan keeps no history. The Account panel has "Download my data" (one JSON file with everything in `S`) and "Restore from file" (replaces everything, second press to confirm, Undo for 8 seconds).
 
 ## Security rules
 - `firestore.rules` in the repo is the source. Publish with `npm run deploy:rules` (needs `firebase login` once on that computer). Until then: paste the file into the Firebase console (Firestore, Rules, Publish).
-- `.claude/rules-test.ps1` runs 45 allow/deny checks against the emulator (other user's data, no invite, signed out, invite codes unreadable, document names, shape and size). Run it after any rules change; it must report `failures: 0`.
+- `.claude/rules-test.ps1` runs 71 allow/deny checks against the emulator (other user's data, no invite, signed out, invite codes unreadable, document names, shape and size, the phone key and inbox). Run it after any rules change; it must report `failures: 0`.
 
 ## Emulator
 - Firebase Emulator Suite: Auth on 127.0.0.1:9099, Firestore on 127.0.0.1:8080, project id `demo-spend`, config in `firebase.json`. Fully local.
