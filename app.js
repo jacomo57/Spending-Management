@@ -124,10 +124,11 @@ function parse(text){const lines=text.split(/\r?\n/).filter(l=>l.trim());if(!lin
  return out}
 // Identical rows inside one file are all kept (two coffees on the same day are two purchases).
 // When a file is imported again, a row is skipped only for as many identical copies as are already saved on that card.
-// A saved row is matched by how it looked when imported (t.src), so editing it does not bring it back. Returns [purchases added, income added].
-function add(list,card){const id=rid,have={};let n=0,ni=0;
- S.tx.forEach(t=>{if(t.card==card){const k=t.src||id(t);have[k]=(have[k]||0)+1}});
- list.forEach(x=>{if(have[id(x)]>0){have[id(x)]--;return}
+// A saved row is matched by how it looked when imported (t.src), so editing it does not bring it back; an edited row also
+// matches by what it says now (a hand-typed row that was corrected to the statement's values). Returns [purchases added, income added].
+function add(list,card){const id=rid,have={},alt={};let n=0,ni=0;
+ S.tx.forEach(t=>{if(t.card==card){const k=t.src||id(t);have[k]=(have[k]||0)+1;if(t.src){const c=id(t);alt[c]=(alt[c]||0)+1}}});
+ list.forEach(x=>{const k=id(x);if(have[k]>0){have[k]--;return}if(alt[k]>0){alt[k]--;return}
   const t={id:Math.random().toString(36).slice(2),date:x.date,desc:x.desc,amt:x.amt,card,cat:x.inc?"":guess(x.desc,x.hint)};
   if(x.inc){t.inc=1;ni++}else n++;S.tx.push(t)});
  save();return[n,ni]}
@@ -144,7 +145,48 @@ function sheetText(ws){if(!ws["!ref"])return "";const R=XLSX.utils.decode_range(
 function cardDigits(text,name){for(const l of text.split("\n").slice(0,8))for(const x of l.split("\t")){const m=x.match(/^(\d{4})-\D/)||x.match(/\D\s*-\s*(\d{4})$/);if(m)return m[1]}
  const m=name.match(/^(\d{4})_/);return m?m[1]:""}
 let autoCard="";
-function readFile(f){const m=$("msg"),r=new FileReader();
+// Payslip (תלוש שכר). Only three things are read: the net pay ("נטו לתשלום", the amount that reaches the bank), the slip's month
+// and its issue date. Nothing else from the file is kept or shown. The text arrives as pieces with a position (from a PDF, or from
+// pasted text where the position is line and word number). The amount is the number nearest to the label on its line.
+// Some PDFs store Hebrew back to front and split it into words or letters, so the label is looked for in both directions.
+const MONEY=/^\d{1,3}(,\d{3})+(\.\d{1,2})?$|^\d+\.\d{2}$/;
+function slip(items){const lines=[],flat=s=>s.replace(/\s+/g,"");
+ items.slice().sort((a,b)=>a.p-b.p||b.y-a.y).forEach(i=>{const l=lines[lines.length-1];
+  if(l&&l.p==i.p&&Math.abs(l.y-i.y)<=Math.max(2,i.h*.5))l.it.push(i);else lines.push({p:i.p,y:i.y,it:[i]})});
+ lines.forEach(l=>{l.it.sort((a,b)=>a.x-b.x);l.a=flat(l.it.map(i=>i.s).join(""));l.b=flat(l.it.slice().reverse().map(i=>i.s).join(""))});
+ const has=(l,w)=>{const r=[...w].reverse().join("");return l.a.includes(w)||l.b.includes(w)||l.a.includes(r)||l.b.includes(r)};
+ const find=(w,re)=>{for(const l of lines)if(has(l,w)){const m=l.it.map(i=>i.s).join(" ").match(re);if(m)return m}return null};
+ const L=lines.find(l=>has(l,"נטולתשלום"));if(!L)return null;
+ const lab=L.it.filter(i=>/נטו|וטנ|לתשלום|םולשתל/.test(i.s)),src=lab.length?lab:L.it,lx=src.reduce((a,i)=>a+i.x,0)/src.length,h=Math.max(...L.it.map(i=>i.h));
+ // An amount on the label's own row always wins; a row just above or below is used only when its own row has none.
+ const sc=i=>(Math.abs(i.y-L.y)<=Math.max(2,h*.5)?0:1e6)+Math.abs(i.y-L.y)*4+Math.abs(i.x-lx);
+ const near=items.filter(i=>i.p==L.p&&MONEY.test(i.s)&&Math.abs(i.y-L.y)<=h*1.5).sort((a,b)=>sc(a)-sc(b))[0];
+ // The label and the amount can also be one piece ("נטו לתשלום 8,640.00").
+ const one=!near&&L.it.map(i=>i.s).join(" ").split(/\s+/).find(x=>MONEY.test(x)),net=num(near?near.s:one||"");
+ if(!(net>0))return null;
+ const mo=find("תלוש",/(\d{1,2})\/(20\d{2})/)||find("לחודש",/(\d{1,2})\/(20\d{2})/),dt=find("בתאריך",/\d{1,2}\/\d{1,2}\/20\d{2}/);
+ return{net,month:mo&&+mo[1]>=1&&+mo[1]<=12?mo[1].padStart(2,"0")+"/"+mo[2]:"",date:dt?date(dt[0]):null}}
+const textItems=text=>text.split(/\r?\n/).flatMap((l,r)=>l.replace(/[₪|]/g," ").trim().split(/\s+/).filter(Boolean).map((s,k)=>({s,x:k,y:-r*10,h:4,p:0})));
+// PDF reader (pdf.js, legacy build, in vendor/): loads on first use, like the Excel library. Only the first 5 pages are read.
+function loadPdf(){return window.PDFJS?Promise.resolve(PDFJS):import("./vendor/pdf.min.mjs").then(m=>{m.GlobalWorkerOptions.workerSrc="vendor/pdf.worker.min.mjs";return window.PDFJS=m})}
+async function pdfItems(buf){const L=await loadPdf(),task=L.getDocument({data:buf}),out=[];
+ try{const doc=await task.promise;for(let p=1;p<=Math.min(doc.numPages,5);p++){const tc=await(await doc.getPage(p)).getTextContent();
+  tc.items.forEach(i=>{const s=(i.str||"").replace(/₪/g,"").trim();if(s)out.push({s,x:i.transform[4]+(i.width||0)/2,y:i.transform[5],h:i.height||10,p})})}}
+ finally{task.destroy().catch(()=>{})}
+ return out}
+let slipP=null;
+function slipShow(s){slipP=s;$("slip").hidden=!s;if(!s)return;
+ $("sliptxt").innerHTML="Payslip"+(s.month?" "+esc(s.month):"")+" · net pay <b>"+fmt(s.net)+"</b> · arrived on";$("slipdate").value=s.date||new Date().toISOString().slice(0,10)}
+function slipAdd(){const s=slipP,d=$("slipdate").value;if(!s)return;if(!d){$("msg").textContent="Pick the date the money arrived.";return}const desc="Salary"+(s.month?" "+s.month:"");
+ slipShow(null);$("paste").value="";
+ if(S.tx.some(t=>t.inc&&t.desc==desc&&t.amt==s.net&&(s.month||t.date==d))){$("msg").textContent="That payslip is already added.";return}
+ S.tx.push({id:Math.random().toString(36).slice(2),date:d,desc,amt:s.net,inc:1,card:"",cat:""});save();
+ $("msg").textContent="Added "+desc+" as income.";render()}
+function readFile(f){const m=$("msg"),r=new FileReader();slipShow(null);
+ if(/\.pdf$/i.test(f.name)){m.textContent="Reading the file…";
+  r.onload=()=>pdfItems(r.result).then(it=>{const s=slip(it);$("file").value="";m.textContent=s?"":it.length?"Couldn’t find the net pay (נטו לתשלום) in that PDF. Card statements import from Excel or CSV.":"That PDF has no text to read (a scan or a photo). Use + Add income and type the amount.";slipShow(s)})
+   .catch(e=>{$("file").value="";m.textContent=e&&e.name=="PasswordException"?"That PDF is locked with a password. Open it, copy its text and paste it below, or save a copy without the password.":"Couldn’t read that PDF."});
+  return r.readAsArrayBuffer(f)}
  if(!/\.xlsx?$/i.test(f.name)){r.onload=()=>{$("paste").value=r.result};return r.readAsText(f)}
  m.textContent="Reading the file…";
  r.onload=()=>loadXlsx().then(()=>{const w=XLSX.read(r.result,{type:"array",cellNF:true}),text=w.SheetNames.map(n=>sheetText(w.Sheets[n])).filter(Boolean).join("\n");
@@ -185,7 +227,7 @@ document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key=="z"&&!
 let pendingMonth=null,focusTid=null;
 function addPurchase(inc){const id=Math.random().toString(36).slice(2),d=new Date().toISOString().slice(0,10);
  dropEmpty();
- if(inc){S.tx.push({id,date:d,desc:"",amt:0,inc:1,card:"",cat:cat||""});if(cardF!="all")cardF="all"}
+ if(inc){S.tx.push({id,date:d,desc:"",amt:0,inc:1,card:"",cat:""});cardF="all";cat=null}
  else S.tx.push({id,date:d,desc:"",amt:0,card:cardF!="all"?cardF:CL.find(c=>c!="Recurring")||"My card",cat:cat||"Other"});
  pendingMonth=d.slice(0,7);focusTid=id;save();render()}
 function render(){
@@ -212,7 +254,7 @@ function render(){
  const base=S.tx.filter(t=>(m=="all"||t.date.startsWith(m))&&(cardF=="all"||t.card==cardF));
  const K=calc(base),ign=base.filter(t=>t.skip),tot=K.spent,per=K.per,by=K.by;
  // Budgets are monthly and cover all cards, so they show only with one month picked and no card filter.
- const B=bud(),bOn=m!="all"&&cardF=="all",bc=bOn?B.cats:{},now=new Date(),nowM=now.toISOString().slice(0,7);
+ const B=S.budget&&S.budget.cats?S.budget:{total:0,cats:{}},bOn=m!="all"&&cardF=="all",bc=bOn?B.cats:{},now=new Date(),nowM=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
  let bl="";if(bOn&&B.total>0){const left=B.total-tot,exp=B.total*now.getDate()/new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
   bl=`<div class="l${left<0?" over":""}" id="budline">${left<0?fmt(-left)+" over the "+fmt(B.total)+" budget":fmt(left)+" left of "+fmt(B.total)}${m==nowM&&left>=0?(tot<=exp?" · on track":" · "+fmt(tot-exp)+" over pace"):""}</div>`}
  if(document.activeElement!=$("btotal"))$("btotal").value=B.total||"";
@@ -245,7 +287,8 @@ function render(){
  if(focusCat!=null){const el=document.querySelector(`[data-ren="${focusCat}"]`);if(el){el.focus();el.select()}focusCat=null}
  if(focusTid){const el=document.querySelector(`[data-tid="${focusTid}"][data-f="desc"]`);if(el)el.focus();focusTid=null}
 }
-$("go").onclick=()=>{const p=parse($("paste").value);const m=$("msg");
+$("go").onclick=()=>{const m=$("msg"),sl=/נטו|וטנ/.test($("paste").value)&&slip(textItems($("paste").value));if(sl){m.textContent="";return slipShow(sl)}
+ const p=parse($("paste").value);
  if(!p){m.textContent="Couldn’t find date, description and amount columns. Check the first row has headers like Date, Description, Amount.";return}
  if(!p.length){m.textContent="No purchases found in that text.";return}
  const card=$("card").value.trim()||"My card";S.cards[card]=+$("irule").value;
@@ -325,6 +368,7 @@ document.addEventListener("click",e=>{const t=e.target;
  if(t.id=="addcat")addCat();
  if(t.id=="addp")addPurchase();
  if(t.id=="addi")addPurchase(1);
+ if(t.id=="slipgo")slipAdd();
  if(t.id=="radd")addRec();
  if(t.dataset.delcat!==undefined)delCat(+t.dataset.delcat);
  if(t.dataset.delrec){const i=S.recur.findIndex(x=>x.id==t.dataset.delrec);if(i>=0){const it=S.recur[i];S.recur.splice(i,1);pushUndo("Deleted recurring “"+it.desc.slice(0,28)+"”",()=>{S.recur.splice(Math.min(i,S.recur.length),0,it)})}save();render()}

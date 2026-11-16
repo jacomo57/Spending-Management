@@ -17,7 +17,7 @@ const URL = `http://localhost:${PORT}/`;
 const ONLY = process.env.ONLY || "";
 const XLSX = createRequire(import.meta.url)("xlsx");
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "spend-test-"));
-const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".svg": "image/svg+xml" };
+const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".svg": "image/svg+xml" };
 
 // site.down: the server drops every connection (the site is unreachable). site.over: files served with other content (a "deploy").
 const site = { down: false, over: {} };
@@ -237,8 +237,8 @@ async function local() {
     await p.click("#addi");
     await setField(p.locator('tr.inc [data-f="desc"]'), "Partner");
     await setField(p.locator('tr.inc [data-f="amt"]'), "-150");
-    eq(await p.locator('tr.inc [data-f="amt"]').inputValue(), "150", "income amount is kept positive");
     await total(p, "₪ 500"); await text(p, "#sin", "₪ 150"); await text(p, "#sleft", "₪ -350");
+    eq(await p.locator('tr.inc [data-f="amt"]').inputValue(), "150", "income amount is kept positive");
     await p.locator("tr.inc select").selectOption("Groceries");
     await total(p, "₪ 350"); eq(await p.locator("#sin").count(), 0, "a payback is not income");
     await text(p, '.bw[data-c="Groceries"] .amt', "₪ 250");
@@ -274,6 +274,47 @@ async function local() {
     await text(p, "#budline", "₪ 150 over the ₪ 1,000 budget");
     await p.reload(); await p.selectOption("#month", mo); await text(p, "#budline", "over the ₪ 1,000 budget");
   });
+  await test("payslip PDF: only the net pay (נטו לתשלום) is added, as income; a second upload is not added again", async () => {
+    // A made-up slip laid out like a real one: boxes with the number left of its label, other amounts above and beside it.
+    const box = (top, left, t) => `<div style="position:absolute;top:${top}px;left:${left}px">${t}</div>`;
+    const html = `<html dir="rtl"><body style="font:14px Arial">` + [
+      [40, 300, "תלוש משכורת לחודש 10/2026"], [70, 300, "ת.ז. 000000018"], [120, 500, "שכר יסוד"], [120, 300, "7,836.00"],
+      [500, 60, "9,147.00"], [500, 160, "סה\"כ תשלומים"], [560, 60, "507.00"], [560, 160, "סה\"כ ניכויים"],
+      [620, 60, "8,700.00"], [620, 160, "שכר נטו"], [680, 60, "8,640.00"], [680, 160, "נטו לתשלום"], [680, 520, "1,111.00"], [684, 620, "הערות"],
+      [760, 300, "בתאריך 03/11/2026"]].map(b => box(...b)).join("") + "</body></html>";
+    const f = path.join(TMP, "payslip.pdf"), g = await browser.newPage();
+    await g.setContent(html); await g.pdf({ path: f, format: "A4" }); await g.close();
+    const p = await open("?local=1");
+    await p.locator("#p-imp").waitFor(); await p.setInputFiles("#file", f);
+    try { await p.locator("#slip").waitFor({ timeout: 20000 }) } catch (e) { throw new Error("payslip not recognised, message: " + await p.locator("#msg").textContent()) }
+    await text(p, "#sliptxt", "10/2026"); await text(p, "#sliptxt", "₪ 8,640");
+    eq(await p.inputValue("#slipdate"), "2026-11-03", "issue date");
+    await p.click("#slipgo");
+    await text(p, "#sin", "₪ 8,640"); await total(p, "₪ 0");
+    eq(await p.locator('tr.inc input[value="Salary 10/2026"]').count(), 1, "income row");
+    eq(await p.locator('tr.inc [data-f="date"]').inputValue(), "2026-11-03", "income date");
+    eq(await p.evaluate(() => JSON.stringify(S).includes("000000018")), false, "nothing else from the slip is saved");
+    await p.setInputFiles("#file", f); await p.locator("#slip").waitFor({ timeout: 20000 }); await p.click("#slipgo");
+    eq(await p.locator("#msg").textContent(), "That payslip is already added.", "second upload"); eq(await rows(p), 1, "rows");
+  });
+  await test("payslip as pasted text, and a PDF that is not a payslip", async () => {
+    const p = await open("?local=1");
+    await p.locator("#p-imp").waitFor();
+    await p.fill("#paste", "תלוש משכורת לחודש 09/2026\nשכר נטו 8,100.00\nנטו לתשלום 8,050.50 ₪");
+    await p.click("#go"); await p.locator("#slip").waitFor();
+    await text(p, "#sliptxt", "09/2026"); await p.fill("#slipdate", "2026-10-05"); await p.click("#slipgo");
+    await text(p, "#sin", "₪ 8,051"); eq(await p.inputValue("#paste"), "", "pasted slip cleared");
+    const f = path.join(TMP, "other.pdf"), g = await browser.newPage();
+    await g.setContent("<p>Just a letter, total 120.00</p>"); await g.pdf({ path: f }); await g.close();
+    await p.setInputFiles("#file", f);
+    await p.waitForFunction(() => /Couldn’t find the net pay/.test(document.getElementById("msg").textContent), null, { timeout: 20000 });
+    eq(await p.locator("#slip").isVisible(), false, "no payslip row"); eq(await rows(p), 1, "rows");
+    // PDFs that store Hebrew back to front, or one letter per piece: the label is still found and the nearest amount taken.
+    const it = (s, x) => ({ s, x, y: 100, h: 10, p: 1 });
+    eq(await p.evaluate(a => slip(a).net, [it("8,640.00", 20), it("נטו לתשלום", 150), { s: "9,999.00", x: 150, y: 112, h: 10, p: 1 }]), 8640, "an amount on the label's row beats a nearer one on the next row");
+    eq(await p.evaluate(a => slip(a).net, [it("8,640.00", 40), it("םולשתל", 100), it("וטנ", 150), it("8,700.00", 300)]), 8640, "back-to-front Hebrew");
+    eq(await p.evaluate(a => slip(a).net, [it("7,000.00", 20), ..."נטולתשלום"].map((c, i) => it(c, 200 - i * 8)).concat([it("8,640.00", 60), it("9,999.00", 400)])), 8640, "one letter per piece");
+  });
   await test("re-importing after editing a purchase does not add it again", async () => {
     const p = await open("?local=1"), f = "date,description,amount\n2026-11-03,Aroma Cafe,18\n2026-11-04,Zara,300";
     await paste(p, "Visa", f);
@@ -282,6 +323,7 @@ async function local() {
     await total(p, "₪ 298");
     eq(await paste(p, "Visa", f), "Added 0 purchases, skipped 2 already saved.", "re-import");
     await total(p, "₪ 298"); eq(await rows(p), 2, "purchases");
+    eq(await paste(p, "Visa", "date,description,amount\n2026-11-04,Zara,280"), "Added 0 purchases, skipped 1 already saved.", "a file with the corrected values");
   });
   await test("Isracard-style Excel: charged amount, installments, title and total rows", async () => {
     const f = xlsx("1234_11_2026.xlsx", [["פירוט עסקאות", [

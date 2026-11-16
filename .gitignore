@@ -12,3 +12,6 @@ firestore-debug.log
 ui-debug.log
 
 node_modules/
+
+# Payslips and other personal documents
+*.pdf

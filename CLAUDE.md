@@ -12,18 +12,19 @@ Personal spending tracker for one user in Israel (Hebrew + English). Each card h
 ## Workflow (always)
 - At the start of every session, run `git pull` first (the user works from two computers, a PC and a laptop, so GitHub is the shared source of truth). Never start editing before pulling. Run `npm install` if `node_modules` is missing.
 - All work happens in `C:\Claude\Spending Project`. This folder is the git repo; remote is https://github.com/jacomo57/Spending-Management (public, GitHub Pages from `main`, site https://jacomo57.github.io/Spending-Management/).
-- After every change: run `npm test`, check it in a browser, then commit and push to `main`, so GitHub is always the backup. Then confirm the live site works.
+- After every change: run `npm test`, check it in a browser, run `/code-review` on the change and fix what it finds (asked 2026-11-16; skip it only if it would be very expensive, and say so), then commit and push to `main`, so GitHub is always the backup. Then confirm the live site works.
 - Test by actually running the app (tests + local server + browser pane), not by reading code. Only say something works if it was checked; otherwise say exactly what was not checked.
 - The repo is public: never commit personal data (real amounts, backups, statements). `.gitignore` covers backup/statement files. Real statement files stay outside the repo; test fixtures use made-up merchants.
 
 ## The app
-- Files: `index.html` (markup; the spec comment at the top lists features, untested parts and ideas, keep it updated with every change), `style.css`, `app.js` (data, import, rendering), `cloud.js` (accounts and sync), `vendor/xlsx.full.min.js` (SheetJS 0.20.3, loaded only when an Excel file is picked). `app.js` and `cloud.js` are plain scripts sharing globals, loaded in that order.
+- Files: `index.html` (markup; the spec comment at the top lists features, untested parts and ideas, keep it updated with every change), `style.css`, `app.js` (data, import, rendering), `cloud.js` (accounts and sync), `vendor/xlsx.full.min.js` (SheetJS 0.20.3, loaded only when an Excel file is picked), `vendor/pdf.min.mjs` and `pdf.worker.min.mjs` (pdf.js legacy build, loaded only when a PDF is picked). `app.js` and `cloud.js` are plain scripts sharing globals, loaded in that order.
 - Installable app: `sw.js`, `manifest.webmanifest`, `icons/` (redraw with `node tools/icons.mjs`). `tools/stamp.mjs` runs before every `npm test` and writes the version into `sw.js` and the `?v=` in `index.html`; never commit an app change without running `npm test`, or installed phones keep the old files. On localhost the service worker is off unless the address has `?sw=1`. Caching rules are at the top of `sw.js`.
 - Two modes, chosen in `app.js` by `FB_REAL`/`EMU`:
   - Local-only (`?local=1` on localhost (never touches Firebase), or if `FB_REAL` is set back to `null`): data in localStorage key `spend-v1`, Backup panel shown, no sign-in.
   - Cloud (localhost against the emulators; the live site against the real project): sign-in required, data in Firestore, Account panel shown (with Download my data / Restore from file), Backup hidden, localStorage unused.
 - No bank connection. In local-only mode the page contacts no other sites except fonts; in cloud mode it also loads the Firebase SDK from gstatic and talks to Firebase.
 - Import (tested on real Isracard and Max files, totals matched the statements): uses the charged amount column, keeps identical rows, skips only already-saved copies on re-import, refunds are negative amounts, a bank-style file's positive rows become income, an edited purchase is not added again on re-import (`src`), an installment payment is dated in its own month and labelled like `3/5`.
+- Payslip: a PDF or pasted text is read only for the net pay (`נטו לתשלום`), month and issue date (`slip()` in `app.js`) and becomes one income row. Real payslips are personal: never commit one (`*.pdf` is ignored).
 - Numbers: `calc(rows)` and `v(t)` in `app.js` are the only definition of spent, income and paybacks (rows with `inc:1`); budgets are `S.budget`. Every total on screen or in a report must come from them.
 - Backend, accounts, data layout, sync rules, emulator: see `docs/backend.md`. Read it before touching `cloud.js` or `firestore.rules`.
 

@@ -110,7 +110,8 @@ The rule: Fable for anything that changes what is saved, how it syncs, how the n
 - Budget panel: one budget for all spending and one per category (`S.budget = {total, cats}`), saved with the settings. With one month picked and no card filter: "X left of Y" under Spent, a pace note in the current month, and each budgeted category's bar fills against its budget (amber from 80%, red when over). Budgets follow a renamed category and come back with Undo after deleting one.
 - An edited purchase remembers how it looked when imported (`src`), so importing the same file again no longer adds it back.
 - `calc(rows)` in `app.js` is the single definition of the numbers.
-- **Tests:** 6 new ones (24 in all), including income and a budget reaching a second device and surviving sign-out.
+- Payslip (asked 2026-11-16): a payslip PDF or its pasted text is read for the net pay ("נטו לתשלום") only, and added as one income row "Salary MM/YYYY" after the user checks the date. Not checked on a real payslip file: only on a PDF the test makes. A photo or scan cannot be read (that would need text recognition, a much bigger addition), and a password-locked PDF only gets a message.
+- **Tests:** 8 new ones (26 in all), including income and a budget reaching a second device and surviving sign-out.
 - **Not checked:** a real bank export (only a made-up one; note that a bank file also lists the monthly card bill, which would count twice next to the card's own statement, so tick Ignore on those rows), a real phone, the pace note on other days of the month (checked on one day only).
 - **Known rough edge:** a category whose own colour is red or amber can look like a budget warning. The red amount text is the real over-budget sign.
 
@@ -120,11 +121,11 @@ Start each session with: **"Pull, read CLAUDE.md and ROADMAP.md, then do part N 
 
 **Rules for every part**
 1. All numbers come from `calc(rows)` (returns `{spent, inc, back, by, per}`, skips ignored rows) and `v(t)` (what one row adds to Spent). Never add amounts up any other way, and never use `t.amt` directly for a total: income rows and card rules would be wrong.
-2. Do not change: `cloud.js`, `firestore.rules`, `sw.js`, `tools/stamp.mjs`, and in `app.js` the functions `v`, `calc`, `bud`, `rid`, `add`, `parse`, `table`, `clean`, `recGen`, `save`. If a part seems to need that, stop and leave it for a Fable session.
+2. Do not change: `cloud.js`, `firestore.rules`, `sw.js`, `tools/stamp.mjs`, and in `app.js` the functions `v`, `calc`, `bud`, `rid`, `add`, `parse`, `table`, `clean`, `recGen`, `save`, `slip`, `pdfItems`. If a part seems to need that, stop and leave it for a Fable session.
 3. Do not save anything new in `S` except where a part below says so. What the user is looking at (search text, chosen months, report options) lives in plain variables like `cardF` and `cat`, and is forgotten on reload.
 4. Everything that reaches the page as HTML goes through `esc()`. Text fields get `dir="auto"`.
 5. Each part adds at least one test to `tests/run.mjs` (the `local()` group, opened with `?local=1`; helpers `paste`, `total`, `text`, `setField`, `rows`, `eq`). Use dates built from `today` when the test picks a month.
-6. Finish as CLAUDE.md says: `npm test` with `failures: 0`, browser pane at desktop width and at 375px in light and dark, update the spec comment in `index.html`, tick the part here, commit, push, check the live site.
+6. Finish as CLAUDE.md says: `npm test` with `failures: 0`, `/code-review` on the change, browser pane at desktop width and at 375px in light and dark, update the spec comment in `index.html`, tick the part here, commit, push, check the live site.
 7. Keep it uncluttered: nothing new on screen until the user asks for it (a button or a panel), and no new text longer than one line.
 
 **Part 1: Search (3.1)**
