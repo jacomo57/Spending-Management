@@ -123,3 +123,6 @@ thead tr{flex-wrap:nowrap;overflow-x:auto;gap:6px}thead th{flex:none}
 .trend button{display:grid;grid-template-columns:110px 1fr 84px;gap:10px;align-items:center;border:1px solid transparent;background:none;text-align:start;padding:2px 4px;font-size:13px}
 .trend button.sel{border-color:var(--ink)}.trend .amt{text-align:end}
 @media (max-width:600px){.cmpt{font-size:12px}.cr{grid-template-columns:minmax(0,1fr) 62px 62px 96px;gap:4px;padding:5px 2px}.trend button{grid-template-columns:86px 1fr 70px;min-height:36px}}
+
+.nt{display:block;width:100%;margin-top:2px;font-size:12px;color:var(--mute)}
+.nt:placeholder-shown:not(:focus){border-color:transparent;background:transparent;box-shadow:none;min-height:0;height:22px;padding-block:0}

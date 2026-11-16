@@ -234,6 +234,20 @@ async function local() {
     await total(p, "₪ 150");
     await p.click("#cmpb"); eq(await p.locator("#cmp").isHidden(), true, "hidden again");
   });
+  await test("merchants panel re-sorts a merchant, the year entry sums a year, a note is searchable", async () => {
+    const p = await open("?local=1");
+    await paste(p, "Visa", "date,description,amount\n2026-11-03,Zara,300\n2025-12-04,Zara,100");
+    await p.selectOption("#month", "2026"); await total(p, "₪ 300");
+    await p.selectOption("#month", "all"); await total(p, "₪ 400");
+    await p.locator("tr select[data-id]").first().selectOption("Health");
+    await p.click('[data-p="mer"]');
+    await p.selectOption('[data-mk="zara"]', "Groceries");
+    eq(await p.locator("tr select[data-id]").nth(1).inputValue(), "Groceries", "other row follows");
+    await p.fill('[data-f="note"] >> nth=0', "birthday gift"); await p.press('[data-f="note"] >> nth=0', "Tab");
+    await p.fill("#q", "birthday"); eq(await rows(p), 1, "note found");
+    await p.fill("#q", "");
+    await p.click('[data-delmk="zara"]'); eq(await p.locator("[data-mk]").count(), 0, "forgotten");
+  });
   await test("refunds import as negative amounts and reduce the total", async () => {
     const p = await open("?local=1");
     eq(await paste(p, "Visa", "date,description,amount\n2026-11-03,Zara,300\n2026-11-04,Castro,80\n2026-11-05,Zara,-120\n2026-11-06,Wolt,(30)"), "Added 4 purchases.", "import");

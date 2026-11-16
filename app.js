@@ -232,7 +232,7 @@ function readFile(f){const m=$("msg"),r=new FileReader(),my=++readN;slipShow(nul
 // A backup or restore file is the user's own, but its values end up inside the page's HTML, so force the risky ones into shape.
 function clean(o){const id=x=>String(x||Math.random().toString(36).slice(2)).replace(/[^\w:.-]/g,"");
  if(!o||!Array.isArray(o.tx)||o.tx.some(t=>!t||!/^\d{4}-\d{2}-\d{2}$/.test(t.date)||typeof t.amt!="number"))return null;
- o.tx.forEach(t=>{t.id=id(t.id);t.desc=String(t.desc||"");if(t.src!=null)t.src=String(t.src);
+ o.tx.forEach(t=>{t.id=id(t.id);t.desc=String(t.desc||"");if(t.src!=null)t.src=String(t.src);if(t.note!=null)t.note=String(t.note).slice(0,500);
   if(t.inc){t.inc=1;t.amt=Math.abs(t.amt);t.card=String(t.card||"");t.cat=String(t.cat||"")}else{delete t.inc;t.card=String(t.card||"My card");t.cat=String(t.cat||"Other")}});
  if(!Array.isArray(o.recur))o.recur=[];o.recur.forEach(r=>{r.id=id(r.id);r.amt=+r.amt||0;r.day=Math.min(28,Math.max(1,parseInt(r.day)||1));r.desc=String(r.desc||"");if(r.inc)r.inc=1;else delete r.inc});
  if(o.budget&&typeof o.budget=="object"){const c={},s=o.budget.cats;if(s&&typeof s=="object")for(const k in s)if(+s[k]>0)c[k]=+s[k];o.budget={total:Math.max(0,+o.budget.total||0),cats:c}}else delete o.budget;
@@ -271,7 +271,7 @@ function render(){
  CL=[...new Set([...S.tx.filter(t=>!t.inc).map(t=>t.card),...S.recur.filter(r=>!r.inc).map(r=>r.card||"Recurring")])].sort((a,b)=>a.localeCompare(b));
  if(cardF!="all"&&!CL.includes(cardF))cardF="all";
  const rc=[...new Set(["Recurring",...CL])],copt=s=>rc.map(c=>`<option${c==s?" selected":""}>${esc(c)}</option>`).join("");
- ["imp","crd","rec","bud","bak","acc"].forEach(p=>{$("p-"+p).hidden=panel!=p});
+ ["imp","crd","rec","bud","mer","bak","acc"].forEach(p=>{$("p-"+p).hidden=panel!=p});
  document.querySelectorAll("[data-p]").forEach(b=>b.classList.toggle("on",b.dataset.p==panel));
  $("cardrules").innerHTML=CL.map((c,i)=>{const p=pct(c),n=S.tx.filter(t=>t.card==c).length;return `<div class="row"><input dir="auto" data-ci="${i}" data-f="name" value="${esc(c)}" style="width:170px" aria-label="Card name"><select data-ci="${i}" data-f="rule" aria-label="How this card counts">${ruleOpts(p,1)}</select>${[100,50,0].includes(p)?"":`<input data-ci="${i}" data-f="pct" type="number" min="0" max="100" value="${p}" style="width:70px" aria-label="Percent that counts"><span class="sub">%</span>`}<span class="sub">${n} purchase${n==1?"":"s"}</span></div>`}).join("")||`<span class="msg">No cards yet. Import or add a purchase first.</span>`;
  $("crdmsg").textContent=crdMsg;
@@ -282,8 +282,9 @@ function render(){
  $("cardf").innerHTML='<option value="all">All cards</option>'+CL.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");$("cardf").value=cardF;
  const months=[...new Set(S.tx.map(t=>t.date.slice(0,7)))].sort().reverse();
  const cm=pendingMonth||$("month").value||"all";pendingMonth=null;
- $("month").innerHTML='<option value="all">All time</option>'+months.map(m=>`<option value="${m}">${mname(m)}</option>`).join("");
- $("month").value=months.includes(cm)||cm=="all"?cm:"all";
+ const yrs=[...new Set(months.map(x=>x.slice(0,4)))];
+ $("month").innerHTML='<option value="all">All time</option>'+yrs.map(y=>`<option value="${y}">All of ${y}</option>`).join("")+months.map(m=>`<option value="${m}">${mname(m)}</option>`).join("");
+ $("month").value=months.includes(cm)||yrs.includes(cm)||cm=="all"?cm:"all";
  const m=$("month").value;
  // Compare (view only, not saved): two months per category, change, and a strip of the last 12 months.
  {const el=$("cmp");el.hidden=!cmp;$("cmpb").classList.toggle("on",cmp);
@@ -300,10 +301,12 @@ function render(){
  const base=S.tx.filter(t=>(m=="all"||t.date.startsWith(m))&&(cardF=="all"||t.card==cardF));
  const K=calc(base),ign=base.filter(t=>t.skip),tot=K.spent,per=K.per,by=K.by;
  // Budgets are monthly and cover all cards, so they show only with one month picked and no card filter.
- const B=S.budget&&S.budget.cats?S.budget:{total:0,cats:{}},bOn=m!="all"&&cardF=="all",bc=bOn?B.cats:{},now=new Date(),nowM=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
+ const B=S.budget&&S.budget.cats?S.budget:{total:0,cats:{}},bOn=m.length==7&&cardF=="all",bc=bOn?B.cats:{},now=new Date(),nowM=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
  let bl="";if(bOn&&B.total>0){const left=B.total-tot,exp=B.total*now.getDate()/new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
   bl=`<div class="l${left<0?" over":""}" id="budline">${left<0?fmt(-left)+" over the "+fmt(B.total)+" budget":fmt(left)+" left of "+fmt(B.total)}${m==nowM&&left>=0?(tot<=exp?" · on track":" · "+fmt(tot-exp)+" over pace"):""}</div>`}
  if(document.activeElement!=$("btotal"))$("btotal").value=B.total||"";
+ {const ks=Object.keys(S.rules).sort((x,y)=>x.localeCompare(y)),co=[...S.cats,"Other"];
+  $("merlist").innerHTML=ks.map(k=>{const c=S.rules[k],os=co.includes(c)?co:[...co,c];return `<div class="row"><span dir="auto" style="width:170px">${esc(k)}</span><select data-mk="${esc(k)}" aria-label="Category for ${esc(k)}">${os.map(o=>`<option value="${esc(o)}"${o==c?" selected":""}>${esc(o)}</option>`).join("")}</select><button class="x" data-delmk="${esc(k)}" aria-label="Forget ${esc(k)}">✕</button></div>`}).join("")||`<span class="msg">None yet. They are learned when you change a purchase's category.</span>`}
  $("budlist").innerHTML=S.cats.map((c,i)=>`<label class="row"><span dir="auto" style="width:150px">${esc(c)}</span><input data-bi="${i}" type="number" min="0" step="1" value="${B.cats[c]||""}" placeholder="No budget" style="width:120px" aria-label="Budget for ${esc(c)}"></label>`).join("");
  const shown=Object.keys(per).sort((a,b)=>per[b]-per[a]||a.localeCompare(b)),one=shown.length==1?rl(pct(shown[0])):"";
  $("big").innerHTML=`<div><div class="n">${fmt(tot)}</div><div class="l">spent${one?" · "+one:""}${K.back?" · after "+fmt(K.back)+" paid back":""}</div>${bl}</div>`+
@@ -318,7 +321,7 @@ function render(){
  document.querySelectorAll("[data-cs]").forEach(b=>b.classList.toggle("on",b.dataset.cs==(S.catSort=="manual"?"manual":"size")));
  $("chip").innerHTML=cat?`<button id="clearcat">${esc(cat)} ✕</button>`:"";
  const sk=S.sk||"date",sd=S.sd=="asc"?1:-1,val=t=>sk=="amt"?(t.inc?t.amt:v(t)):String(t[sk]||"").toLowerCase();
- const qw=q.toLowerCase().split(/\s+/).filter(Boolean),hit=t=>{const s=[t.desc,t.cat,t.card,t.amt].join("\n").toLowerCase();return qw.every(w=>s.includes(w))};
+ const qw=q.toLowerCase().split(/\s+/).filter(Boolean),hit=t=>{const s=[t.desc,t.note,t.cat,t.card,t.amt].join("\n").toLowerCase();return qw.every(w=>s.includes(w))};
  const found=base.filter(t=>(!cat||t.cat==cat)&&hit(t));
  $("found").hidden=!qw.length;if(qw.length)$("found").textContent=`${found.length} found, ${fmt(calc(found).spent)}`;
  const list=found.sort((a,b)=>{const x=val(a),y=val(b),c=typeof x=="number"?x-y:x.localeCompare(y);return (c*sd)||b.date.localeCompare(a.date)});
@@ -326,7 +329,7 @@ function render(){
  $("head").innerHTML=cols.map(([k,l])=>`<th${k=="amt"?' class="amt"':""} aria-sort="${sk==k?(sd==1?"ascending":"descending"):"none"}"><button data-sort="${k}">${l}${sk==k?(sd==1?" ▲":" ▼"):""}</button></th>`).join("")+`<th class="k">Ignore</th><th></th>`;
  $("rows").innerHTML=list.length?list.map(t=>{const os=ORDER.includes(t.cat)||t.inc&&!t.cat?ORDER:[...ORDER,t.cat],note=t.inc?(t.cat?"paid back":"income"):[t.amt<0?"refund":"",pct(t.card)==100?"":pct(t.card)?"counts "+fmt(v(t)):"not counted"].filter(Boolean).join(" · ");
   return `<tr class="${t.skip?"skip":""}${t.inc?" inc":""}"><td class="d"><input type="date" data-tid="${t.id}" data-f="date" value="${t.date}"></td>
-  <td class="ds"><input dir="auto" data-tid="${t.id}" data-f="desc" placeholder="Description" value="${esc(t.desc)}" style="min-width:190px"></td>
+  <td class="ds"><input dir="auto" data-tid="${t.id}" data-f="desc" placeholder="Description" value="${esc(t.desc)}" style="min-width:190px"><input dir="auto" class="nt" data-tid="${t.id}" data-f="note" placeholder="+ note" value="${esc(t.note||"")}" aria-label="Note"></td>
   <td class="ct"><select data-id="${t.id}">${t.inc?`<option value="">Income</option>`:""}${os.map(c=>`<option value="${esc(c)}"${c==t.cat?" selected":""}>${t.inc?"Back: ":""}${esc(c)}</option>`).join("")}</select></td>
   <td class="cd"><input dir="auto" data-tid="${t.id}" data-f="card" list="cardlist" value="${esc(t.card||"")}" style="width:115px"></td>
   <td class="amt"><input type="number" step="0.01" data-tid="${t.id}" data-f="amt" value="${t.amt}">${note?`<small class="c amt">${note}</small>`:""}</td>
@@ -425,6 +428,7 @@ document.addEventListener("click",e=>{const t=e.target;
  if(t.dataset.delcat!==undefined)delCat(+t.dataset.delcat);
  if(t.dataset.delrec){const i=S.recur.findIndex(x=>x.id==t.dataset.delrec);if(i>=0){const it=S.recur[i];S.recur.splice(i,1);pushUndo("Deleted recurring “"+it.desc.slice(0,28)+"”",()=>{S.recur.splice(Math.min(i,S.recur.length),0,it)})}save();render()}
  if(t.dataset.del){const i=S.tx.findIndex(x=>x.id==t.dataset.del);if(i>=0){const it=S.tx[i];S.tx.splice(i,1);pushUndo("Deleted “"+(it.desc||"purchase").slice(0,28)+"”",()=>{S.tx.splice(Math.min(i,S.tx.length),0,it)})}save();render()}
+ if(t.dataset.delmk){const k=t.dataset.delmk,old=S.rules[k];if(old!=null){delete S.rules[k];pushUndo("Forgot merchant “"+k+"”",()=>{S.rules[k]=old});save();render()}}
  if(t.id=="undo")doUndo();
  const sb=t.closest&&t.closest("[data-sort]");if(sb){const c=sb.dataset.sort;if((S.sk||"date")==c)S.sd=(S.sd||"desc")=="asc"?"desc":"asc";else{S.sk=c;S.sd=(c=="amt"||c=="date")?"desc":"asc"}save();render()}});
 document.addEventListener("change",e=>{const t=e.target;
@@ -434,12 +438,13 @@ document.addEventListener("change",e=>{const t=e.target;
    if(f=="amt"){val=parseFloat(val);if(!val)return later(render);if(x.inc)val=Math.abs(val)}
    if(f=="date"&&!val)return later(render);
    if(f=="desc"&&!val.trim())return later(render);
-   if(f!="card"&&!x.src&&x.amt&&x.desc)x.src=rid(x);
-   x[f]=(f=="desc"||f=="card")?val.trim():val;if(f=="desc"&&x.cat=="Other"&&!x.inc)x.cat=guess(x.desc);save();later(render)}}
+   if(f!="card"&&f!="note"&&!x.src&&x.amt&&x.desc)x.src=rid(x);
+   x[f]=(f=="desc"||f=="card"||f=="note")?val.trim().slice(0,f=="note"?500:1e4):val;if(f=="note"&&!x.note)delete x.note;if(f=="desc"&&x.cat=="Other"&&!x.inc)x.cat=guess(x.desc);save();later(render)}}
  else if(t.dataset.rid){const r=S.recur.find(x=>x.id==t.dataset.rid),f=t.dataset.f;
   if(r){r[f]=f=="amt"?(parseFloat(t.value)||0):f=="day"?Math.min(28,Math.max(1,parseInt(t.value)||1)):t.value;recGen();save();later(render)}}
  else if(t.dataset.ren!==undefined){const i=+t.dataset.ren,nv=t.value;later(()=>renameCat(i,nv))}
  else if(t.dataset.id){const x=S.tx.find(y=>y.id==t.dataset.id);if(x){x.cat=t.value;const k=key(x.desc);if(k&&!x.inc){S.rules[k]=t.value;S.tx.forEach(y=>{if(!y.inc&&key(y.desc)==k)y.cat=t.value})}save();later(render)}}
+ else if(t.dataset.mk){const k=t.dataset.mk;if(S.rules[k]==null)return;S.rules[k]=t.value;S.tx.forEach(y=>{if(!y.inc&&key(y.desc)==k)y.cat=t.value});save();later(render)}
  else if(t.dataset.bi){const c=S.cats[+t.dataset.bi],n=Math.max(0,parseFloat(t.value)||0);if(c==null)return;if(n)bud().cats[c]=n;else delete bud().cats[c];save();later(render)}
  else if(t.id=="btotal"){bud().total=Math.max(0,parseFloat(t.value)||0);save();later(render)}
  else if(t.id=="rkind")$("rcard").hidden=t.value=="inc";

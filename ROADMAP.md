@@ -87,7 +87,7 @@ The rule: Fable for anything that changes what is saved, how it syncs, how the n
 | 5: re-import after editing a purchase | Fable | Done 2026-11-16 |
 | 3.1 Search | Sonnet | Done 2026-11-16 |
 | 3.3 Month over month | Sonnet | Done 2026-11-16 |
-| 3 extras: learned merchants list, yearly view | Sonnet | To do |
+| 3 extras: learned merchants list, yearly view, notes | Sonnet | Done 2026-11-16 |
 | 3 extra: note per purchase | Sonnet, with the recipe below | To do |
 | 4 Reports (all three) and Export to Excel | Sonnet | To do |
 | 5: budget alerts, "Partner owes" view, Hebrew interface | Sonnet | Later |
@@ -101,6 +101,7 @@ The rule: Fable for anything that changes what is saved, how it syncs, how the n
 - [x] 3.0 Income and paybacks (Fable, 2026-11-16)
 - [x] 3.2 Budgets (Fable, 2026-11-16)
 - [x] 3.1 Search (Sonnet, 2026-11-16): box in the filter row, every word must match description, category, card or amount; "N found, ₪X" line; 1 new test (28 in all). Checked at desktop and 375px; not checked in dark mode or on a real phone.
+- [x] Extras (Sonnet, 2026-11-16): Merchants panel, "All of YEAR" in the month picker (budgets hidden), a note per purchase (`t.note`, searchable); 1 new test (30 in all). Checked at desktop and 375px in light mode; not checked in dark mode, with a long note, or on a real phone.
 - [x] 3.3 Month over month (Sonnet, 2026-11-16): Compare button in the Categories header, two month pickers, per-category change (neutral arrows), total and In rows, 12-month trend strip (tap picks the month); 1 new test (29 in all). Checked at desktop and 375px in dark mode; not checked in light mode at 375px or on a real phone.
 
 **What was built (3.0, 3.2 and the re-import fix):**
