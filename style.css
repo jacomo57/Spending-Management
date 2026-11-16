@@ -107,3 +107,7 @@ td.empty{grid-column:1/-1}
 .toast{left:12px;right:12px;transform:none;max-width:none;justify-content:space-between}
 .toast button{min-height:44px}
 }
+@media (max-width:640px){
+.flt,thead tr,nav.row{scrollbar-width:none}.flt{flex-wrap:nowrap;overflow-x:auto}.flt>*{flex:none}
+thead tr{flex-wrap:nowrap;overflow-x:auto;gap:6px}thead th{flex:none}
+}
