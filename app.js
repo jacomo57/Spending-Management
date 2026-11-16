@@ -60,6 +60,8 @@ syncCats();
 const $=id=>document.getElementById(id);
 // Today in the user's own time zone (toISOString is UTC, which is a day behind in Israel from midnight to about 3am).
 const ymd=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+// A new id for a purchase or recurring item: the time plus random letters and digits (ids must match /^[\w:.-]+$/).
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,10);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const key=d=>d.toLowerCase().replace(/[\d*#\/\\.\-_]+/g," ").replace(/\s+/g," ").trim().slice(0,24);
 const FB={"Bills & home":"Rent & payments","House stuff":"Shopping"};
@@ -128,7 +130,7 @@ function parse(text){const lines=text.split(/\r?\n/).filter(l=>l.trim());if(!lin
 function add(list,card){const id=rid,have={},alt={};let n=0,ni=0;
  S.tx.forEach(t=>{if(t.card==card){const k=t.src||id(t);have[k]=(have[k]||0)+1;if(t.src){const c=id(t);alt[c]=(alt[c]||0)+1}}});
  list.forEach(x=>{const k=id(x);if(have[k]>0){have[k]--;return}if(alt[k]>0){alt[k]--;return}
-  const t={id:Math.random().toString(36).slice(2),date:x.date,desc:x.desc,amt:x.amt,card,cat:x.inc?"":guess(x.desc,x.hint)};
+  const t={id:uid(),date:x.date,desc:x.desc,amt:x.amt,card,cat:x.inc?"":guess(x.desc,x.hint)};
   if(x.inc){t.inc=1;ni++}else n++;S.tx.push(t)});
  save();return[n,ni]}
 // Excel: every sheet becomes tab-separated text in the paste box (dates as yyyy-mm-dd, numbers unformatted). The library loads on first use.
@@ -208,7 +210,7 @@ function slipShow(s){slipP=s;$("slip").hidden=!s;if(!s)return;
 function slipAdd(){const s=slipP,d=$("slipdate").value;if(!s)return;if(!d){$("msg").textContent="Pick the date the money arrived.";return}const desc="Salary"+(s.month?" "+s.month:"");
  slipShow(null);$("paste").value="";
  if(S.tx.some(t=>t.inc&&t.desc==desc&&t.amt==s.net&&(s.month||t.date==d))){$("msg").textContent="That payslip is already added.";return}
- S.tx.push({id:Math.random().toString(36).slice(2),date:d,desc,amt:s.net,inc:1,card:"",cat:""});save();
+ S.tx.push({id:uid(),date:d,desc,amt:s.net,inc:1,card:"",cat:""});save();
  $("msg").textContent="Added "+desc+" as income.";render()}
 // readN: when another file is picked while one is still being read, only the newest one's result is shown.
 let readN=0;
@@ -229,7 +231,7 @@ function readFile(f){const m=$("msg"),r=new FileReader(),my=++readN;slipShow(nul
   .catch(()=>{m.textContent="Couldn’t read that Excel file. Export it as CSV instead, or paste the rows."});
  r.readAsArrayBuffer(f)}
 // A backup or restore file is the user's own, but its values end up inside the page's HTML, so force the risky ones into shape.
-function clean(o){const id=x=>String(x||Math.random().toString(36).slice(2)).replace(/[^\w:.-]/g,"");
+function clean(o){const id=x=>String(x||"").replace(/[^\w:.-]/g,"")||uid();
  if(!o||!Array.isArray(o.tx)||o.tx.some(t=>!t||!/^\d{4}-\d{2}-\d{2}$/.test(t.date)||typeof t.amt!="number"))return null;
  o.tx.forEach(t=>{t.id=id(t.id);t.desc=String(t.desc||"");if(t.src!=null)t.src=String(t.src);if(t.note!=null)t.note=String(t.note).slice(0,500);
   if(t.inc){t.inc=1;t.amt=Math.abs(t.amt);t.card=String(t.card||"");t.cat=String(t.cat||"")}else{delete t.inc;t.card=String(t.card||"My card");t.cat=String(t.cat||"Other")}});
@@ -258,7 +260,7 @@ function showToast(){const el=$("toast");clearTimeout(toastT);if(!undo.length){e
 function doUndo(){const u=undo.pop();if(!u)return;u.fn();save();render();showToast()}
 document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key=="z"&&!/INPUT|TEXTAREA|SELECT/.test(e.target.tagName||"")&&undo.length){e.preventDefault();doUndo()}});
 let pendingMonth=null,focusTid=null;
-function addPurchase(inc){const id=Math.random().toString(36).slice(2),d=ymd();
+function addPurchase(inc){const id=uid(),d=ymd();
  dropEmpty();q="";$("q").value="";
  if(inc){S.tx.push({id,date:d,desc:"",amt:0,inc:1,card:"",cat:""});cardF="all";cat=null}
  else S.tx.push({id,date:d,desc:"",amt:0,card:cardF!="all"?cardF:CL.find(c=>c!="Recurring")||"My card",cat:cat||"Other"});
@@ -413,7 +415,7 @@ function recGen(){
    const[y,mo]=m.split("-").map(Number);m=mo==12?(y+1)+"-01":y+"-"+String(mo+1).padStart(2,"0")}});
  save()}
 function addRec(){const d=$("rdesc").value.trim(),a=parseFloat($("ramt").value),inc=$("rkind").value=="inc";if(!d||!a)return;
- const r={id:"r"+Math.random().toString(36).slice(2,8),desc:d,amt:inc?Math.abs(a):a,day:Math.min(28,Math.max(1,parseInt($("rday").value)||1)),card:$("rcard").value||"Recurring",start:ymd().slice(0,7)};
+ const r={id:"r"+uid(),desc:d,amt:inc?Math.abs(a):a,day:Math.min(28,Math.max(1,parseInt($("rday").value)||1)),card:$("rcard").value||"Recurring",start:ymd().slice(0,7)};
  if(inc){r.inc=1;delete r.card}S.recur.push(r);
  $("rdesc").value="";$("ramt").value="";recGen();render()}
 function renameCat(i,nv){nv=nv.trim();const old=S.cats[i];catMsg="";
