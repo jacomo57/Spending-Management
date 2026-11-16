@@ -264,6 +264,21 @@ async function local() {
     eq(/^spending-2026-11\.xlsx$/.test(dl.suggestedFilename()), true, "excel file " + dl.suggestedFilename());
     await p.click("[data-rclose]"); eq(await p.locator("#report").isHidden(), true, "closed");
   });
+  await test("selected-expenses and trend reports follow the filters and the months", async () => {
+    const p = await open("?local=1");
+    await paste(p, "Visa", "date,description,amount\n2026-11-03,Zara,300\n2026-11-05,Aroma Cafe,20\n2026-10-04,Zara,100");
+    await p.fill("#q", "zara"); await p.selectOption("#month", "2026-11");
+    await p.click("#repb"); await p.selectOption("[data-rt]", "sel");
+    eq(await p.locator("#report .rbig b").first().innerText(), "₪ 300", "selected total");
+    eq(await p.locator("#report h3", { hasText: "All entries (1)" }).count(), 1, "one entry");
+    eq(/Search: zara/.test(await p.locator("#report .sub").first().innerText()), true, "filters described");
+    await p.selectOption("[data-rt]", "trend");
+    eq(await p.locator("#report h2").innerText(), "Trend: last 2 months", "two months");
+    eq(await p.locator("#report table").first().locator("tbody tr").count(), 2, "month rows");
+    eq(/↑ ₪ 220/.test(await p.locator("#report table").first().innerText()), true, "change 100 to 320");
+    const [dl] = await Promise.all([p.waitForEvent("download"), p.click("[data-rx]")]);
+    eq(dl.suggestedFilename(), "spending-trend.xlsx", "trend excel");
+  });
   await test("refunds import as negative amounts and reduce the total", async () => {
     const p = await open("?local=1");
     eq(await paste(p, "Visa", "date,description,amount\n2026-11-03,Zara,300\n2026-11-04,Castro,80\n2026-11-05,Zara,-120\n2026-11-06,Wolt,(30)"), "Added 4 purchases.", "import");

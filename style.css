@@ -140,6 +140,7 @@ body.rep #app>*:not(#report){display:none!important}
 #report tbody tr{break-inside:avoid}#report small{color:var(--mute)}
 @media print{
  @page{size:A4;margin:14mm}
+ :root,:root:not([data-theme="light"]),:root[data-theme="dark"]{--bg:#fff;--ink:#000;--mute:#555;--card:#fff;--line:#ccc;color-scheme:light}
  body{background:#fff;color:#000}main>h1,.toast,#app>*:not(#report),.rctl{display:none!important}
  #report{display:block}#report table{font-size:11px}#report thead{display:table-header-group}#report h3{break-after:avoid}
 }

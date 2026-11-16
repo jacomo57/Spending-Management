@@ -14,7 +14,7 @@ const CATS={
 let ORDER=[];
 const COL={};
 let S={tx:[],rules:{},cur:"₪"};
-let rp=false,rpM=null,rpL=true,rpS=false,cmp=false,cmA=null,cmB=null,q="",cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null;
+let rpT="month",rpN=12,FOUND=[],rp=false,rpM=null,rpL=true,rpS=false,cmp=false,cmA=null,cmB=null,q="",cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null;
 // Accounts + cloud sync (Firebase): see docs/backend.md. The cloud code is in cloud.js.
 // FB_REAL = the real project's firebaseConfig (public by design; firestore.rules is the protection).
 // If it is set to null the site falls back to local-only mode (localStorage, no sign-in).
@@ -322,7 +322,7 @@ function render(){
  $("chip").innerHTML=cat?`<button id="clearcat">${esc(cat)} ✕</button>`:"";
  const sk=S.sk||"date",sd=S.sd=="asc"?1:-1,val=t=>sk=="amt"?(t.inc?t.amt:v(t)):String(t[sk]||"").toLowerCase();
  const qw=q.toLowerCase().split(/\s+/).filter(Boolean),hit=t=>{const s=[t.desc,t.note,t.cat,t.card,t.amt].join("\n").toLowerCase();return qw.every(w=>s.includes(w))};
- const found=base.filter(t=>(!cat||t.cat==cat)&&hit(t));
+ const found=base.filter(t=>(!cat||t.cat==cat)&&hit(t));FOUND=found;
  $("found").hidden=!qw.length;if(qw.length)$("found").textContent=`${found.length} found, ${fmt(calc(found).spent)}`;
  const list=found.sort((a,b)=>{const x=val(a),y=val(b),c=typeof x=="number"?x-y:x.localeCompare(y);return (c*sd)||b.date.localeCompare(a.date)});
  const cols=[["date","Date"],["desc","Description"],["cat","Category"],["card","Card"],["amt","Amount"]];
@@ -346,6 +346,7 @@ function repTable(head,body){return "<table class=\"rt\"><thead><tr>"+head.map((
 const repTr=cells=>"<tr>"+cells.map(([x,n,d])=>"<td"+(n?" class=\"n\"":"")+(d?" dir=\"auto\"":"")+">"+x+"</td>").join("")+"</tr>";
 function report(){
  const el=$("report");el.hidden=!rp;document.body.classList.toggle("rep",rp);if(!rp)return;
+ if(rpT!="month")return repOther(el);
  const opts=$("month").innerHTML,m=rpM!=null&&[...$("month").options].some(o=>o.value==rpM)?rpM:$("month").value,rows=repRows(m),K=calc(rows),
   ttl=m=="all"?"All time":m.length==4?"Year "+m:mname(m),live=rows.filter(t=>!t.skip),sp=live.filter(t=>!t.inc);
  let prev="";if(m.length==7){const[y,mo]=m.split("-").map(Number),pm=mo==1?(y-1)+"-12":y+"-"+String(mo-1).padStart(2,"0"),pr=repRows(pm);
@@ -356,7 +357,7 @@ function report(){
  const top=Object.values(mer).filter(x=>x.s>0).sort((x,y)=>y.s-x.s).slice(0,10),big=sp.filter(t=>v(t)>0).sort((x,y)=>v(y)-v(x)).slice(0,5),inc=live.filter(t=>t.inc),
   rec=S.recur.filter(r=>!r.inc),lst=(rpS?rows:live).slice().sort((x,y)=>x.date.localeCompare(y.date));
  const sec=(t,b)=>`<h3>${esc(t)}</h3>${b}`;
- el.innerHTML=`<div class="rctl"><label>Report for <select data-rm aria-label="Report period">${opts}</select></label><label><input type="checkbox" data-rl${rpL?" checked":""}> Full list</label><label><input type="checkbox" data-rs${rpS?" checked":""}> Show ignored in list</label><button class="pri" data-rpr>Print / Save as PDF</button><button data-rx>Export to Excel</button><button data-rclose>Close</button></div>
+ el.innerHTML=`<div class="rctl">${repType()}<label>Report for <select data-rm aria-label="Report period">${opts}</select></label><label><input type="checkbox" data-rl${rpL?" checked":""}> Full list</label><label><input type="checkbox" data-rs${rpS?" checked":""}> Show ignored in list</label><button class="pri" data-rpr>Print / Save as PDF</button><button data-rx>Export to Excel</button><button data-rclose>Close</button></div>
  <h2>Spending report: <span dir="auto">${esc(ttl)}</span></h2><div class="sub">${cardF=="all"?"All cards":"Card: "+esc(cardF)}</div>
  <div class="rbig"><div><b>${fmt(K.spent)}</b><span>spent${K.back?" · after "+fmt(K.back)+" paid back":""}</span></div>${K.inc?`<div><b>${fmt(K.inc)}</b><span>in</span></div><div><b>${fmt(K.inc-K.spent)}</b><span>left over</span></div>`:""}</div>
  ${bl||prev?`<div class="sub">${[bl,prev].filter(Boolean).join(" · ")}</div>`:""}
@@ -368,9 +369,29 @@ function report(){
  ${rec.length?sec("Recurring bills",repTable([["Bill"],["Day",1],["Amount",1]],rec.map(r=>repTr([[esc(r.desc),0,1],[r.day,1],[fmt(r.amt),1]])).join(""))):""}
  ${rpL?sec("All entries ("+lst.length+")",repTable([["Date"],["Description"],["Category"],["Card"],["Amount",1]],lst.map(t=>repTr([[t.date],[esc(t.desc)+(t.note?" <small>"+esc(t.note)+"</small>":"")+(t.skip?" <small>(ignored)</small>":""),0,1],[esc(t.inc&&!t.cat?"Income":t.cat),0,1],[esc(t.card||""),0,1],[t.inc?fmt(t.amt):fmt(t.skip?t.amt:v(t)),1]])).join(""))):""}`;
  el.querySelector("[data-rm]").value=m}
+const repType=()=>`<label>Report <select data-rt aria-label="Report type"><option value="month"${rpT=="month"?" selected":""}>Monthly</option><option value="sel"${rpT=="sel"?" selected":""}>Selected expenses</option><option value="trend"${rpT=="trend"?" selected":""}>Trend</option></select></label>`,
+ repBtns=`<button class="pri" data-rpr>Print / Save as PDF</button><button data-rx>Export to Excel</button><button data-rclose>Close</button>`;
+function trendMonths(){return[...new Set(repRows("all").map(t=>t.date.slice(0,7)))].sort().reverse().slice(0,rpN).reverse()}
+function trendRows(){const ms=trendMonths();return repRows("all").filter(t=>ms.includes(t.date.slice(0,7)))}
+// Selected expenses (what the filters and search show) and Trend (last 6 or 12 months).
+function repOther(el){
+ const sec=(t,b)=>`<h3>${esc(t)}</h3>${b}`;let body="";
+ if(rpT=="sel"){const K=calc(FOUND),lst=(rpS?FOUND:FOUND.filter(t=>!t.skip)).slice().sort((x,y)=>x.date.localeCompare(y.date)),m=$("month").value,cats=Object.keys(K.by).sort((x,y)=>K.by[y]-K.by[x]||x.localeCompare(y)),
+   fl=[m=="all"?"All time":m.length==4?"Year "+m:mname(m),cardF=="all"?"All cards":"Card: "+cardF,cat?"Category: "+cat:"",q.trim()?"Search: "+q.trim():""].filter(Boolean).join(" · ");
+  body=`<h2>Selected expenses</h2><div class="sub" dir="auto">${esc(fl)}</div><div class="sub">Set the month, card, category and search on the main screen first.</div>
+  <div class="rbig"><div><b>${fmt(K.spent)}</b><span>spent in ${FOUND.filter(t=>!t.skip).length} entries${K.back?" · after "+fmt(K.back)+" paid back":""}</span></div></div>
+  ${cats.length?sec("By category",repTable([["Category"],["Amount",1]],cats.map(c=>repTr([[esc(c),0,1],[fmt(K.by[c]),1]])).join(""))):""}
+  ${rpL?sec("All entries ("+lst.length+")",repTable([["Date"],["Description"],["Category"],["Card"],["Amount",1]],lst.map(t=>repTr([[t.date],[esc(t.desc)+(t.note?" <small>"+esc(t.note)+"</small>":"")+(t.skip?" <small>(ignored)</small>":""),0,1],[esc(t.inc&&!t.cat?"Income":t.cat),0,1],[esc(t.card||""),0,1],[t.inc?fmt(t.amt):fmt(t.skip?t.amt:v(t)),1]])).join(""))):""}`}
+ else{const ms=trendMonths(),all=repRows("all"),ks=ms.map(x=>calc(all.filter(t=>t.date.startsWith(x)))),names=[...new Set(ks.flatMap(k=>Object.keys(k.by)))],n=ms.length,
+   ch=(x,y)=>{const d=x-y;return d?(d>0?"↑ ":"↓ ")+fmt(Math.abs(d)):"–"},L=ks[n-1],P=ks[n-2];
+  body=`<h2>Trend: last ${n} month${n==1?"":"s"}</h2><div class="sub">${cardF=="all"?"All cards":"Card: "+esc(cardF)}</div>
+  ${n?sec("Spent per month",repTable([["Month"],["Spent",1],["Change",1]],ms.map((x,i)=>repTr([[esc(mname(x)),0,1],[fmt(ks[i].spent),1],[i?ch(ks[i].spent,ks[i-1].spent):"",1]])).join(""))):`<div class="sub">No data yet.</div>`}
+  ${n?sec("By category",repTable([["Category"],["Total",1],["Per month",1]].concat(n>1?[["Latest change",1]]:[]),names.map(c=>({c,t:ks.reduce((s,k)=>s+(k.by[c]||0),0),d:n>1?(L.by[c]||0)-(P.by[c]||0):0})).sort((x,y)=>Math.abs(y.d)-Math.abs(x.d)||y.t-x.t).map(o=>repTr([[esc(o.c),0,1],[fmt(o.t),1],[fmt(o.t/n),1]].concat(n>1?[[ch(L.by[o.c]||0,P.by[o.c]||0),1]]:[]))).join(""))):""}
+  ${n>1?`<div class="sub">Latest change is ${esc(mname(ms[n-1]))} against ${esc(mname(ms[n-2]))}, biggest first.</div>`:""}`}
+ el.innerHTML=`<div class="rctl">${repType()}${rpT=="trend"?`<label>Months <select data-rn aria-label="Months in trend"><option value="6"${rpN==6?" selected":""}>6</option><option value="12"${rpN==12?" selected":""}>12</option></select></label>`:`<label><input type="checkbox" data-rl${rpL?" checked":""}> Full list</label><label><input type="checkbox" data-rs${rpS?" checked":""}> Show ignored in list</label>`}${repBtns}</div>${body}`}
 async function exportXlsx(){const m=rpM!=null?rpM:$("month").value;await loadXlsx();
- const d=repRows(m).sort((x,y)=>x.date.localeCompare(y.date)).map(t=>({Date:t.date,Description:t.desc,Category:t.cat||"",Card:t.card||"",Amount:t.amt,"Counted amount":t.skip?0:v(t),Type:t.inc?(t.cat?"payback":"income"):t.amt<0?"refund":"purchase",Ignored:t.skip?"yes":"",Note:t.note||""})),
-  wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(d),"Spending");XLSX.writeFile(wb,"spending-"+(m=="all"?"all":m)+".xlsx")}
+ const d=(rpT=="sel"?FOUND.slice():rpT=="trend"?trendRows():repRows(m)).sort((x,y)=>x.date.localeCompare(y.date)).map(t=>({Date:t.date,Description:t.desc,Category:t.cat||"",Card:t.card||"",Amount:t.amt,"Counted amount":t.skip?0:v(t),Type:t.inc?(t.cat?"payback":"income"):t.amt<0?"refund":"purchase",Ignored:t.skip?"yes":"",Note:t.note||""})),
+  wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(d),"Spending");XLSX.writeFile(wb,"spending-"+(rpT=="sel"?"selected":rpT=="trend"?"trend":m=="all"?"all":m)+".xlsx")}
 $("q").addEventListener("input",e=>{q=e.target.value;render()});
 $("go").onclick=()=>{const m=$("msg"),sl=/נטו|וטנ/.test($("paste").value)&&slip(textItems($("paste").value));if(sl){m.textContent="";return slipShow(sl)}
  const p=parse($("paste").value);
@@ -484,6 +505,8 @@ document.addEventListener("change",e=>{const t=e.target;
  else if(t.dataset.bi){const c=S.cats[+t.dataset.bi],n=Math.max(0,parseFloat(t.value)||0);if(c==null)return;if(n)bud().cats[c]=n;else delete bud().cats[c];save();later(render)}
  else if(t.id=="btotal"){bud().total=Math.max(0,parseFloat(t.value)||0);save();later(render)}
  else if(t.id=="rkind")$("rcard").hidden=t.value=="inc";
+ else if(t.dataset.rt!==undefined){rpT=t.value;render()}
+ else if(t.dataset.rn!==undefined){rpN=+t.value;render()}
  else if(t.dataset.rm!==undefined){rpM=t.value;render()}
  else if(t.dataset.rl!==undefined){rpL=t.checked;render()}
  else if(t.dataset.rs!==undefined){rpS=t.checked;render()}
