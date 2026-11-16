@@ -38,5 +38,5 @@ Personal spending tracker for one user in Israel (Hebrew + English). Each card h
 ## Next steps
 - The plan lives in `ROADMAP.md`. Everything in Steps 0 to 4 is done, plus split purchases, tags, category icons, the keyword merge and the security audit follow-ups. Google sign-in and Caspion were dropped by the user.
 - Also done (2026-11-16): publish only the app files (Pages from GitHub Actions), month start day, pace and forecast, fixed charges, Quick add, bar view choice, the phone inbox and statement matching (`docs/backend.md`, Phone inbox).
-- In progress: phone entry with MacroDroid. Next: a macro file and click-by-click guide for the quick-entry popup, then the Google Wallet notification macro (needs the exact text of one real notification from the user).
+- In progress: phone entry with MacroDroid. The quick-entry popup guide is `docs/phone.md` (written from memory, not tried on a phone yet). Next: the Google Wallet notification macro (needs the exact text of one real notification from the user).
 - Optional ideas left in Step 5: Partner owes, Hebrew interface, `dev` branch, GitHub Issues.
