@@ -22,8 +22,10 @@ Tested automatically on the emulator (npm test): sign up/in, wrong invite, two-d
 Names: a merchant, card or category may be called anything, including "constructor" or "__proto__" (the lookup maps have no prototype, fixMaps() in app.js; tested).
 Dates are the device's local date everywhere (ymd() in app.js), tested with the clock set to 00:30 Israel time.
 The user signed in on the live site under the policy on 2026-11-16 and it loaded and saved.
-UNTESTED: the Content Security Policy in Safari/Firefox, printing under the policy, phone layout on a real phone (only checked in the browser pane at 375 and 768px), installing on a real phone, the 4s slow-network fallback, password reset email, category drag, recurring bills, undo, a real bank export (only a made-up one), a real payslip PDF (only one made by the test; a real payslip screenshot was read correctly by hand on 2026-11-16), a phone photo of a paper payslip (tilted or shadowed pictures will likely fail), a password-locked PDF, the budget pace note on other days of the month, .xls (old Excel) files, pasted email text with refunds (refunds are only read from tables).
+UNTESTED: a split on a refund, split parts after deleting or renaming their category, a split syncing between two devices (it is part of the row, so it travels with it), removing a part and Undo, the Content Security Policy in Safari/Firefox, printing under the policy, phone layout on a real phone (only checked in the browser pane at 375 and 768px), installing on a real phone, the 4s slow-network fallback, password reset email, category drag, recurring bills, undo, a real bank export (only a made-up one), a real payslip PDF (only one made by the test; a real payslip screenshot was read correctly by hand on 2026-11-16), a phone photo of a paper payslip (tilted or shadowed pictures will likely fail), a password-locked PDF, the budget pace note on other days of the month, .xls (old Excel) files, pasted email text with refunds (refunds are only read from tables).
 Phone layout (under 640px): each expense is a card (description and amount on top, date, category and card below, Ignore and delete at the bottom), sort buttons wrap above, tools row scrolls sideways, 44px touch targets, 16px inputs, safe-area padding; text fields use dir=auto for Hebrew. 640-900px keeps the desktop table, which scrolls inside its box.
+Split (2026-11-16): choosing "Split…" at the bottom of a purchase's category box adds a part (category + amount) under it; saved as t.split = [{cat,amt}] on the row, amounts before the card rule. The rest of the amount stays in the row's own category ("₪X stays in ..."). A part can take at most what is left of the amount; editing the amount below the parts, or flipping its sign, drops the split. Only the per-category numbers change (bars, budgets, Compare, reports): Spent and the per-card figures are the same as without a split. The category filter shows a split purchase under each of its categories; reports and the Excel export show "A + B". Income and paybacks cannot be split. Renaming or deleting a category follows into the parts. Tested (local mode): split, the limit, half-counted card, reload, amount lowered.
+Tags (2026-11-16): a #word in a purchase's note is a tag (nothing extra is saved; letters, digits, _ and -, any language, case ignored). A row of tag buttons above the list shows each tag in the month with its spent total (by v(), ignored rows left out); pressing one filters the list (it puts #tag in Search, which matches the whole tag). The monthly report has a "By tag" section. Tested.
 Undo: 8s button + Ctrl/Cmd+Z, session only.
 IDEAS: see ROADMAP.md.
 -->
@@ -43,7 +45,7 @@ IDEAS: see ROADMAP.md.
 <meta name="apple-mobile-web-app-title" content="Spend">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=a4aa413135">
+<link rel="stylesheet" href="style.css?v=bd899856d9">
 </head>
 <body>
 <main>
@@ -133,14 +135,15 @@ IDEAS: see ROADMAP.md.
     <span id="chip"></span>
   </div>
   <div class="sub" id="found" hidden></div>
+  <div class="tags" id="tags" hidden></div>
   <div class="tw"><table><thead><tr id="head"></tr></thead><tbody id="rows"></tbody></table></div>
-  <p class="sub">Changing a category teaches the app that merchant. A refund is a minus amount. Income with a category is a payback and lowers that category.</p>
+  <p class="sub">Changing a category teaches the app that merchant. A refund is a minus amount. Income with a category is a payback and lowers that category. Choose Split… in a category box to put part of a purchase in another category. A #word in a note is a tag.</p>
 </section>
 </div>
 </main>
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=a4aa413135"></script>
-<script src="cloud.js?v=a4aa413135"></script>
+<script src="app.js?v=bd899856d9"></script>
+<script src="cloud.js?v=bd899856d9"></script>
 </body>
 </html>

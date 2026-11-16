@@ -515,6 +515,37 @@ async function local() {
     await total(p, "₪ 20");
     eq(await p.evaluate(() => [Object.getPrototypeOf(S) === Object.prototype, S.polluted, S.cards.__proto__].join()), "true,,25", "after restore");
   });
+  await test("split a purchase across categories; #tags in notes filter and total", async () => {
+    const p = await open("?local=1");
+    await paste(p, "Visa", "date,description,amount\n2026-11-03,Shufersal,400\n2026-11-04,Zara,100");
+    await total(p, "₪ 500");
+    const row = 'tr:has([data-f="desc"][value="Shufersal"])', bar = c => `.cat:has(.cn[value="${c}"]) .amt`;
+    await p.locator(row + " select[data-id]").selectOption({ label: "Split…" });
+    await p.locator(row + ' [data-sp][data-f="cat"]').selectOption("Health");
+    await setField(p.locator(row + ' [data-sp][data-f="amt"]'), "150");
+    await total(p, "₪ 500");
+    await text(p, bar("Groceries"), "₪ 250"); await text(p, bar("Health"), "₪ 150");
+    await text(p, row + " small.sr", "₪ 250 stays in Groceries");
+    await setField(p.locator(row + ' [data-sp][data-f="amt"]'), "900");
+    await text(p, bar("Health"), "₪ 400");
+    await setField(p.locator(row + ' [data-sp][data-f="amt"]'), "150");
+    await text(p, bar("Health"), "₪ 150");
+    await p.click('.cat:has(.cn[value="Health"]) .bw'); eq(await rows(p), 1, "rows under Health"); await p.click("#clearcat");
+    await p.reload(); await text(p, bar("Health"), "₪ 150"); await text(p, bar("Groceries"), "₪ 250"); await total(p, "₪ 500");
+    // Half of the card counts: every part is halved, the total is the same as without a split.
+    await p.click('[data-p="crd"]'); await p.selectOption('#cardrules select[data-f="rule"]', "50");
+    await total(p, "₪ 250"); await text(p, bar("Health"), "₪ 75"); await text(p, bar("Groceries"), "₪ 125");
+    await p.selectOption('#cardrules select[data-f="rule"]', "100"); await total(p, "₪ 500");
+    // An amount edited to less than the split drops the split.
+    await setField(p.locator(row + ' [data-tid][data-f="amt"]'), "100");
+    await text(p, bar("Groceries"), "₪ 100"); eq(await p.locator(row + " .sp").count(), 0, "split parts after lowering the amount");
+    await setField(p.locator(row + ' [data-f="note"]'), "#Trip food");
+    await setField(p.locator('tr:has([data-f="desc"][value="Zara"]) [data-f="note"]'), "gift #trip #work");
+    await text(p, '#tags [data-tag="trip"]', "₪ 200"); await text(p, '#tags [data-tag="work"]', "₪ 100");
+    await p.click('#tags [data-tag="work"]'); eq(await rows(p), 1, "rows tagged work"); await text(p, "#found", "1 found, ₪ 100");
+    await p.click('#tags [data-tag="work"]'); eq(await rows(p), 2, "rows with the tag filter off");
+    await p.click("#repb"); await text(p, "#report", "By tag"); await text(p, "#report", "#trip");
+  });
   await test("just after midnight in Israel a new purchase and a recurring bill get that day's date", async () => {
     // 00:30 on 11 July in Israel is still 10 July in UTC.
     const c = await browser.newContext({ locale: "en-US", timezoneId: "Asia/Jerusalem" }); ctxs.push(c);

@@ -45,9 +45,22 @@ const pct=c=>S.cards[c]==null?100:S.cards[c];
 // v(t) is what one row adds to "Spent". calc() is the one definition of the numbers; the summary, budgets, comparisons and reports
 // must all use it. calc(rows) -> {spent, inc, back, by:{category:spent}, per:{card:spent}}; ignored rows are left out.
 const v=t=>t.inc?(t.cat?-t.amt:0):t.amt*pct(t.card)/100;
+// Split (asked 2026-11-16): t.split = [{cat,amt}] moves part of a purchase's amount into other categories; the rest stays in t.cat.
+// The amounts are before the card rule and have the purchase's sign. A split changes only the per-category numbers: v(t), Spent
+// and the per-card totals stay the same. parts(t) -> [[category, amount]]; without a split that is just [[t.cat, t.amt]].
+const sp=t=>!t.inc&&Array.isArray(t.split)?t.split:[];
+const parts=t=>{const s=sp(t).filter(p=>p.amt);return[[t.cat,t.amt-s.reduce((a,p)=>a+p.amt,0)],...s.map(p=>[p.cat,p.amt])]};
+const has=(t,c)=>parts(t).some(p=>p[0]==c),catLabel=t=>[...new Set(parts(t).map(p=>p[0]))].join(" + ");
+// A split must fit inside the amount; when the amount is edited so that it no longer does, the split is dropped.
+function fitSplit(x){if(x.split==null)return;const s=x.amt<0?-1:1;
+ if(x.inc||!Array.isArray(x.split)||!x.split.length||x.split.some(p=>p.amt*s<0)||x.split.reduce((a,p)=>a+Math.abs(p.amt),0)>Math.abs(x.amt)+1e-9)delete x.split}
+// Tags: #words typed in a purchase's note; nothing extra is saved. tags(t) -> lower-case names without the #.
+// tagSums(rows) -> [[tag, spent]] by v(t), largest first, ignored rows left out.
+const tags=t=>t.note?[...new Set((String(t.note).toLowerCase().match(/#[\p{L}\p{N}_-]+/gu)||[]).map(x=>x.slice(1)))]:[];
+function tagSums(rows){const o=bare();rows.forEach(t=>{if(!t.skip)tags(t).forEach(g=>{o[g]=(o[g]||0)+v(t)})});return Object.keys(o).map(g=>[g,o[g]]).sort((x,y)=>y[1]-x[1]||x[0].localeCompare(y[0]))}
 function calc(list){const o={spent:0,inc:0,back:0,by:bare(),per:bare()};
  list.forEach(t=>{if(t.skip)return;const x=v(t);o.spent+=x;
-  if(!t.inc){o.by[t.cat]=(o.by[t.cat]||0)+x;o.per[t.card]=(o.per[t.card]||0)+x}
+  if(!t.inc){parts(t).forEach(([c,a])=>{o.by[c]=(o.by[c]||0)+a*pct(t.card)/100});o.per[t.card]=(o.per[t.card]||0)+x}
   else if(t.cat){o.back+=t.amt;o.by[t.cat]=(o.by[t.cat]||0)+x}else o.inc+=t.amt});
  return o}
 // Budgets: S.budget = {total, cats:{name:amount}}, per month, saved with the settings. 0 or missing = no budget.
@@ -239,7 +252,8 @@ function readFile(f){const m=$("msg"),r=new FileReader(),my=++readN;slipShow(nul
 function clean(o){const id=x=>String(x||"").replace(/[^\w:.-]/g,"")||uid();
  if(!o||!Array.isArray(o.tx)||o.tx.some(t=>!t||!/^\d{4}-\d{2}-\d{2}$/.test(t.date)||typeof t.amt!="number"))return null;
  o.tx.forEach(t=>{t.id=id(t.id);t.desc=String(t.desc||"");if(t.src!=null)t.src=String(t.src);if(t.note!=null)t.note=String(t.note).slice(0,500);
-  if(t.inc){t.inc=1;t.amt=Math.abs(t.amt);t.card=String(t.card||"");t.cat=String(t.cat||"")}else{delete t.inc;t.card=String(t.card||"My card");t.cat=String(t.cat||"Other")}});
+  if(t.inc){t.inc=1;t.amt=Math.abs(t.amt);t.card=String(t.card||"");t.cat=String(t.cat||"")}else{delete t.inc;t.card=String(t.card||"My card");t.cat=String(t.cat||"Other")}
+  if(Array.isArray(t.split))t.split=t.split.filter(p=>p&&typeof p.amt=="number"&&isFinite(p.amt)).map(p=>({cat:String(p.cat||"Other"),amt:p.amt}));fitSplit(t)});
  if(!Array.isArray(o.recur))o.recur=[];o.recur.forEach(r=>{r.id=id(r.id);r.amt=+r.amt||0;r.day=Math.min(28,Math.max(1,parseInt(r.day)||1));r.desc=String(r.desc||"");if(r.inc)r.inc=1;else delete r.inc});
  if(o.budget&&typeof o.budget=="object"){const c=bare(),s=o.budget.cats;if(s&&typeof s=="object")for(const k in s)if(+s[k]>0)c[k]=+s[k];o.budget={total:Math.max(0,+o.budget.total||0),cats:c}}else delete o.budget;
  for(const k of["hue","cards"])if(o[k]&&typeof o[k]=="object")for(const c in o[k])o[k][c]=+o[k][c]||0;else delete o[k];
@@ -251,6 +265,7 @@ function mname(m){const[y,mo]=m.split("-");return new Date(y,mo-1,1).toLocaleStr
 function fsel(e){const d=e&&e.dataset;if(!d)return null;
  if(d.skip)return `[data-skip="${d.skip}"]`;
  if(d.tid)return `[data-tid="${d.tid}"][data-f="${d.f}"]`;
+ if(d.sp)return `[data-sp="${d.sp}"][data-i="${d.i}"][data-f="${d.f}"]`;
  if(d.id)return `[data-id="${d.id}"]`;
  if(d.rid)return `[data-rid="${d.rid}"][data-f="${d.f}"]`;
  if(d.ci)return `[data-ci="${d.ci}"][data-f="${d.f}"]`;
@@ -265,7 +280,7 @@ function showToast(){const el=$("toast");clearTimeout(toastT);if(!undo.length){e
  const u=undo[undo.length-1];el.innerHTML=`<span>${esc(u.label)}</span><button id="undo">Undo</button>`;el.hidden=false;toastT=setTimeout(()=>{el.hidden=true},8000)}
 function doUndo(){const u=undo.pop();if(!u)return;u.fn();save();render();showToast()}
 document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key=="z"&&!/INPUT|TEXTAREA|SELECT/.test(e.target.tagName||"")&&undo.length){e.preventDefault();doUndo()}});
-let pendingMonth=null,focusTid=null;
+let pendingMonth=null,focusTid=null,focusSp=null;
 function addPurchase(inc){const id=uid(),d=ymd();
  dropEmpty();q="";$("q").value="";
  if(inc){S.tx.push({id,date:d,desc:"",amt:0,inc:1,card:"",cat:""});cardF="all";cat=null}
@@ -328,16 +343,18 @@ function render(){
  document.querySelectorAll("[data-cs]").forEach(b=>b.classList.toggle("on",b.dataset.cs==(S.catSort=="manual"?"manual":"size")));
  $("chip").innerHTML=cat?`<button id="clearcat">${esc(cat)} ✕</button>`:"";
  const sk=S.sk||"date",sd=S.sd=="asc"?1:-1,val=t=>sk=="amt"?(t.inc?t.amt:v(t)):String(t[sk]||"").toLowerCase();
- const qw=q.toLowerCase().split(/\s+/).filter(Boolean),hit=t=>{const s=[t.desc,t.note,t.cat,t.card,t.amt].join("\n").toLowerCase();return qw.every(w=>s.includes(w))};
- const found=base.filter(t=>(!cat||t.cat==cat)&&hit(t));FOUND=found;
+ const qw=q.toLowerCase().split(/\s+/).filter(Boolean),hit=t=>{const s=[t.desc,t.note,catLabel(t),t.card,t.amt].join("\n").toLowerCase(),tg=tags(t);return qw.every(w=>w[0]=="#"&&w.length>1?tg.includes(w.slice(1)):s.includes(w))};
+ const found=base.filter(t=>(!cat||has(t,cat))&&hit(t));FOUND=found;
+ {const ts=tagSums(base),el=$("tags");el.hidden=!ts.length;el.innerHTML=ts.map(([g,s])=>`<button data-tag="${esc(g)}"${q.trim().toLowerCase()=="#"+g?' class="on"':""}>#${esc(g)} <span class="sub">${fmt(s)}</span></button>`).join("")}
  $("found").hidden=!qw.length;if(qw.length)$("found").textContent=`${found.length} found, ${fmt(calc(found).spent)}`;
  const list=found.sort((a,b)=>{const x=val(a),y=val(b),c=typeof x=="number"?x-y:x.localeCompare(y);return (c*sd)||b.date.localeCompare(a.date)});
  const cols=[["date","Date"],["desc","Description"],["cat","Category"],["card","Card"],["amt","Amount"]];
  $("head").innerHTML=cols.map(([k,l])=>`<th${k=="amt"?' class="amt"':""} aria-sort="${sk==k?(sd==1?"ascending":"descending"):"none"}"><button data-sort="${k}">${l}${sk==k?(sd==1?" ▲":" ▼"):""}</button></th>`).join("")+`<th class="k">Ignore</th><th></th>`;
- $("rows").innerHTML=list.length?list.map(t=>{const os=ORDER.includes(t.cat)||t.inc&&!t.cat?ORDER:[...ORDER,t.cat],note=t.inc?(t.cat?"paid back":"income"):[t.amt<0?"refund":"",pct(t.card)==100?"":pct(t.card)?"counts "+fmt(v(t)):"not counted"].filter(Boolean).join(" · ");
+ $("rows").innerHTML=list.length?list.map(t=>{const os=ORDER.includes(t.cat)||t.inc&&!t.cat?ORDER:[...ORDER,t.cat],sl=sp(t),sg=t.amt<0?-1:1,
+   spl=sl.map((p,i)=>`<div class="sp"><select data-sp="${t.id}" data-i="${i}" data-f="cat" aria-label="Category of this part">${(ORDER.includes(p.cat)?ORDER:[...ORDER,p.cat]).map(c=>`<option value="${esc(c)}"${c==p.cat?" selected":""}>${esc(c)}</option>`).join("")}</select><input type="number" step="0.01" min="0" data-sp="${t.id}" data-i="${i}" data-f="amt" value="${esc(Math.abs(p.amt)||"")}" placeholder="Amount" aria-label="Amount of this part"><button class="x" data-spdel="${t.id}" data-i="${i}" aria-label="Remove this part">✕</button></div>`).join("")+(sl.length?`<small class="c sr">${fmt(sg*parts(t)[0][1])} stays in ${esc(t.cat)}</small>`:""),note=t.inc?(t.cat?"paid back":"income"):[t.amt<0?"refund":"",pct(t.card)==100?"":pct(t.card)?"counts "+fmt(v(t)):"not counted"].filter(Boolean).join(" · ");
   return `<tr class="${t.skip?"skip":""}${t.inc?" inc":""}"><td class="d"><input type="date" data-tid="${t.id}" data-f="date" value="${t.date}"></td>
   <td class="ds"><input dir="auto" data-tid="${t.id}" data-f="desc" placeholder="Description" value="${esc(t.desc)}" style="min-width:190px"><input dir="auto" class="nt" data-tid="${t.id}" data-f="note" placeholder="+ note" value="${esc(t.note||"")}" aria-label="Note"></td>
-  <td class="ct"><select data-id="${t.id}">${t.inc?`<option value="">Income</option>`:""}${os.map(c=>`<option value="${esc(c)}"${c==t.cat?" selected":""}>${t.inc?"Back: ":""}${esc(c)}</option>`).join("")}</select></td>
+  <td class="ct"><select data-id="${t.id}">${t.inc?`<option value="">Income</option>`:""}${os.map(c=>`<option value="${esc(c)}"${c==t.cat?" selected":""}>${t.inc?"Back: ":""}${esc(c)}</option>`).join("")}${t.inc?"":`<option data-split="1" value="${esc(t.cat)}">Split…</option>`}</select>${spl}</td>
   <td class="cd"><input dir="auto" data-tid="${t.id}" data-f="card" list="cardlist" value="${esc(t.card||"")}" style="width:115px"></td>
   <td class="amt"><input type="number" step="0.01" data-tid="${t.id}" data-f="amt" value="${t.amt}">${note?`<small class="c amt">${note}</small>`:""}</td>
   <td class="k"><input type="checkbox" data-skip="${t.id}"${t.skip?" checked":""} aria-label="Ignore this purchase"></td><td class="k dl"><button class="x" data-del="${t.id}" aria-label="Delete">✕</button></td></tr>`}).join("")
@@ -345,12 +362,13 @@ function render(){
  report();
  if(fs){const el=document.querySelector(fs);if(el&&el!==document.activeElement)el.focus()}
  if(focusCat!=null){const el=document.querySelector(`[data-ren="${focusCat}"]`);if(el){el.focus();el.select()}focusCat=null}
+ if(focusSp){const el=document.querySelector(`[data-sp="${focusSp[0]}"][data-i="${focusSp[1]}"][data-f="amt"]`);if(el)el.focus();focusSp=null}
  if(focusTid){const el=document.querySelector(`[data-tid="${focusTid}"][data-f="desc"]`);if(el)el.focus();focusTid=null}
 }
 // Report (view only, not saved). All numbers come from calc() and v(); ignored rows only appear in the list when asked for.
 function repRows(m){return S.tx.filter(t=>(m=="all"||t.date.startsWith(m))&&(cardF=="all"||t.card==cardF))}
 const sec=(t,b)=>`<h3>${esc(t)}</h3>${b}`;
-const repList=lst=>sec("All entries ("+lst.length+")",repTable([["Date"],["Description"],["Category"],["Card"],["Amount",1]],lst.map(t=>repTr([[t.date],[esc(t.desc)+(t.note?" <small>"+esc(t.note)+"</small>":"")+(t.skip?" <small>(ignored)</small>":""),0,1],[esc(t.inc&&!t.cat?"Income":t.cat),0,1],[esc(t.card||""),0,1],[t.inc?fmt(t.amt):fmt(t.skip?t.amt:v(t)),1]])).join("")));
+const repList=lst=>sec("All entries ("+lst.length+")",repTable([["Date"],["Description"],["Category"],["Card"],["Amount",1]],lst.map(t=>repTr([[t.date],[esc(t.desc)+(t.note?" <small>"+esc(t.note)+"</small>":"")+(t.skip?" <small>(ignored)</small>":""),0,1],[esc(t.inc&&!t.cat?"Income":catLabel(t)),0,1],[esc(t.card||""),0,1],[t.inc?fmt(t.amt):fmt(t.skip?t.amt:v(t)),1]])).join("")));
 function repTable(head,body){return "<table class=\"rt\"><thead><tr>"+head.map(([l,n])=>"<th"+(n?" class=\"n\"":"")+">"+esc(l)+"</th>").join("")+"</tr></thead><tbody>"+body+"</tbody></table>"}
 const repTr=cells=>"<tr>"+cells.map(([x,n,d])=>"<td"+(n?" class=\"n\"":"")+(d?" dir=\"auto\"":"")+">"+x+"</td>").join("")+"</tr>";
 function report(){
@@ -371,6 +389,7 @@ function report(){
  ${bl||prev?`<div class="sub">${[bl,prev].filter(Boolean).join(" · ")}</div>`:""}
  ${cats.length?sec("By category",repTable([["Category"],["Amount",1],["Share",1]].concat(B?[["Budget",1]]:[]),cats.map(c=>repTr([[esc(c),0,1],[fmt(K.by[c]),1],[K.spent>0?Math.round(K.by[c]/K.spent*100)+"%":"",1]].concat(B?[[cb[c]?fmt(cb[c]):"",1]]:[]))).join(""))):""}
  ${Object.keys(K.per).length?sec("By card",repTable([["Card"],["Counts"],["Amount",1]],Object.keys(K.per).sort((x,y)=>K.per[y]-K.per[x]).map(c=>repTr([[esc(c),0,1],[esc(rl(pct(c))||"in full")],[fmt(K.per[c]),1]])).join(""))):""}
+ ${(ts=>ts.length?sec("By tag",repTable([["Tag"],["Amount",1]],ts.map(([g,x])=>repTr([["#"+esc(g),0,1],[fmt(x),1]])).join(""))):"")(tagSums(live))}
  ${top.length?sec("Top merchants",repTable([["Merchant"],["Purchases",1],["Amount",1]],top.map(x=>repTr([[esc(x.n),0,1],[x.c,1],[fmt(x.s),1]])).join(""))):""}
  ${big.length?sec("Largest purchases",repTable([["Date"],["Description"],["Amount",1]],big.map(t=>repTr([[t.date],[esc(t.desc),0,1],[fmt(v(t)),1]])).join(""))):""}
  ${inc.length?sec("Income",repTable([["Date"],["Description"],["Amount",1]],inc.map(t=>repTr([[t.date],[esc(t.desc)+(t.cat?" (paid back: "+esc(t.cat)+")":""),0,1],[fmt(t.amt),1]])).join(""))):""}
@@ -398,7 +417,7 @@ function repOther(el){
   ${n>1?`<div class="sub">Latest change is ${esc(mname(ms[n-1]))} against ${esc(mname(ms[n-2]))}, biggest first.</div>`:""}`}
  el.innerHTML=`<div class="rctl">${repType()}${rpT=="trend"?`<label>Months <select data-rn aria-label="Months in trend"><option value="6"${rpN==6?" selected":""}>6</option><option value="12"${rpN==12?" selected":""}>12</option></select></label>`:`<label><input type="checkbox" data-rl${rpL?" checked":""}> Full list</label><label><input type="checkbox" data-rs${rpS?" checked":""}> Show ignored in list</label>`}${repBtns}</div>${body}`}
 async function exportXlsx(){const m=rpM!=null?rpM:$("month").value;await loadXlsx();
- const d=(rpT=="sel"?FOUND.slice():rpT=="trend"?trendRows():repRows(m)).sort((x,y)=>x.date.localeCompare(y.date)).map(t=>({Date:t.date,Description:t.desc,Category:t.cat||"",Card:t.card||"",Amount:t.amt,"Counted amount":t.skip?0:v(t),Type:t.inc?(t.cat?"payback":"income"):t.amt<0?"refund":"purchase",Ignored:t.skip?"yes":"",Note:t.note||""})),
+ const d=(rpT=="sel"?FOUND.slice():rpT=="trend"?trendRows():repRows(m)).sort((x,y)=>x.date.localeCompare(y.date)).map(t=>({Date:t.date,Description:t.desc,Category:catLabel(t)||"",Card:t.card||"",Amount:t.amt,"Counted amount":t.skip?0:v(t),Type:t.inc?(t.cat?"payback":"income"):t.amt<0?"refund":"purchase",Ignored:t.skip?"yes":"",Note:t.note||""})),
   wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(d),"Spending");XLSX.writeFile(wb,"spending-"+(rpT=="sel"?"selected":rpT=="trend"?"trend":m=="all"?"all":m)+".xlsx")}
 $("q").addEventListener("input",e=>{q=e.target.value;render()});
 $("go").onclick=()=>{const m=$("msg"),sl=/נטו|וטנ/.test($("paste").value)&&slip(textItems($("paste").value));if(sl){m.textContent="";return slipShow(sl)}
@@ -427,7 +446,7 @@ function addRec(){const d=$("rdesc").value.trim(),a=parseFloat($("ramt").value),
 function renameCat(i,nv){nv=nv.trim();const old=S.cats[i];catMsg="";
  if(!nv||nv==old)return render();
  if(nv=="Other"||S.cats.includes(nv)){catMsg="That name is already used.";return render()}
- S.cats[i]=nv;if(S.hue)S.hue[nv]=S.hue[old];S.tx.forEach(t=>{if(t.cat==old)t.cat=nv});
+ S.cats[i]=nv;if(S.hue)S.hue[nv]=S.hue[old];S.tx.forEach(t=>{if(t.cat==old)t.cat=nv;sp(t).forEach(p=>{if(p.cat==old)p.cat=nv})});
  {const b=bud().cats;if(b[old]!=null){b[nv]=b[old];delete b[old]}}
  for(const k in S.rules)if(S.rules[k]==old)S.rules[k]=nv;
  for(const b of BASE)if((S.alias[b]||b)==old)S.alias[b]=nv;
@@ -436,11 +455,11 @@ function renameCat(i,nv){nv=nv.trim();const old=S.cats[i];catMsg="";
 function learn(k,c){S.rules[k]=c;S.tx.forEach(y=>{if(!y.inc&&key(y.desc)==k)y.cat=c})}
 function addCat(){let n="New category",i=2;while(S.cats.includes(n))n="New category "+i++;
  S.cats.push(n);focusCat=S.cats.length-1;catMsg="";save();render()}
-function delCat(i){const old=S.cats[i],oAlias=bare(S.alias),oRules=bare(),oTx=S.tx.filter(t=>t.cat==old).map(t=>t.id);for(const k in S.rules)if(S.rules[k]==old)oRules[k]=old;S.cats.splice(i,1);const oBud=bud().cats[old];delete S.budget.cats[old];
+function delCat(i){const old=S.cats[i],oAlias=bare(S.alias),oRules=bare(),oTx=S.tx.filter(t=>t.cat==old).map(t=>t.id),oSp=[];S.tx.forEach(t=>sp(t).forEach((p,i)=>{if(p.cat==old){oSp.push([t.id,i]);p.cat="Other"}}));for(const k in S.rules)if(S.rules[k]==old)oRules[k]=old;S.cats.splice(i,1);const oBud=bud().cats[old];delete S.budget.cats[old];
  S.tx.forEach(t=>{if(t.cat==old)t.cat="Other"});
  for(const k in S.rules)if(S.rules[k]==old)delete S.rules[k];
  for(const b of BASE)if((S.alias[b]||b)==old)S.alias[b]="Other";
- if(cat==old)cat=null;catMsg="";pushUndo("Deleted category “"+old+"”",()=>{S.cats.splice(Math.min(i,S.cats.length),0,old);S.alias=oAlias;Object.assign(S.rules,oRules);if(oBud)bud().cats[old]=oBud;S.tx.forEach(t=>{if(oTx.includes(t.id))t.cat=old})});save();render()}
+ if(cat==old)cat=null;catMsg="";pushUndo("Deleted category “"+old+"”",()=>{S.cats.splice(Math.min(i,S.cats.length),0,old);S.alias=oAlias;Object.assign(S.rules,oRules);if(oBud)bud().cats[old]=oBud;S.tx.forEach(t=>{if(oTx.includes(t.id))t.cat=old});oSp.forEach(([id,i])=>{const t=S.tx.find(y=>y.id==id),p=t&&sp(t)[i];if(p&&p.cat=="Other")p.cat=old})});save();render()}
 let wp=false;$("wipe").onclick=()=>{if(!wp){wp=true;$("wipe").textContent="Press again to delete everything";$("wmsg").textContent="This removes all purchases, recurring items and learned corrections.";setTimeout(()=>{wp=false;$("wipe").textContent="Delete all data";$("wmsg").textContent=""},6000);return}
  const snap={tx:S.tx,rules:S.rules,recur:S.recur,recDone:S.recDone};S.tx=[];S.rules=bare();S.recur=[];S.recDone=bare();pushUndo("Deleted all data",()=>{S.tx=snap.tx.concat(S.tx);S.rules=Object.assign(bare(snap.rules),S.rules);S.recur=snap.recur.concat(S.recur);S.recDone=Object.assign(bare(snap.recDone),S.recDone)});save();wp=false;cat=null;$("wipe").textContent="Delete all data";$("wmsg").textContent="All clear.";render()};
 // Download my data / Restore from file (Account panel). The file holds everything in S. Restoring replaces what is saved, after a second press.
@@ -493,6 +512,9 @@ document.addEventListener("click",e=>{const t=e.target;
  if(t.dataset.delrec){const i=S.recur.findIndex(x=>x.id==t.dataset.delrec);if(i>=0){const it=S.recur[i];S.recur.splice(i,1);pushUndo("Deleted recurring “"+it.desc.slice(0,28)+"”",()=>{S.recur.splice(Math.min(i,S.recur.length),0,it)})}save();render()}
  if(t.dataset.del){const i=S.tx.findIndex(x=>x.id==t.dataset.del);if(i>=0){const it=S.tx[i];S.tx.splice(i,1);pushUndo("Deleted “"+(it.desc||"purchase").slice(0,28)+"”",()=>{S.tx.splice(Math.min(i,S.tx.length),0,it)})}save();render()}
  if(t.dataset.delmk){const k=t.dataset.delmk,old=S.rules[k];if(old!=null){delete S.rules[k];pushUndo("Forgot merchant “"+k+"”",()=>{S.rules[k]=old});save();render()}}
+ if(t.dataset.spdel){const x=S.tx.find(y=>y.id==t.dataset.spdel),i=+t.dataset.i,p=x&&sp(x)[i];
+  if(p){x.split.splice(i,1);if(!x.split.length)delete x.split;pushUndo("Removed a split part",()=>{const y=S.tx.find(z=>z.id==x.id);if(y&&!y.inc)(y.split=sp(y)).splice(Math.min(i,y.split.length),0,p)});save();render()}}
+ {const tg=t.closest&&t.closest("[data-tag]");if(tg){q=q.trim().toLowerCase()=="#"+tg.dataset.tag?"":"#"+tg.dataset.tag;$("q").value=q;render();return}}
  if(t.id=="undo")doUndo();
  const sb=t.closest&&t.closest("[data-sort]");if(sb){const c=sb.dataset.sort;if((S.sk||"date")==c)S.sd=(S.sd||"desc")=="asc"?"desc":"asc";else{S.sk=c;S.sd=(c=="amt"||c=="date")?"desc":"asc"}save();render()}});
 document.addEventListener("change",e=>{const t=e.target;
@@ -503,11 +525,18 @@ document.addEventListener("change",e=>{const t=e.target;
    if(f=="date"&&!/^\d{4}-\d{2}-\d{2}$/.test(val))return later(render);
    if(f=="desc"&&!val.trim())return later(render);
    if(f!="card"&&f!="note"&&!x.src&&x.amt&&x.desc)x.src=rid(x);
-   x[f]=(f=="desc"||f=="card"||f=="note")?val.trim().slice(0,f=="note"?500:1e4):val;if(f=="note"&&!x.note)delete x.note;if(f=="desc"&&x.cat=="Other"&&!x.inc)x.cat=guess(x.desc);save();later(render)}}
+   x[f]=(f=="desc"||f=="card"||f=="note")?val.trim().slice(0,f=="note"?500:1e4):val;if(f=="amt")fitSplit(x);if(f=="note"&&!x.note)delete x.note;if(f=="desc"&&x.cat=="Other"&&!x.inc)x.cat=guess(x.desc);save();later(render)}}
  else if(t.dataset.rid){const r=S.recur.find(x=>x.id==t.dataset.rid),f=t.dataset.f;
   if(r){r[f]=f=="amt"?(parseFloat(t.value)||0):f=="day"?Math.min(28,Math.max(1,parseInt(t.value)||1)):t.value;recGen();save();later(render)}}
  else if(t.dataset.ren!==undefined){const i=+t.dataset.ren,nv=t.value;later(()=>renameCat(i,nv))}
- else if(t.dataset.id){const x=S.tx.find(y=>y.id==t.dataset.id);if(x){x.cat=t.value;const k=key(x.desc);if(k&&!x.inc)learn(k,t.value);save();later(render)}}
+ else if(t.dataset.sp){const x=S.tx.find(y=>y.id==t.dataset.sp),p=x&&sp(x)[+t.dataset.i];if(!p)return later(render);
+  if(t.dataset.f=="cat")p.cat=t.value;
+  // A part can take at most what the other parts leave of the amount.
+  else{const oth=x.split.reduce((a,o)=>a+(o==p?0:Math.abs(o.amt)),0),n=Math.max(0,Math.min(Math.abs(parseFloat(t.value)||0),Math.abs(x.amt)-oth));p.amt=Math.round(n*100)/100*(x.amt<0?-1:1)}
+  save();later(render)}
+ else if(t.dataset.id){const x=S.tx.find(y=>y.id==t.dataset.id);if(x){
+   if(t.selectedOptions[0]&&t.selectedOptions[0].dataset.split){x.split=sp(x);x.split.push({cat:ORDER.find(c=>c!=x.cat)||"Other",amt:0});focusSp=[x.id,x.split.length-1];save();return later(render)}
+   x.cat=t.value;const k=key(x.desc);if(k&&!x.inc)learn(k,t.value);save();later(render)}}
  else if(t.dataset.mk){const k=t.dataset.mk;if(S.rules[k]==null)return;learn(k,t.value);save();later(render)}
  else if(t.dataset.bi){const c=S.cats[+t.dataset.bi],n=Math.max(0,parseFloat(t.value)||0);if(c==null)return;if(n)bud().cats[c]=n;else delete bud().cats[c];save();later(render)}
  else if(t.id=="btotal"){bud().total=Math.max(0,parseFloat(t.value)||0);save();later(render)}
