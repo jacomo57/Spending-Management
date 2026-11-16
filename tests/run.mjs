@@ -567,6 +567,17 @@ async function local() {
     await p.click("#undo"); await total(p, "₪ 0");
     await p.click("#qab"); await p.click("#qx"); eq(await p.locator("#qa").isHidden(), true, "cancel");
   });
+  await test("bars: by amount or by budget; the 'of' note stays; kept after reload", async () => {
+    const p = await open("?local=1");
+    await p.evaluate(() => { S.tx = [{ id: "a", date: ymd(), desc: "x", amt: 500, card: "My card", cat: "Groceries" }, { id: "b", date: ymd(), desc: "y", amt: 90, card: "My card", cat: "Health" }]; S.budget = { total: 0, cats: { Groceries: 1000 } }; save(); render(); document.getElementById("month").value = pk(ymd()); render(); });
+    const w = c => p.evaluate(c => document.querySelector('.bw[data-c="' + c + '"] i').style.width, c);
+    eq(await w("Health") != "0%", true, "no-budget bar in amount mode");
+    await text(p, '.bw[data-c="Groceries"] .c', "of ₪ 1,000");
+    await p.click("#bmb");
+    eq(await w("Health"), "0%", "no-budget bar in budget mode"); eq(await w("Groceries"), "50%", "budget bar");
+    await text(p, '.bw[data-c="Groceries"] .c', "of ₪ 1,000");
+    await p.reload(); eq(await p.evaluate(() => S.barMode), "budget", "kept after reload");
+  });
   await test("split a purchase across categories; #tags in notes filter and total", async () => {
     const p = await open("?local=1");
     await paste(p, "Visa", "date,description,amount\n2026-11-03,Shufersal,400\n2026-11-04,Zara,100");
