@@ -80,7 +80,7 @@ async function total(p, want) {
 }
 const saved = p => p.waitForFunction(() => document.getElementById("sync").textContent == "Saved", null, { timeout: 15000 });
 const rows = p => p.locator("#rows tr:has([data-del])").count();
-const today = new Date().toISOString().slice(0, 10);
+const today = (d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"))(new Date());
 const text = async (p, sel, want) => {
   try { await p.waitForFunction(([s, w]) => { const e = document.querySelector(s); return e && e.textContent.includes(w) }, [sel, want], { timeout: 15000 }) }
   catch (e) { throw new Error(`${sel}: expected to contain ${want}, got ${await p.locator(sel).first().textContent({ timeout: 1000 }).catch(() => "nothing")}`) }
@@ -471,6 +471,20 @@ async function local() {
     await p.locator('tr:has([data-f="desc"][value=""]) [data-f="date"]').fill("2026-01-01");
     await p.locator('tr:has([data-f="desc"][value=""]) [data-f="date"]').press("Tab");
     await p.reload(); await total(p, "₪ 300"); eq(await rows(p), 1, "rows after reload");
+  });
+  await test("just after midnight in Israel a new purchase and a recurring bill get that day's date", async () => {
+    // 00:30 on 11 July in Israel is still 10 July in UTC.
+    const c = await browser.newContext({ locale: "en-US", timezoneId: "Asia/Jerusalem" }); ctxs.push(c);
+    const p = await c.newPage(); p.on("pageerror", e => { console.log("   page error: " + e.message); fails++ });
+    await p.clock.install({ time: new Date("2026-07-10T21:30:00Z") });
+    await p.goto(URL + "?local=1");
+    await p.click("#addp");
+    eq(await p.locator('#rows [data-f="date"]').inputValue(), "2026-07-11", "new purchase date");
+    await setField(p.locator('#rows [data-f="desc"]'), "Kiosk"); await setField(p.locator('#rows [data-f="amt"]'), "10");
+    await p.click('[data-p="rec"]');
+    await p.fill("#rdesc", "Gym"); await p.fill("#ramt", "200"); await p.fill("#rday", "11"); await p.click("#radd");
+    eq(await p.locator('tr:has([data-f="desc"][value="Gym"]) [data-f="date"]').inputValue({ timeout: 5000 }), "2026-07-11", "recurring bill date");
+    await total(p, "₪ 210");
   });
 }
 

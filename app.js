@@ -410,7 +410,7 @@ $("card").oninput=impRule;
 function recGen(){
  if(!Array.isArray(S.recur))S.recur=[];if(!S.recDone)S.recDone={};
  delete S.recSeeded;
- const today=new Date().toISOString().slice(0,10),nowM=today.slice(0,7);
+ const today=ymd(),nowM=today.slice(0,7);
  S.recur.forEach(r=>{let m=r.start,g=0;
   while(m&&m<=nowM&&g++<120){const k=r.id+":"+m,dt=m+"-"+String(Math.min(r.day||1,28)).padStart(2,"0");
    if(!S.recDone[k]&&dt<=today){S.recDone[k]=1;S.tx.push(r.inc?{id:"rec-"+k,date:dt,desc:r.desc,amt:Math.abs(r.amt),inc:1,card:"",cat:""}:{id:"rec-"+k,date:dt,desc:r.desc,amt:r.amt,card:r.card||"Recurring",cat:guess(r.desc)})}
