@@ -28,11 +28,21 @@ service cloud.firestore {
         return request.auth != null && request.auth.uid == uid
           && exists(/databases/$(database)/documents/users/$(uid));
       }
-      match /data/{doc} {
-        allow read, write: if ownerWithProfile();
+      // Every data document is {v: 1, json: "<text>"} and nothing else. Firestore's own limit is 1 MiB per document.
+      function validDoc() {
+        return request.resource.data.keys().hasOnly(['v', 'json'])
+          && request.resource.data.v == 1
+          && request.resource.data.json is string
+          && request.resource.data.json.size() < 900000;
       }
+      match /data/{doc} {
+        allow read, delete: if ownerWithProfile();
+        allow create, update: if ownerWithProfile() && doc == 'settings' && validDoc();
+      }
+      // A month is named YYYY-MM; "none" holds rows without a date (the app's mk() in cloud.js).
       match /months/{doc} {
-        allow read, write: if ownerWithProfile();
+        allow read, delete: if ownerWithProfile();
+        allow create, update: if ownerWithProfile() && doc.matches('^([0-9]{4}-[0-9]{2}|none)$') && validDoc();
       }
     }
   }

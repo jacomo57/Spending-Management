@@ -33,7 +33,7 @@ Personal spending tracker for one user in Israel (Hebrew + English). Each card h
 - `npm test` runs `tests/run.mjs`: Playwright with the installed Edge (no browser download), its own server on port 8770 (`PORT` to change), starts the emulators if needed. Must end with `failures: 0`. `ONLY=local`, `ONLY=smoke` or `ONLY=pwa` runs one group.
 - Browser pane: launch config `spend` (`.claude/serve.ps1`, http://localhost:8765 and http://127.0.0.1:8765; `PORT` env changes it). The two addresses have separate browser storage, so one acts as a "second device".
 - Cloud mode in the browser pane needs the emulators (`npm run emulators`) and a seeded invite code (see `docs/backend.md`).
-- After any change to `firestore.rules`: run `.claude/rules-test.ps1` (32 checks, `failures: 0`), then `npm run deploy:rules`.
+- After any change to `firestore.rules`: run `.claude/rules-test.ps1` (45 checks, `failures: 0`), then `npm run deploy:rules`.
 
 ## Next steps
 - The plan lives in `ROADMAP.md`: review findings, then Steps 0 to 5, each with the model to use, what to do, how to test, and the user's part. One step per session. Tick steps off there as they finish.

@@ -500,7 +500,7 @@ document.addEventListener("change",e=>{const t=e.target;
  else if(t.dataset.tid){const x=S.tx.find(y=>y.id==t.dataset.tid),f=t.dataset.f;
   if(x){let val=t.value;
    if(f=="amt"){val=parseFloat(val);if(!val)return later(render);if(x.inc)val=Math.abs(val)}
-   if(f=="date"&&!val)return later(render);
+   if(f=="date"&&!/^\d{4}-\d{2}-\d{2}$/.test(val))return later(render);
    if(f=="desc"&&!val.trim())return later(render);
    if(f!="card"&&f!="note"&&!x.src&&x.amt&&x.desc)x.src=rid(x);
    x[f]=(f=="desc"||f=="card"||f=="note")?val.trim().slice(0,f=="note"?500:1e4):val;if(f=="note"&&!x.note)delete x.note;if(f=="desc"&&x.cat=="Other"&&!x.inc)x.cat=guess(x.desc);save();later(render)}}

@@ -40,6 +40,20 @@ Expect 'A creates own profile with the valid code' (Call Patch "users/$ua" $ta (
 Expect 'A changes own profile afterwards' (Call Patch "users/$ua" $ta (& $prof 'DEMO-INVITE-1')) 403
 Expect 'A writes own settings' (Call Patch "users/$ua/data/settings" $ta $doc) 200
 Expect 'A writes own month' (Call Patch "users/$ua/months/2026-11" $ta $doc) 200
+$big = { param($n) '{"fields":{"v":{"integerValue":"1"},"json":{"stringValue":"' + ('x' * $n) + '"}}}' }
+Expect 'A writes a data document that is not settings' (Call Patch "users/$ua/data/other" $ta $doc) 403
+Expect 'A writes a month with a bad name' (Call Patch "users/$ua/months/2026-11-extra" $ta $doc) 403
+Expect 'A writes a month named with letters' (Call Patch "users/$ua/months/anything" $ta $doc) 403
+Expect 'A writes the month for rows without a date' (Call Patch "users/$ua/months/none" $ta $doc) 200
+Expect 'A writes a month with an extra field' (Call Patch "users/$ua/months/2026-10" $ta '{"fields":{"v":{"integerValue":"1"},"json":{"stringValue":"[]"},"x":{"integerValue":"1"}}}') 403
+Expect 'A writes a month with the wrong version' (Call Patch "users/$ua/months/2026-10" $ta '{"fields":{"v":{"integerValue":"2"},"json":{"stringValue":"[]"}}}') 403
+Expect 'A writes a month without a version' (Call Patch "users/$ua/months/2026-10" $ta '{"fields":{"json":{"stringValue":"[]"}}}') 403
+Expect 'A writes a month whose json is not text' (Call Patch "users/$ua/months/2026-10" $ta '{"fields":{"v":{"integerValue":"1"},"json":{"integerValue":"5"}}}') 403
+Expect 'A writes a month that is too big' (Call Patch "users/$ua/months/2026-10" $ta (& $big 900000)) 403
+Expect 'A writes settings that are too big' (Call Patch "users/$ua/data/settings" $ta (& $big 900000)) 403
+Expect 'A writes a month just under the limit' (Call Patch "users/$ua/months/2026-10" $ta (& $big 899999)) 200
+Expect 'A deletes that month' (Call Delete "users/$ua/months/2026-10" $ta) 200
+Expect 'A deletes the no-date month' (Call Delete "users/$ua/months/none" $ta) 200
 Expect 'A reads own settings' (Call Get "users/$ua/data/settings" $ta) 200
 Expect 'A lists own months' (Call Get "users/$ua/months" $ta) 200
 Expect 'B (no profile) reads A settings' (Call Get "users/$ua/data/settings" $tb) 403

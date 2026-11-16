@@ -192,6 +192,14 @@ async function smoke() {
     await total(d3, "₪ 3,325"); await saved(d3);
     await d3.reload(); await d3.locator("#app").waitFor(); await total(d3, "₪ 3,325"); eq(await rows(d3), 17, "purchases");
   });
+  await test("a month too big for the server shows Couldn't save, after a normal save worked", async () => {
+    const p = await open(); await signUp(p, mail("r"));
+    await paste(p, "Visa", "date,description,amount\n2026-11-03,Zara,300"); await total(p, "₪ 300"); await saved(p);
+    await p.evaluate(() => { S.tx.push({ id: "big", date: "2026-10-01", desc: "x".repeat(900001), amt: 1, card: "Visa", cat: "Other" }); save() });
+    await text(p, "#sync", "Couldn’t save");
+    await p.evaluate(() => { S.tx = S.tx.filter(t => t.id != "big") });
+    await delAccount(p);
+  });
   await test("delete account removes the login", async () => {
     await delAccount(d1);
     await signIn(d1, A);

@@ -17,7 +17,7 @@ Goal: two users only (the owner and their partner), each with a private, indepen
 - `users/{uid}`: profile (invite code used; proves the account is allowed).
 - `users/{uid}/data/settings`: everything in `S` except purchases (cards, categories, recurring items, budgets `S.budget`).
 - `users/{uid}/months/{YYYY-MM}`: that month's rows: purchases, and income rows (`inc:1`, positive amount; with a category it is a payback). Optional fields per row: `skip`, `src` (the imported values of an edited row).
-- Each document is `{v:1, json:"..."}`. Emptied months are written as `[]`, never deleted. Last write wins per document.
+- Each document is `{v:1, json:"..."}`; the rules refuse any other shape, any other document name, and a `json` of 900,000 characters or more (the app then shows "Couldn't save"). Emptied months are written as `[]`, never deleted. Last write wins per document.
 - Offline uses Firestore's own cache (IndexedDB), cleared on sign-out. The app waits for server-confirmed data on a device that never synced, so it cannot overwrite real data with an empty state.
 - Known limit: the same month edited on two devices while one is offline. The later save replaces the earlier one for that whole month. Accepted for one person per account.
 
@@ -31,7 +31,7 @@ Goal: two users only (the owner and their partner), each with a private, indepen
 
 ## Security rules
 - `firestore.rules` in the repo is the source. Publish with `npm run deploy:rules` (needs `firebase login` once on that computer). Until then: paste the file into the Firebase console (Firestore, Rules, Publish).
-- `.claude/rules-test.ps1` runs 32 allow/deny checks against the emulator (other user's data, no invite, signed out, invite codes unreadable). Run it after any rules change; it must report `failures: 0`.
+- `.claude/rules-test.ps1` runs 45 allow/deny checks against the emulator (other user's data, no invite, signed out, invite codes unreadable, document names, shape and size). Run it after any rules change; it must report `failures: 0`.
 
 ## Emulator
 - Firebase Emulator Suite: Auth on 127.0.0.1:9099, Firestore on 127.0.0.1:8080, project id `demo-spend`, config in `firebase.json`. Fully local.
