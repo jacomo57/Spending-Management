@@ -26,7 +26,7 @@ UNTESTED: a split on a refund, split parts after deleting or renaming their cate
 Phone layout (under 640px): each expense is a card (description and amount on top, date, category and card below, Ignore and delete at the bottom), sort buttons wrap above, tools row scrolls sideways, 44px touch targets, 16px inputs, safe-area padding; text fields use dir=auto for Hebrew. 640-900px keeps the desktop table, which scrolls inside its box.
 Split (2026-11-16): choosing "Split…" at the bottom of a purchase's category box adds a part (category + amount) under it; saved as t.split = [{cat,amt}] on the row, amounts before the card rule. The rest of the amount stays in the row's own category ("₪X stays in ..."). A part can take at most what is left of the amount; editing the amount below the parts, or flipping its sign, drops the split. Only the per-category numbers change (bars, budgets, Compare, reports): Spent and the per-card figures are the same as without a split. The category filter shows a split purchase under each of its categories; reports and the Excel export show "A + B". Income and paybacks cannot be split. Renaming or deleting a category follows into the parts. Tested (local mode): split, the limit, half-counted card, reload, amount lowered.
 Tags (2026-11-16): a #word in a purchase's note is a tag (nothing extra is saved; letters, digits, _ and -, any language, case ignored). A row of tag buttons above the list shows each tag in the month with its spent total (by v(), ignored rows left out); pressing one filters the list (it puts #tag in Search, which matches the whole tag). The monthly report has a "By tag" section. Tested.
-Icons (2026-11-16): the starting categories have an emoji icon (ICON/ic() in app.js, by name; added or renamed categories have none), shown in the category list (hidden on phones), the category boxes and the filter chip. Tested in the browser pane only.
+Icons (2026-11-16): the starting categories have an emoji icon (ICON/ic() in app.js, by name; added or renamed categories have none), shown in the category list (also on phones), the category boxes and the filter chip. Cursor: plain text and numbers show the normal arrow (body{cursor:default}); only things you can click or type in show the hand or text cursor. Tested in the browser pane only.
 Undo: 8s button + Ctrl/Cmd+Z, session only.
 IDEAS: see ROADMAP.md.
 -->
@@ -46,7 +46,7 @@ IDEAS: see ROADMAP.md.
 <meta name="apple-mobile-web-app-title" content="Spend">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=0e7890e9a5">
+<link rel="stylesheet" href="style.css?v=6e82c26dcd">
 </head>
 <body>
 <main>
@@ -144,7 +144,7 @@ IDEAS: see ROADMAP.md.
 </main>
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=0e7890e9a5"></script>
-<script src="cloud.js?v=0e7890e9a5"></script>
+<script src="app.js?v=6e82c26dcd"></script>
+<script src="cloud.js?v=6e82c26dcd"></script>
 </body>
 </html>

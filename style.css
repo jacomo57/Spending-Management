@@ -12,6 +12,7 @@ section{margin:28px 0 0}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 select,input,textarea,button{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
 button{cursor:pointer}
+body{cursor:default}
 button.pri{background:var(--acc);color:var(--onacc);border-color:var(--acc);font-weight:600}
 button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 button.danger{color:var(--bad);background:none;border-color:transparent}
@@ -77,9 +78,9 @@ nav.row>*{flex:none}
 #auth{padding:14px}
 .panel .row>input,.panel .row>select{flex:1 1 140px;min-width:0;width:auto!important}
 .panel .row>input[type=number]{flex:1 1 80px}
-.cat{grid-template-columns:28px 1fr 44px;gap:0 4px}
-.cat .ci{display:none}
-.cat .cn{grid-column:2;grid-row:1}.cat .bw{grid-column:2;grid-row:2;min-height:36px}.cat .grip{grid-row:1/3}.cat .x{grid-column:3;grid-row:1/3}
+.cat{grid-template-columns:28px 26px 1fr 44px;gap:0 4px}
+.cat .ci{grid-column:2;grid-row:1/3}
+.cat .cn{grid-column:3;grid-row:1}.cat .bw{grid-column:3;grid-row:2;min-height:36px}.cat .grip{grid-row:1/3}.cat .x{grid-column:4;grid-row:1/3}
 .grip{min-height:44px;display:flex;align-items:center;justify-content:center}
 .bw{grid-template-columns:1fr 76px;min-height:44px}
 .x{min-width:44px}
@@ -152,4 +153,5 @@ small.sr{text-align:left;padding:0 6px 3px}
 .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.tags button{font-size:13px;padding:3px 10px}
 /* Phone: a split purchase gets a full-width category row of its own, under the date and card. */
 @media (max-width:640px){.sp{min-width:0;gap:4px;margin-top:4px}.sp input{width:96px}tr:has(.sp) td.ct{grid-column:1/-1;grid-row:3}tr:has(.sp) td.d{grid-column:1/3}tr:has(.sp) td.k{grid-row:4}}
-.ci{text-align:center;font-size:16px;line-height:1}
+.ci{text-align:center;font-size:16px;line-height:1;cursor:default}
+span.cn:hover{border-color:transparent;background:none}
