@@ -219,6 +219,21 @@ async function local() {
     await p.fill("#q", ""); eq(await rows(p), 4, "cleared"); eq(await p.locator("#found").isHidden(), true, "found hidden");
     await p.fill("#q", "zara"); await p.click("#addp"); eq(await p.inputValue("#q"), "", "search cleared by add"); eq(await rows(p), 5, "new row visible");
   });
+  await test("compare shows two months per category with the change, and the trend strip picks a month", async () => {
+    const p = await open("?local=1");
+    await paste(p, "Visa", "date,description,amount\n2026-11-03,Zara,300\n2026-10-04,Zara,100\n2026-10-05,Wolt,50");
+    eq(await p.locator("#cmp").isHidden(), true, "hidden at first");
+    await p.click("#cmpb");
+    const first = await p.locator(".cmpt .cr").nth(1).innerText();
+    eq(/₪ 300/.test(first) && /₪ 100/.test(first) && /↑ ₪ 200 \(200%\)/.test(first), true, "first row: " + first);
+    const tot = await p.locator(".cmpt .cr.tot").innerText();
+    eq(/Total spent/.test(tot) && /₪ 300/.test(tot) && /₪ 150/.test(tot) && /↑ ₪ 150 \(100%\)/.test(tot), true, "total row: " + tot);
+    eq(await p.locator(".trend button").count(), 2, "trend months");
+    await p.locator('.trend button[data-tm="2026-10"]').click();
+    eq(await p.inputValue("#month"), "2026-10", "tap picks month");
+    await total(p, "₪ 150");
+    await p.click("#cmpb"); eq(await p.locator("#cmp").isHidden(), true, "hidden again");
+  });
   await test("refunds import as negative amounts and reduce the total", async () => {
     const p = await open("?local=1");
     eq(await paste(p, "Visa", "date,description,amount\n2026-11-03,Zara,300\n2026-11-04,Castro,80\n2026-11-05,Zara,-120\n2026-11-06,Wolt,(30)"), "Added 4 purchases.", "import");

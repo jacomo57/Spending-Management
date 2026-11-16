@@ -11,7 +11,7 @@ Cards: S.cards[name] = percent that counts (full 100, half 50, custom, not count
 Summary: spent, In and Left over (when the view has income), a figure per card (when more than one), currency.
 Income: a row with inc:1 and a positive amount ("+ Add income", recurring income, positive rows of a bank file). No category = income, counts toward In. With a category = a payback, lowers that category and Spent in full. Card rules never apply to income. calc(rows) in app.js is the single definition of spent / in / per category / per card.
 Budgets (Budget panel): S.budget = {total, cats:{name:amount}}, monthly, saved with the settings. Shown with one month picked and no card filter: "X left of Y" under Spent, a pace note in the current month, category bars fill against their budget (amber from 80%, red when over). Budgets follow a renamed category.
-Categories: editable, add, bars (click to filter), sort by size or own order (drag grip), colors stay per category. Other = catch-all. New accounts start with 9 default categories (no "Bills & home" or "House stuff"; their merchants sort into Rent & payments and Shopping). Accounts that already saved their categories keep them.
+Categories: Compare button (two months side by side per category with the change, a total row, an In row when there is income, and a 12-month trend strip; tap a month to pick it; neutral colours, not saved). Editable, add, bars (click to filter), sort by size or own order (drag grip), colors stay per category. Other = catch-all. New accounts start with 9 default categories (no "Bills & home" or "House stuff"; their merchants sort into Rent & payments and Shopping). Accounts that already saved their categories keep them.
 Expenses: inline edit, add, month + card filters, Search box (every word must appear in description, category, card or amount; shows "N found, ₪X"; summary and bars keep showing the month; not saved), column sort, Ignore checkbox. A negative amount is a refund and lowers the totals. An added purchase left empty is dropped on the next start.
 Categorizing: learned merchant first, then EN + HE keywords, then the issuer's own category column if the file has one (Max); anything else stays in Other for manual sorting.
 Recurring (monthly, card "Recurring" unless another is chosen): starts empty; the user adds their own bills or income (Bill / Income choice) in the Recurring panel.
@@ -37,7 +37,7 @@ IDEAS: see ROADMAP.md.
 <meta name="apple-mobile-web-app-title" content="Spend">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=420709d3ed">
+<link rel="stylesheet" href="style.css?v=50d55b7248">
 </head>
 <body>
 <main>
@@ -108,8 +108,9 @@ IDEAS: see ROADMAP.md.
 </div>
 
 <section>
-  <div class="row" style="justify-content:space-between"><h2>Categories</h2><span class="row" style="gap:4px"><button data-cs="size">By size</button><button data-cs="manual">My order</button></span></div>
+  <div class="row" style="justify-content:space-between"><h2>Categories</h2><span class="row" style="gap:4px"><button id="cmpb">Compare</button><button data-cs="size">By size</button><button data-cs="manual">My order</button></span></div>
   <div class="cats" id="cats"></div>
+  <div id="cmp" hidden></div>
   <div class="row" style="margin-top:8px"><button id="addcat">+ Add category</button><span class="msg" id="catmsg"></span></div>
 </section>
 
@@ -131,7 +132,7 @@ IDEAS: see ROADMAP.md.
 </main>
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=420709d3ed"></script>
-<script src="cloud.js?v=420709d3ed"></script>
+<script src="app.js?v=50d55b7248"></script>
+<script src="cloud.js?v=50d55b7248"></script>
 </body>
 </html>

@@ -14,7 +14,7 @@ const CATS={
 let ORDER=[];
 const COL={};
 let S={tx:[],rules:{},cur:"₪"};
-let q="",cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null;
+let cmp=false,cmA=null,cmB=null,q="",cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null;
 // Accounts + cloud sync (Firebase): see docs/backend.md. The cloud code is in cloud.js.
 // FB_REAL = the real project's firebaseConfig (public by design; firestore.rules is the protection).
 // If it is set to null the site falls back to local-only mode (localStorage, no sign-in).
@@ -285,6 +285,18 @@ function render(){
  $("month").innerHTML='<option value="all">All time</option>'+months.map(m=>`<option value="${m}">${mname(m)}</option>`).join("");
  $("month").value=months.includes(cm)||cm=="all"?cm:"all";
  const m=$("month").value;
+ // Compare (view only, not saved): two months per category, change, and a strip of the last 12 months.
+ {const el=$("cmp");el.hidden=!cmp;$("cmpb").classList.toggle("on",cmp);
+  if(cmp){const sm=x=>{const[y,mo]=x.split("-");return new Date(y,mo-1,1).toLocaleString(undefined,{month:"short"})+" "+y.slice(2)},mr=x=>S.tx.filter(t=>t.date.startsWith(x)&&(cardF=="all"||t.card==cardF)),
+   A=months.includes(cmA)?cmA:months.includes(m)?m:months[0],B=months.includes(cmB)?cmB:months[months.indexOf(A)+1]||A;
+   const ka=calc(mr(A)),kb=calc(mr(B)),names=[...new Set([...Object.keys(ka.by),...Object.keys(kb.by)])],
+   ch=(x,y)=>{const d=x-y;return d?`<span class="chg">${d>0?"↑":"↓"} ${fmt(Math.abs(d))}${y?" ("+Math.round(Math.abs(d)/Math.abs(y)*100)+"%)":""}</span>`:"–"},
+   ro=(n,x,y,cl)=>`<div class="cr${cl?" "+cl:""}"><span dir="auto">${esc(n)}</span><span>${fmt(x)}</span><span>${fmt(y)}</span><span>${ch(x,y)}</span></div>`,
+   sel=(w,v)=>`<select data-cm="${w}" aria-label="Month ${w=="a"?"one":"two"}">${months.map(x=>`<option value="${x}"${x==v?" selected":""}>${esc(mname(x))}</option>`).join("")}</select>`,
+   tr=months.slice(0,12).reverse().map(x=>[x,calc(mr(x)).spent]),tm=Math.max(1,...tr.map(r=>r[1]));
+   el.innerHTML=months.length?`<div class="row" style="margin-top:10px">${sel("a",A)}<span class="sub">against</span>${sel("b",B)}</div>
+   <div class="cmpt"><div class="cr hd"><span></span><span>${esc(sm(A))}</span><span>${esc(sm(B))}</span><span>Change</span></div>${names.sort((x,y)=>Math.abs((ka.by[y]||0)-(kb.by[y]||0))-Math.abs((ka.by[x]||0)-(kb.by[x]||0))||x.localeCompare(y)).map(n=>ro(n,ka.by[n]||0,kb.by[n]||0)).join("")}${ro("Total spent",ka.spent,kb.spent,"tot")}${ka.inc||kb.inc?ro("In",ka.inc,kb.inc):""}</div>
+   <div class="trend">${tr.map(([x,s])=>`<button data-tm="${x}" class="${x==m?"sel":""}"><span>${esc(mname(x))}</span><span class="bar"><i style="width:${Math.max(0,s)/tm*100}%;background:var(--mute)"></i></span><span class="amt">${fmt(s)}</span></button>`).join("")}</div>`:`<span class="msg">No months yet.</span>`}}
  const base=S.tx.filter(t=>(m=="all"||t.date.startsWith(m))&&(cardF=="all"||t.card==cardF));
  const K=calc(base),ign=base.filter(t=>t.skip),tot=K.spent,per=K.per,by=K.by;
  // Budgets are monthly and cover all cards, so they show only with one month picked and no card filter.
@@ -402,6 +414,8 @@ document.addEventListener("click",e=>{const t=e.target;
  if(t.dataset.cs){S.catSort=t.dataset.cs;save();render()}
  if(t.dataset.p){panel=panel==t.dataset.p?null:t.dataset.p;render();return}
  const b=t.closest&&t.closest("[data-c]");if(b){cat=cat==b.dataset.c?null:b.dataset.c;render()}
+ if(t.id=="cmpb"){cmp=!cmp;render();return}
+ const tb=t.closest&&t.closest("[data-tm]");if(tb){$("month").value=tb.dataset.tm;cmA=null;render();return}
  if(t.id=="clearcat"){cat=null;render()}
  if(t.id=="addcat")addCat();
  if(t.id=="addp")addPurchase();
@@ -429,7 +443,8 @@ document.addEventListener("change",e=>{const t=e.target;
  else if(t.dataset.bi){const c=S.cats[+t.dataset.bi],n=Math.max(0,parseFloat(t.value)||0);if(c==null)return;if(n)bud().cats[c]=n;else delete bud().cats[c];save();later(render)}
  else if(t.id=="btotal"){bud().total=Math.max(0,parseFloat(t.value)||0);save();later(render)}
  else if(t.id=="rkind")$("rcard").hidden=t.value=="inc";
- else if(t.id=="month")render();
+ else if(t.id=="month"){cmA=null;render()}
+ else if(t.dataset.cm){if(t.dataset.cm=="a")cmA=t.value;else cmB=t.value;render()}
  else if(t.dataset.ci){const c=CL[+t.dataset.ci],f=t.dataset.f;if(c==null)return;
   if(f=="name"){const nv=t.value.trim();later(()=>renameCard(c,nv))}
   else{S.cards[c]=t.value=="c"?25:Math.min(100,Math.max(0,parseFloat(t.value)||0));save();later(render)}}
