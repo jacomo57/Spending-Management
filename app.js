@@ -291,6 +291,20 @@ const undo=[];let toastT=null;
 function pushUndo(label,fn){undo.push({label,fn});if(undo.length>20)undo.shift();showToast()}
 function showToast(){const el=$("toast");clearTimeout(toastT);if(!undo.length){el.hidden=true;return}
  const u=undo[undo.length-1];el.innerHTML=`<span>${esc(u.label)}</span><button id="undo">Undo</button>`;el.hidden=false;toastT=setTimeout(()=>{el.hidden=true},8000)}
+// Quick add (button or the app icon's "Add purchase" shortcut, ?add=1): amount, optional merchant, card; today's date, category guessed.
+function qaOpen(){const cs=CL.filter(c=>c!="Recurring"),last=S.tx.filter(t=>!t.inc&&t.card!="Recurring").sort((a,b)=>b.date.localeCompare(a.date))[0],cnt=bare();
+ S.tx.forEach(t=>{if(!t.inc&&t.desc)cnt[t.desc]=(cnt[t.desc]||0)+1});
+ $("qalist").innerHTML=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]).slice(0,40).map(d=>`<option value="${esc(d)}">`).join("");
+ $("qcard").innerHTML=(cs.length?cs:["My card"]).map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
+ if(last&&cs.includes(last.card))$("qcard").value=last.card;
+ $("qamt").value="";$("qdesc").value="";$("qa").hidden=false;$("qamt").focus()}
+$("qab").onclick=qaOpen;$("qx").onclick=()=>{$("qa").hidden=true};
+$("qa").addEventListener("click",e=>{if(e.target==$("qa"))$("qa").hidden=true});
+document.addEventListener("keydown",e=>{if(e.key=="Escape"&&!$("qa").hidden)$("qa").hidden=true});
+$("qaf").onsubmit=e=>{e.preventDefault();const a=parseFloat($("qamt").value),d=$("qdesc").value.trim().slice(0,200);if(!a){$("qamt").focus();return}
+ const t={id:uid(),date:ymd(),desc:d,amt:a,card:$("qcard").value||"My card",cat:d?guess(d):"Other"};S.tx.push(t);
+ $("qa").hidden=true;cardF="all";cat=null;q="";$("q").value="";pendingMonth=pk(t.date);save();render();
+ pushUndo("Added "+fmt(a)+(d?" · "+d.slice(0,28):""),()=>{S.tx=S.tx.filter(x=>x.id!=t.id)})};
 function doUndo(){const u=undo.pop();if(!u)return;u.fn();save();render();showToast()}
 document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key=="z"&&!/INPUT|TEXTAREA|SELECT/.test(e.target.tagName||"")&&undo.length){e.preventDefault();doUndo()}});
 let pendingMonth=null,focusTid=null,focusSp=null;
@@ -316,7 +330,7 @@ function render(){
  $("cardlist").innerHTML=CL.map(c=>`<option value="${esc(c)}">`).join("");
  $("cardf").innerHTML='<option value="all">All cards</option>'+CL.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");$("cardf").value=cardF;
  const months=[...new Set(S.tx.map(t=>pk(t.date)))].sort().reverse();
- const cm=pendingMonth||$("month").value||"all";pendingMonth=null;
+ const cm=pendingMonth||$("month").value||(months.includes(pk(ymd()))?pk(ymd()):months[0]||"all");pendingMonth=null;
  const yrs=[...new Set(months.map(x=>x.slice(0,4)))];
  $("month").innerHTML='<option value="all">All time</option>'+yrs.map(y=>`<option value="${y}">All of ${y}</option>`).join("")+months.map(m=>`<option value="${m}">${mname(m)}</option>`).join("");
  $("month").value=months.includes(cm)||yrs.includes(cm)||cm=="all"?cm:"all";
@@ -629,4 +643,5 @@ const APPV=new URL(document.currentScript.src).searchParams.get("v")||"dev";
 function start(){fixMaps();dropEmpty();recGen();S.tx.forEach(t=>{if(t.cat=="Other"&&!t.inc)t.cat=guess(t.desc)});save();
  panel=S.tx.some(t=>!String(t.id).startsWith("rec-"))?null:"imp";
  $("accbtn").textContent=C.on?"Account":"Backup";document.querySelectorAll(".cl").forEach(e=>e.hidden=!C.on);$("who").textContent=C.user?C.user.email:"";
- $("boot").hidden=true;$("app").hidden=false;render();stat()}
+ $("boot").hidden=true;$("app").hidden=false;render();stat();
+ if(/[?&]add=1/.test(location.search)){history.replaceState(null,"",location.pathname+location.search.replace(/([?&])add=1&?/,"$1").replace(/[?&]$/,"")+location.hash);qaOpen()}}

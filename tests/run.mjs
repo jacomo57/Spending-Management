@@ -153,7 +153,7 @@ async function smoke() {
     await p.waitForFunction(() => /invite code/.test(document.getElementById("amsg").textContent), null, { timeout: 15000 });
   });
   await test("second device sees the same data and live changes", async () => {
-    d2 = await open(); await signIn(d2, A);
+    d2 = await open(); await signIn(d2, A); await d2.selectOption("#month", "all");
     await total(d2, "₪ 3,325");
     await d1.click('tr:has(input[value="Booking.com Hotel"]) [data-del]');
     await total(d1, "₪ 2,635"); await total(d2, "₪ 2,635");
@@ -185,7 +185,7 @@ async function smoke() {
     await total(d2, "₪ 0");
   });
   await test("download my data, then restore it from the file", async () => {
-    await d3.click("#sample"); await total(d3, "₪ 3,325"); await saved(d3);
+    await d3.click("#sample"); await d3.selectOption("#month", "all"); await total(d3, "₪ 3,325"); await saved(d3);
     await d3.click("#accbtn");
     const [dl] = await Promise.all([d3.waitForEvent("download"), d3.click("#dl")]);
     const f = path.join(TMP, "spend-backup-test.json"); await dl.saveAs(f);
@@ -195,7 +195,7 @@ async function smoke() {
     await d3.waitForFunction(() => /17 purchases/.test(document.getElementById("rsbtn").textContent));
     await d3.click("#rsbtn");
     await total(d3, "₪ 3,325"); await saved(d3);
-    await d3.reload(); await d3.locator("#app").waitFor(); await total(d3, "₪ 3,325"); eq(await rows(d3), 17, "purchases");
+    await d3.reload(); await d3.locator("#app").waitFor(); await d3.selectOption("#month", "all"); await total(d3, "₪ 3,325"); eq(await rows(d3), 17, "purchases");
   });
   await test("a month too big for the server shows Couldn't save, after a normal save worked", async () => {
     const p = await open(); await signUp(p, mail("r"));
@@ -484,7 +484,7 @@ async function local() {
     const p = await open("?local=1");
     await paste(p, "Visa", "date,description,amount\n2026-11-03,Zara,300");
     await p.click("#addp"); eq(await rows(p), 2, "rows after Add");
-    await p.reload(); eq(await rows(p), 2, "today's empty row is kept");
+    await p.reload(); await p.selectOption("#month", "all"); eq(await rows(p), 2, "today's empty row is kept");
     await p.locator('tr:has([data-f="desc"][value=""]) [data-f="date"]').fill("2026-01-01");
     await p.locator('tr:has([data-f="desc"][value=""]) [data-f="date"]').press("Tab");
     await p.reload(); await total(p, "₪ 300"); eq(await rows(p), 1, "rows after reload");
@@ -554,6 +554,18 @@ async function local() {
     eq(await p.evaluate(() => S.mstart), 15, "saved start day");
     eq(await p.evaluate(() => [...document.querySelectorAll("#month option")].slice(-1)[0].textContent.includes("–")), true, "month names show the dates");
     await p.reload(); eq(await p.evaluate(() => S.mstart), 15, "start day after reload");
+  });
+  await test("quick add: button and ?add=1; today's date, guessed category, undo; opens on this month with its budget", async () => {
+    const p = await open("?local=1&add=1");
+    await p.locator("#qa").waitFor({ state: "visible" });
+    eq(await p.evaluate(() => location.search), "?local=1", "add=1 removed from the address");
+    await p.evaluate(() => { S.budget = { total: 1000, cats: {} }; });
+    await setField(p.locator("#qamt"), "45"); await p.fill("#qdesc", "Shufersal"); await p.click("#qsave");
+    await total(p, "₪ 45"); eq(await p.locator("#qa").isHidden(), true, "sheet closed");
+    await text(p, "#budline", "₪ 955 left of ₪ 1,000");
+    eq(await p.evaluate(() => { const x = S.tx[S.tx.length - 1]; return [x.date == ymd(), x.cat, x.amt].join() }), "true,Groceries,45", "saved row");
+    await p.click("#undo"); await total(p, "₪ 0");
+    await p.click("#qab"); await p.click("#qx"); eq(await p.locator("#qa").isHidden(), true, "cancel");
   });
   await test("split a purchase across categories; #tags in notes filter and total", async () => {
     const p = await open("?local=1");
@@ -631,18 +643,18 @@ async function pwa() {
   });
   await test("opens offline with the saved data; an offline edit syncs after reconnecting", async () => {
     const p = await open("?sw=1"); await signUp(p, A);
-    await p.click("#sample"); await total(p, "₪ 3,325"); await saved(p); await controlled(p);
+    await p.click("#sample"); await p.selectOption("#month", "all"); await total(p, "₪ 3,325"); await saved(p); await controlled(p);
     const c = p.context();
     try {
       site.down = true; await c.setOffline(true);
-      await p.reload(); await p.locator("#app").waitFor({ timeout: 20000 });
+      await p.reload(); await p.locator("#app").waitFor({ timeout: 20000 }); await p.selectOption("#month", "all");
       await total(p, "₪ 3,325"); eq(await rows(p), 17, "purchases offline");
       await p.click('tr:has(input[value="Booking.com Hotel"]) [data-del]');
       await total(p, "₪ 2,635");
       await p.waitForFunction(() => /^Offline/.test(document.getElementById("sync").textContent), null, { timeout: 10000 });
     } finally { site.down = false; await c.setOffline(false) }
     await saved(p);
-    const d2 = await open(); await signIn(d2, A); await total(d2, "₪ 2,635");
+    const d2 = await open(); await signIn(d2, A); await d2.selectOption("#month", "all"); await total(d2, "₪ 2,635");
     await delAccount(d2);
   });
   await test("without ?sw=1 localhost removes the service worker (so edits always show while developing)", async () => {

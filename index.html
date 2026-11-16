@@ -28,6 +28,7 @@ Split (2026-11-16): choosing "Split…" at the bottom of a purchase's category b
 Tags (2026-11-16): a #word in a purchase's note is a tag (nothing extra is saved; letters, digits, _ and -, any language, case ignored). A row of tag buttons above the list shows each tag in the month with its spent total (by v(), ignored rows left out); pressing one filters the list (it puts #tag in Search, which matches the whole tag). The monthly report has a "By tag" section. Tested.
 Icons (2026-11-16): each category has an emoji icon. The starting categories have one (ICON/ic() in app.js); pressing the icon in the category list opens a picker (a grid, none, or type your own); the choice is saved in S.icon[category] ("" = none), follows a rename, and shows in the category list (also on phones), the category boxes and the filter chip. Cursor: plain text and numbers show the normal arrow (body{cursor:default}); only things you can click or type in show the hand or text cursor. Tested (local mode): starting icon, pick, type, none, reload, rename.
 Month start day, fixed charges, pace (2026-11-16): Budgets panel "Month starts on day" (S.mstart, 1 to 28, default 1) makes every month run from that day to the day before the next, named by its dates (pk(date) gives a period key, mrange(m) its first and last day; cloud.js still stores calendar months, nothing there changed). Fixed charges are worked out, not saved (fixedSet()): same words, one row a month, about the same amount (within 15%) in 3 or more months, or a recurring item. The top shows "Fixed X · everything else Y". For the current month with all cards: a day allowance ("X a day for N days left", after the fixed charges still to come, shown when a budget is set), a forecast ("Z by the end of the month at this pace" = spent + fixed still to come + the other spending's daily pace), "Ahead of pace" for categories whose free part (budget minus their fixed charges) is used faster than the month passes, and a "still to come" list of fixed charges seen last month and not yet due. No alert when a fixed charge changes price (asked not to). Tested (local mode).
+Quick add (2026-11-16): "+ Quick add" (first button) or the app icon's long-press shortcut "Add purchase" (manifest shortcut, address ?add=1, removed from the address once opened) shows a sheet: amount, optional merchant (suggestions from your most used), card (the last one used). Save adds a purchase dated today with a guessed category and an Undo toast. Opening: the page now opens on the current month (or the latest month with data) instead of All time, so budgets and pace show without picking a month. Ideas: read Google Wallet notifications on Android (needs a separate automation app and an inbox the phone may write to; not built), iPhone Wallet automation in Shortcuts.
 Undo: 8s button + Ctrl/Cmd+Z, session only.
 IDEAS: see ROADMAP.md.
 -->
@@ -47,7 +48,7 @@ IDEAS: see ROADMAP.md.
 <meta name="apple-mobile-web-app-title" content="Spend">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=9f8d2571e7">
+<link rel="stylesheet" href="style.css?v=5b061c0603">
 </head>
 <body>
 <main>
@@ -64,6 +65,7 @@ IDEAS: see ROADMAP.md.
 </div></form>
 <div id="app">
 <nav class="row" aria-label="Tools">
+  <button class="pri" id="qab">+ Quick add</button>
   <button data-p="imp">Import</button>
   <button data-p="crd">Cards</button>
   <button data-p="rec">Recurring</button>
@@ -104,7 +106,7 @@ IDEAS: see ROADMAP.md.
 </div></div>
 
 <div class="panel" id="p-bud" hidden><div class="grid">
-  <div>Monthly budgets. Leave a box empty for no budget. They show when one month is picked.</div>
+  <div>Monthly budgets. Leave a box empty for no budget. On the main screen the total shows under the big number and each category's bar fills toward its budget (amber from 80%, red when over). Pick one month, not All time, and All cards.</div>
   <label class="row"><b style="width:150px">Month starts on day</b><input id="mstart" type="number" min="1" max="28" placeholder="1" style="width:120px" aria-label="Day of the month a month starts on"><span class="sub">1 = the calendar month. Use your payday or card billing day.</span></label>
   <label class="row"><b style="width:150px">All spending</b><input id="btotal" type="number" min="0" step="1" placeholder="No budget" style="width:120px" aria-label="Monthly budget for all spending"></label>
   <div class="grid" id="budlist"></div>
@@ -144,9 +146,15 @@ IDEAS: see ROADMAP.md.
 </section>
 </div>
 </main>
+<div class="qa" id="qa" hidden><form class="panel" id="qaf" role="dialog" aria-label="Quick add">
+  <input id="qamt" type="number" inputmode="decimal" step="0.01" placeholder="Amount" aria-label="Amount">
+  <input id="qdesc" dir="auto" list="qalist" placeholder="Merchant (optional)" aria-label="Merchant" autocomplete="off"><datalist id="qalist"></datalist>
+  <select id="qcard" aria-label="Card"></select>
+  <div class="row"><button class="pri" id="qsave">Save</button><button type="button" id="qx">Cancel</button></div>
+</form></div>
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=9f8d2571e7"></script>
-<script src="cloud.js?v=9f8d2571e7"></script>
+<script src="app.js?v=5b061c0603"></script>
+<script src="cloud.js?v=5b061c0603"></script>
 </body>
 </html>
