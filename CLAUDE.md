@@ -23,7 +23,8 @@ Personal spending tracker for one user in Israel (Hebrew + English). Each card h
   - Local-only (`?local=1` on localhost (never touches Firebase), or if `FB_REAL` is set back to `null`): data in localStorage key `spend-v1`, Backup panel shown, no sign-in.
   - Cloud (localhost against the emulators; the live site against the real project): sign-in required, data in Firestore, Account panel shown (with Download my data / Restore from file), Backup hidden, localStorage unused.
 - No bank connection. In local-only mode the page contacts no other sites except fonts; in cloud mode it also loads the Firebase SDK from gstatic and talks to Firebase.
-- Import (tested on real Isracard and Max files, totals matched the statements): uses the charged amount column, keeps identical rows, skips only already-saved copies on re-import, refunds are negative amounts, an installment payment is dated in its own month and labelled like `3/5`.
+- Import (tested on real Isracard and Max files, totals matched the statements): uses the charged amount column, keeps identical rows, skips only already-saved copies on re-import, refunds are negative amounts, a bank-style file's positive rows become income, an edited purchase is not added again on re-import (`src`), an installment payment is dated in its own month and labelled like `3/5`.
+- Numbers: `calc(rows)` and `v(t)` in `app.js` are the only definition of spent, income and paybacks (rows with `inc:1`); budgets are `S.budget`. Every total on screen or in a report must come from them.
 - Backend, accounts, data layout, sync rules, emulator: see `docs/backend.md`. Read it before touching `cloud.js` or `firestore.rules`.
 
 ## Local testing
@@ -35,4 +36,4 @@ Personal spending tracker for one user in Israel (Hebrew + English). Each card h
 
 ## Next steps
 - The plan lives in `ROADMAP.md`: review findings, then Steps 0 to 5, each with the model to use, what to do, how to test, and the user's part. One step per session. Tick steps off there as they finish.
-- Order: Steps 0 and 1 (PWA) are done; next 2 (phone layout), then 3 (income, budgets, search, comparisons), then 4 (reports).
+- Done: Steps 0, 1, 2, and from Step 3 income and budgets. Next: the "Gameplan for Sonnet" in `ROADMAP.md` (search, month over month, extras, reports), one part per session. The table above it says which later ideas need Fable.

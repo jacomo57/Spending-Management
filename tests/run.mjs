@@ -80,6 +80,12 @@ async function total(p, want) {
 }
 const saved = p => p.waitForFunction(() => document.getElementById("sync").textContent == "Saved", null, { timeout: 15000 });
 const rows = p => p.locator("#rows tr:has([data-del])").count();
+const today = new Date().toISOString().slice(0, 10);
+const text = async (p, sel, want) => {
+  try { await p.waitForFunction(([s, w]) => { const e = document.querySelector(s); return e && e.textContent.includes(w) }, [sel, want], { timeout: 15000 }) }
+  catch (e) { throw new Error(`${sel}: expected to contain ${want}, got ${await p.locator(sel).first().textContent({ timeout: 1000 }).catch(() => "nothing")}`) }
+};
+async function setField(loc, val) { await loc.fill(val); await loc.press("Tab") }
 async function signUp(p, email) {
   await p.locator("#auth").waitFor();
   await p.click("#aswap");
@@ -151,6 +157,21 @@ async function smoke() {
     d3 = await open(); await signUp(d3, B);
     await total(d3, "₪ 0"); eq(await rows(d3), 0, "purchases");
   });
+  await test("income and budgets reach the second device and survive signing out", async () => {
+    await d1.click('[data-p="bud"]');
+    await setField(d1.locator("#btotal"), "5000");
+    await d1.click("#addi");
+    await setField(d1.locator('tr.inc [data-f="desc"]'), "Salary");
+    await setField(d1.locator('tr.inc [data-f="amt"]'), "9000");
+    await saved(d1);
+    await text(d2, "#sin", "₪ 9,000"); await total(d2, "₪ 2,635");
+    await d2.selectOption("#month", "2026-11"); await text(d2, "#budline", "₪ 5,000");
+    await d2.click("#accbtn"); await d2.click("#signout");
+    await signIn(d2, A); await d2.locator("#app").waitFor();
+    await text(d2, "#sin", "₪ 9,000");
+    await d2.selectOption("#month", "2026-11"); await text(d2, "#budline", "₪ 5,000");
+    await d2.selectOption("#month", "all");
+  });
   await test("delete all data survives a reload and reaches the other device", async () => {
     await d1.click("#wipe"); await d1.click("#wipe");
     await total(d1, "₪ 0"); await saved(d1);
@@ -203,10 +224,64 @@ async function local() {
     eq(await paste(q, "Visa", "date,description,amount\n2026-11-05,Zara,-120"), "Added 1 purchase.", "single refund");
     await total(q, "₪ -120");
   });
-  await test("bank-style file (spending shown as negative) still imports as spending", async () => {
+  await test("bank-style file: negatives import as spending, positives as income; re-import skips both", async () => {
+    const p = await open("?local=1"), f = "date,description,amount\n2026-11-03,Rent,-4000\n2026-11-05,Shufersal,-200\n2026-11-10,Salary,9000";
+    eq(await paste(p, "Bank", f), "Added 2 purchases and 1 income.", "import");
+    await total(p, "₪ 4,200"); await text(p, "#sin", "₪ 9,000"); await text(p, "#sleft", "₪ 4,800");
+    eq(await p.locator('tr.inc:has(input[value="Salary"]) select').inputValue(), "", "income has no category");
+    eq(await paste(p, "Bank", f), "Added 0 purchases, skipped 3 already saved.", "re-import");
+  });
+  await test("add income by hand; giving it a category turns it into a payback that lowers spending", async () => {
     const p = await open("?local=1");
-    eq(await paste(p, "Bank", "date,description,amount\n2026-11-03,Rent,-4000\n2026-11-05,Shufersal,-200\n2026-11-10,Salary,9000"), "Added 2 purchases.", "import");
-    await total(p, "₪ 4,200");
+    await paste(p, "Visa", `date,description,amount\n${today},Shufersal,400\n${today},Zara,100`);
+    await p.click("#addi");
+    await setField(p.locator('tr.inc [data-f="desc"]'), "Partner");
+    await setField(p.locator('tr.inc [data-f="amt"]'), "-150");
+    eq(await p.locator('tr.inc [data-f="amt"]').inputValue(), "150", "income amount is kept positive");
+    await total(p, "₪ 500"); await text(p, "#sin", "₪ 150"); await text(p, "#sleft", "₪ -350");
+    await p.locator("tr.inc select").selectOption("Groceries");
+    await total(p, "₪ 350"); eq(await p.locator("#sin").count(), 0, "a payback is not income");
+    await text(p, '.bw[data-c="Groceries"] .amt', "₪ 250");
+    eq(await p.locator('tr:has(input[value="Zara"]) select').inputValue(), "Shopping", "payback did not re-sort purchases");
+    await p.reload(); await total(p, "₪ 350");
+    eq(await p.evaluate(() => CL.join()), "Visa", "income adds no card");
+  });
+  await test("recurring income is added as income, not spending", async () => {
+    const p = await open("?local=1");
+    await p.click('[data-p="rec"]');
+    await p.fill("#rdesc", "Salary"); await p.fill("#ramt", "9000"); await p.selectOption("#rkind", "inc");
+    eq(await p.locator("#rcard").isVisible(), false, "card choice hidden for income");
+    await p.click("#radd");
+    await total(p, "₪ 0"); await text(p, "#sin", "₪ 9,000"); eq(await p.locator("tr.inc").count(), 1, "income rows");
+    await p.reload(); await text(p, "#sin", "₪ 9,000"); eq(await p.locator("tr.inc").count(), 1, "income rows after reload");
+  });
+  await test("budgets: left this month, bar against the budget, follows a renamed category", async () => {
+    const p = await open("?local=1"), mo = today.slice(0, 7);
+    await paste(p, "Visa", `date,description,amount\n${today},Shufersal,450\n${today},Zara,100`);
+    await p.click('[data-p="bud"]');
+    await setField(p.locator("#btotal"), "1000");
+    await setField(p.locator('[data-bi="0"]'), "500");
+    eq(await p.locator("#budline").count(), 0, "no budget line for All time");
+    await p.selectOption("#month", mo);
+    await text(p, "#budline", "₪ 450 left of ₪ 1,000");
+    await text(p, '.bw[data-c="Groceries"] small', "of ₪ 500");
+    eq(await p.locator('.bw[data-c="Groceries"] .bar i').getAttribute("style").then(s => /--warn/.test(s)), true, "amber at 90%");
+    await setField(p.locator('[data-ren="0"]'), "Food");
+    await text(p, '.bw[data-c="Food"] small', "of ₪ 500");
+    await paste(p, "Visa", `date,description,amount\n${today},Shufersal Deal,600`);
+    await p.selectOption("#month", mo);
+    eq(await p.locator('.bw.over[data-c="Food"]').count(), 1, "over budget");
+    await text(p, "#budline", "₪ 150 over the ₪ 1,000 budget");
+    await p.reload(); await p.selectOption("#month", mo); await text(p, "#budline", "over the ₪ 1,000 budget");
+  });
+  await test("re-importing after editing a purchase does not add it again", async () => {
+    const p = await open("?local=1"), f = "date,description,amount\n2026-11-03,Aroma Cafe,18\n2026-11-04,Zara,300";
+    await paste(p, "Visa", f);
+    await setField(p.locator('tr:has(input[value="Zara"]) [data-f="amt"]'), "280");
+    await setField(p.locator('tr:has(input[value="Aroma Cafe"]) [data-f="desc"]'), "Coffee with Dana");
+    await total(p, "₪ 298");
+    eq(await paste(p, "Visa", f), "Added 0 purchases, skipped 2 already saved.", "re-import");
+    await total(p, "₪ 298"); eq(await rows(p), 2, "purchases");
   });
   await test("Isracard-style Excel: charged amount, installments, title and total rows", async () => {
     const f = xlsx("1234_11_2026.xlsx", [["פירוט עסקאות", [

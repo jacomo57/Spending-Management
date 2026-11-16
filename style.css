@@ -1,6 +1,6 @@
-:root{--bg:#f3f5f2;--ink:#16211d;--mute:#5f6d67;--card:#fff;--line:#dfe5e0;--acc:#0f7a5c;--onacc:#fff;--bad:#c4452b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121715;--ink:#e8eeea;--mute:#98a8a0;--card:#1a211e;--line:#2a342f;--acc:#3fc79b;--onacc:#0b1411;--bad:#ff8a70;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#121715;--ink:#e8eeea;--mute:#98a8a0;--card:#1a211e;--line:#2a342f;--acc:#3fc79b;--onacc:#0b1411;--bad:#ff8a70;color-scheme:dark}
+:root{--bg:#f3f5f2;--ink:#16211d;--mute:#5f6d67;--card:#fff;--line:#dfe5e0;--acc:#0f7a5c;--onacc:#fff;--bad:#c4452b;--warn:#b97a00;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121715;--ink:#e8eeea;--mute:#98a8a0;--card:#1a211e;--line:#2a342f;--acc:#3fc79b;--onacc:#0b1411;--bad:#ff8a70;--warn:#e0b040;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121715;--ink:#e8eeea;--mute:#98a8a0;--card:#1a211e;--line:#2a342f;--acc:#3fc79b;--onacc:#0b1411;--bad:#ff8a70;--warn:#e0b040;color-scheme:dark}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -22,6 +22,10 @@ textarea{width:100%;min-height:90px;font-family:ui-monospace,Menlo,monospace;fon
 .sum{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-top:24px}
 .big{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-end}
 .big .n{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.big .m{font-size:22px;font-weight:600}
+.over,.big .m.over{color:var(--bad)}
+tr.inc td.amt input{color:var(--acc);font-weight:600}
+.bw small.c{padding:0}
 .big .l,.sub{color:var(--mute);font-size:13px}
 .set{display:grid;gap:6px;font-size:13px;color:var(--mute)}
 .set label{display:flex;gap:8px;align-items:center}

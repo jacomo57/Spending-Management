@@ -15,8 +15,8 @@ Goal: two users only (the owner and their partner), each with a private, indepen
 
 ## Data layout
 - `users/{uid}`: profile (invite code used; proves the account is allowed).
-- `users/{uid}/data/settings`: everything in `S` except purchases.
-- `users/{uid}/months/{YYYY-MM}`: that month's purchases.
+- `users/{uid}/data/settings`: everything in `S` except purchases (cards, categories, recurring items, budgets `S.budget`).
+- `users/{uid}/months/{YYYY-MM}`: that month's rows: purchases, and income rows (`inc:1`, positive amount; with a category it is a payback). Optional fields per row: `skip`, `src` (the imported values of an edited row).
 - Each document is `{v:1, json:"..."}`. Emptied months are written as `[]`, never deleted. Last write wins per document.
 - Offline uses Firestore's own cache (IndexedDB), cleared on sign-out. The app waits for server-confirmed data on a device that never synced, so it cannot overwrite real data with an empty state.
 - Known limit: the same month edited on two devices while one is offline. The later save replaces the earlier one for that whole month. Accepted for one person per account.

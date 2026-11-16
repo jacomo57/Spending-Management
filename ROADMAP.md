@@ -76,26 +76,93 @@ Still untested from earlier work: offline use, password-reset email, category dr
 - **Test:** browser pane at 375px and 768px, light and dark, with Hebrew and long descriptions; no sideways scrolling anywhere.
 - **Done when:** every screen is usable one-handed at 375px and the desktop layout is unchanged.
 
+## Who does what in Steps 3 to 5 (decided 2026-11-16)
+
+The rule: Fable for anything that changes what is saved, how it syncs, how the numbers are defined, sign-in or caching. Sonnet for anything whose result is visible on screen and reads the data without changing its shape.
+
+| Part | Model | State |
+|---|---|---|
+| 3.0 Income and paybacks | Fable | Done 2026-11-16 |
+| 3.2 Budgets | Fable | Done 2026-11-16 |
+| 5: re-import after editing a purchase | Fable | Done 2026-11-16 |
+| 3.1 Search | Sonnet | To do |
+| 3.3 Month over month | Sonnet | To do |
+| 3 extras: learned merchants list, yearly view | Sonnet | To do |
+| 3 extra: note per purchase | Sonnet, with the recipe below | To do |
+| 4 Reports (all three) and Export to Excel | Sonnet | To do |
+| 5: budget alerts, "Partner owes" view, Hebrew interface | Sonnet | Later |
+| 5: split a purchase across categories, tags | Fable (changes `calc()` and the saved rows) | Later |
+| 5: sign in with Google or a passkey | Fable, plus console steps by the user | Later |
+| 5: Caspion bank downloads | Fable, needs an always-on machine | Later |
+| 5: `dev` branch, GitHub Issues, short CLAUDE.md | Any model; the user decides | Later |
+
 ## Step 3: Income, budgets, search, comparisons
 
-- [ ] Done
-- **Model:** Fable to design and build income and budgets (new saved data, must sync and stay compatible); Sonnet is fine for search and the comparison view once budgets are in.
-- **Do, as four separate commits:**
-  0. **Income and money back** (asked for 2026-11-15; refunds on a card statement already work since Step 0 as minus amounts). Add money that comes in outside the cards: salary, a transfer from the partner, Bit/PayBox paybacks, a tax refund. Design to settle first: an income entry is a row with `inc:1` and a positive amount, kept in the same month documents, never counted as spending. "+ Add income" next to "+ Add purchase"; recurring income (salary) in the Recurring panel; bank-style imports keep their positive rows as income instead of dropping them. The summary shows In, Spent and Left for the month. A payback can be tied to a category so it lowers that category (the partner returns half of a purchase) or left as plain income. Budgets, comparisons and reports below must all use the same definition of "spent".
-  1. **Search:** one box above the expenses table; matches description, category, card and amount; works with the month and card filters; shows the total of what is found.
-  2. **Budgets:** an overall monthly budget plus an optional one per category, saved in settings (`S.budget = {total, cats:{name:amount}}`). Category bars show spent against budget and change colour near and over the limit; the summary shows "left this month" and, during the current month, a simple pace line ("on track" or "X over pace"). Budgets follow a category when it is renamed.
-  3. **Month over month:** pick two months (default: this month against last); per category show both amounts and the change; a 6 to 12 month trend strip for total spending.
-- **Worth adding here if time allows:** a "Learned merchants" list to see and fix remembered categories; a note field per purchase; a yearly view.
-- **Test:** extend the Playwright suite; budgets must survive sign-out and appear on a second device.
-- **Done when:** all four work on desktop and phone, sync across devices, and old accounts open without errors.
+- [x] 3.0 Income and paybacks (Fable, 2026-11-16)
+- [x] 3.2 Budgets (Fable, 2026-11-16)
+- [ ] 3.1 Search (Sonnet)
+- [ ] 3.3 Month over month (Sonnet)
+
+**What was built (3.0, 3.2 and the re-import fix):**
+- An income row is a normal row with `inc:1` and a positive amount, in the same month documents. No category = plain income (counts toward "In"). With a category = a payback: it lowers that category and "Spent" in full and is not part of "In". Card rules never apply to income.
+- "+ Add income" next to "+ Add purchase"; Recurring has a Bill / Income choice; a bank-style file now keeps its positive rows as income.
+- The summary shows Spent, and In and Left over when the view has income.
+- Budget panel: one budget for all spending and one per category (`S.budget = {total, cats}`), saved with the settings. With one month picked and no card filter: "X left of Y" under Spent, a pace note in the current month, and each budgeted category's bar fills against its budget (amber from 80%, red when over). Budgets follow a renamed category and come back with Undo after deleting one.
+- An edited purchase remembers how it looked when imported (`src`), so importing the same file again no longer adds it back.
+- `calc(rows)` in `app.js` is the single definition of the numbers.
+- **Tests:** 6 new ones (24 in all), including income and a budget reaching a second device and surviving sign-out.
+- **Not checked:** a real bank export (only a made-up one; note that a bank file also lists the monthly card bill, which would count twice next to the card's own statement, so tick Ignore on those rows), a real phone, the pace note on other days of the month (checked on one day only).
+- **Known rough edge:** a category whose own colour is red or amber can look like a budget warning. The red amount text is the real over-budget sign.
+
+## Gameplan for Sonnet (Steps 3.1, 3.3, extras, Step 4)
+
+Start each session with: **"Pull, read CLAUDE.md and ROADMAP.md, then do part N of the Sonnet gameplan."** One part per session, one commit per part.
+
+**Rules for every part**
+1. All numbers come from `calc(rows)` (returns `{spent, inc, back, by, per}`, skips ignored rows) and `v(t)` (what one row adds to Spent). Never add amounts up any other way, and never use `t.amt` directly for a total: income rows and card rules would be wrong.
+2. Do not change: `cloud.js`, `firestore.rules`, `sw.js`, `tools/stamp.mjs`, and in `app.js` the functions `v`, `calc`, `bud`, `rid`, `add`, `parse`, `table`, `clean`, `recGen`, `save`. If a part seems to need that, stop and leave it for a Fable session.
+3. Do not save anything new in `S` except where a part below says so. What the user is looking at (search text, chosen months, report options) lives in plain variables like `cardF` and `cat`, and is forgotten on reload.
+4. Everything that reaches the page as HTML goes through `esc()`. Text fields get `dir="auto"`.
+5. Each part adds at least one test to `tests/run.mjs` (the `local()` group, opened with `?local=1`; helpers `paste`, `total`, `text`, `setField`, `rows`, `eq`). Use dates built from `today` when the test picks a month.
+6. Finish as CLAUDE.md says: `npm test` with `failures: 0`, browser pane at desktop width and at 375px in light and dark, update the spec comment in `index.html`, tick the part here, commit, push, check the live site.
+7. Keep it uncluttered: nothing new on screen until the user asks for it (a button or a panel), and no new text longer than one line.
+
+**Part 1: Search (3.1)**
+- One box in the filter row (`.flt` in `index.html`), after the card filter: `<input id="q" type="search" dir="auto" placeholder="Search">`.
+- A variable `q`. In `render()` the list is built from `base` (month and card filters) and then the category filter; add the search there: every word typed must appear in the row's description, category, card or amount (lower-cased; amount as typed, so "45" finds 45 and 450.9).
+- Listen on `input` (not `change`) and re-render. `render()` already puts the focus back for known fields: add `q` to `fsel()` so typing is not interrupted, and keep the cursor at the end.
+- When `q` is not empty show one line above the table: "N found, ₪X" where X is `calc(found).spent`. The summary and category bars keep showing the month, not the search.
+- Test: import four rows, type a word, check the row count and the found line; clear it and all rows return.
+
+**Part 2: Month over month (3.3)**
+- A "Compare" button in the Categories header opens a section under the bars (a variable, not saved). Two month pickers: default the month picked above (or the newest) against the one before it.
+- For each category: both amounts from `calc(rows of month).by`, and the change in money and in percent. Sort by biggest change. A last row for the total (`.spent`), and one for In when either month has income.
+- Trend strip: total `spent` for the last 12 months that have data, as simple bars made the same way as the category bars (no chart library). Tapping a bar picks that month.
+- A rise in spending is not an error: use the neutral text colour with an arrow, not red.
+- Test: rows in two months, open Compare, check one category's two amounts and its change.
+
+**Part 3: Extras**
+- Learned merchants: a panel listing `S.rules` (merchant key and its category) with a category picker and a delete button per line. Changing one updates `S.rules[key]` and every purchase where `key(t.desc)` matches and `!t.inc`, exactly as the category picker in the table does today. This writes only fields that already exist, so it is allowed.
+- Yearly view: an "All of 2026" entry per year in the month picker (value like `2026`); the existing `t.date.startsWith(m)` filter then works as it is. Budgets stay hidden for a year (they are monthly): check that `bOn` is false for it.
+- Note per purchase (the one new saved field, already agreed): `t.note`, a string. Add `if(t.note!=null)t.note=String(t.note).slice(0,500)` to `clean()` next to the `src` line (the single allowed edit there), an input in the row with `data-tid` and `data-f="note"`, and let the existing change handler save it. In that handler the line that sets `x.src` must not run for notes: change its test to `f!="card"&&f!="note"`. Include notes in search.
+
+**Part 4: Reports (Step 4)**
+- Follow the spec in Step 4 below. A "Report" button opens a report view built from the current data; printing uses `@media print` in `style.css` (hide the nav, panels, filters and buttons; A4 margins; `thead{display:table-header-group}` so the header repeats; `tr{break-inside:avoid}`). No PDF library.
+- The report is plain text and tables (no inputs), so Hebrew prints correctly: give description cells `dir="auto"`.
+- Monthly report numbers: `calc()` for the month and for the month before; budget from `S.budget`; top merchants grouped by `key(t.desc)` and summed with `v(t)`; largest purchases sorted by `v(t)`, income rows left out; income listed in its own short table.
+- Export to Excel: load the library with the existing `loadXlsx()`, then `XLSX.utils.json_to_sheet` and `XLSX.writeFile`. Columns: date, description, category, card, amount, counted amount (`v(t)`), type (purchase, refund, income, payback), ignored.
+- The service worker saves the files listed in `sw.js`; a new file (for example a separate report script) would have to be added there, which rule 2 forbids. Keep the report code inside `app.js` and `style.css`.
+- Test: open the report for a month and check the total, one category line and the row count; check the Excel export produces a download.
+
+**When to stop and hand back to Fable:** a saved field other than `t.note` is needed; totals in a test disagree with `calc()`; anything about sign-in, sync, offline or "Update available" misbehaves; a change is needed in a file or function from rule 2.
 
 ## Step 4: Reports
 
 - [ ] Done
-- **Model:** Sonnet with this spec; Fable if the look of the report matters a lot.
+- **Model:** Sonnet with this spec and Part 4 of the gameplan above; Fable if the look of the report matters a lot.
 - **Approach:** a print-ready report page inside the app plus the browser's own "Save as PDF" (and Share on phones). No PDF library: they handle Hebrew and right-to-left text badly, and print styles do it correctly for free. Add "Export to Excel" for the raw rows using the Excel library already loaded.
 - **Report types:**
-  1. **Monthly report:** total, against budget, against last month; spending by category (bars and table); by card with its counting rule; top 10 merchants; 5 largest purchases; recurring bills; then the full list of expenses.
+  1. **Monthly report:** total, against budget, against last month; income and left over; spending by category (bars and table); by card with its counting rule; top 10 merchants; 5 largest purchases; recurring bills; then the full list of expenses.
   2. **Selected expenses:** whatever the current filters and search show, with totals. Good for one card, one category or a date range.
   3. **Trend report:** last 6 or 12 months, total per month and per category, biggest changes.
 - **Options on the report screen:** month or range, include or hide the full expense list, include ignored purchases or not.
@@ -104,10 +171,10 @@ Still untested from earlier work: offline use, password-reset email, category dr
 
 ## Step 5: Ideas for later
 
-App:
-- Re-importing after editing a purchase's description or amount adds it again (the duplicate check compares the current values). Remember the imported values per purchase if this gets annoying.
+App (model for each is in the table above):
+- [x] Re-importing after editing a purchase's description or amount added it again. Fixed 2026-11-16.
 - Split one purchase across categories; tags.
-- Budget alerts when a category passes 80% and 100%.
+- Budget alerts when a category passes 80% and 100% (the bars already change colour; this would be a notice).
 - "Partner owes" view for a joint card: what each side paid against their share.
 - Hebrew interface option.
 - Sign in with Google or a passkey instead of a password.
