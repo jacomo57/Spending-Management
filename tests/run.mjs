@@ -208,6 +208,17 @@ async function local() {
     eq(await paste(p, "Visa", two + "\n2026-11-03,Aroma Cafe,18"), "Added 1 purchase, skipped 2 already saved.", "second import");
     await total(p, "₪ 54"); eq(await rows(p), 3, "purchases");
   });
+  await test("search filters the list by every word and shows a found line", async () => {
+    const p = await open("?local=1");
+    await paste(p, "Visa", "date,description,amount\n2026-11-03,Aroma Cafe,18\n2026-11-04,Aroma Bakery,45\n2026-11-05,Zara,450.9\n2026-11-06,קפה גן,20");
+    await total(p, "₪ 534");
+    await p.fill("#q", "aroma"); eq(await rows(p), 2, "aroma rows"); await text(p, "#found", "2 found, ₪ 63");
+    await p.fill("#q", "aroma 45"); eq(await rows(p), 1, "two words"); await text(p, "#found", "1 found, ₪ 45");
+    await p.fill("#q", "450"); eq(await rows(p), 1, "amount"); await total(p, "₪ 534");
+    await p.fill("#q", "קפה"); eq(await rows(p), 1, "hebrew");
+    await p.fill("#q", ""); eq(await rows(p), 4, "cleared"); eq(await p.locator("#found").isHidden(), true, "found hidden");
+    await p.fill("#q", "zara"); await p.click("#addp"); eq(await p.inputValue("#q"), "", "search cleared by add"); eq(await rows(p), 5, "new row visible");
+  });
   await test("refunds import as negative amounts and reduce the total", async () => {
     const p = await open("?local=1");
     eq(await paste(p, "Visa", "date,description,amount\n2026-11-03,Zara,300\n2026-11-04,Castro,80\n2026-11-05,Zara,-120\n2026-11-06,Wolt,(30)"), "Added 4 purchases.", "import");

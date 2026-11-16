@@ -12,7 +12,7 @@ Summary: spent, In and Left over (when the view has income), a figure per card (
 Income: a row with inc:1 and a positive amount ("+ Add income", recurring income, positive rows of a bank file). No category = income, counts toward In. With a category = a payback, lowers that category and Spent in full. Card rules never apply to income. calc(rows) in app.js is the single definition of spent / in / per category / per card.
 Budgets (Budget panel): S.budget = {total, cats:{name:amount}}, monthly, saved with the settings. Shown with one month picked and no card filter: "X left of Y" under Spent, a pace note in the current month, category bars fill against their budget (amber from 80%, red when over). Budgets follow a renamed category.
 Categories: editable, add, bars (click to filter), sort by size or own order (drag grip), colors stay per category. Other = catch-all. New accounts start with 9 default categories (no "Bills & home" or "House stuff"; their merchants sort into Rent & payments and Shopping). Accounts that already saved their categories keep them.
-Expenses: inline edit, add, month + card filters, column sort, Ignore checkbox. A negative amount is a refund and lowers the totals. An added purchase left empty is dropped on the next start.
+Expenses: inline edit, add, month + card filters, Search box (every word must appear in description, category, card or amount; shows "N found, ₪X"; summary and bars keep showing the month; not saved), column sort, Ignore checkbox. A negative amount is a refund and lowers the totals. An added purchase left empty is dropped on the next start.
 Categorizing: learned merchant first, then EN + HE keywords, then the issuer's own category column if the file has one (Max); anything else stays in Other for manual sorting.
 Recurring (monthly, card "Recurring" unless another is chosen): starts empty; the user adds their own bills or income (Bill / Income choice) in the Recurring panel.
 Accounts + cloud sync (Firebase, see docs/backend.md): only active when FB_REAL is set or on localhost (emulators). Sign in (with a Show/Hide button for the password), Create account (needs invite code), Forgot password, Account panel (Sign out, Download my data, Restore from file with second press + undo, Delete my account with password + press twice). Data per account in Firestore, live sync between devices, "Saved / Saving… / Offline" status.
@@ -37,7 +37,7 @@ IDEAS: see ROADMAP.md.
 <meta name="apple-mobile-web-app-title" content="Spend">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=1a73e0ae3b">
+<link rel="stylesheet" href="style.css?v=420709d3ed">
 </head>
 <body>
 <main>
@@ -120,8 +120,10 @@ IDEAS: see ROADMAP.md.
     <button id="addi">+ Add income</button>
     <select id="month" aria-label="Month"></select>
     <select id="cardf" aria-label="Card"></select>
+    <input id="q" type="search" dir="auto" placeholder="Search" aria-label="Search purchases" style="width:130px">
     <span id="chip"></span>
   </div>
+  <div class="sub" id="found" hidden></div>
   <div class="tw"><table><thead><tr id="head"></tr></thead><tbody id="rows"></tbody></table></div>
   <p class="sub">Changing a category teaches the app that merchant. A refund is a minus amount. Income with a category is a payback and lowers that category.</p>
 </section>
@@ -129,7 +131,7 @@ IDEAS: see ROADMAP.md.
 </main>
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=1a73e0ae3b"></script>
-<script src="cloud.js?v=1a73e0ae3b"></script>
+<script src="app.js?v=420709d3ed"></script>
+<script src="cloud.js?v=420709d3ed"></script>
 </body>
 </html>
