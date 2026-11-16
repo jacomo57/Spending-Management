@@ -262,12 +262,19 @@ function clean(o){const id=x=>String(x||"").replace(/[^\w:.-]/g,"")||uid();
   if(Array.isArray(t.split))t.split=t.split.filter(p=>p&&typeof p.amt=="number"&&isFinite(p.amt)).map(p=>({cat:String(p.cat||"Other"),amt:p.amt}));fitSplit(t)});
  if(!Array.isArray(o.recur))o.recur=[];o.recur.forEach(r=>{r.id=id(r.id);r.amt=+r.amt||0;r.day=Math.min(28,Math.max(1,parseInt(r.day)||1));r.desc=String(r.desc||"");if(r.inc)r.inc=1;else delete r.inc});
  if(o.budget&&typeof o.budget=="object"){const c=bare(),s=o.budget.cats;if(s&&typeof s=="object")for(const k in s)if(+s[k]>0)c[k]=+s[k];o.budget={total:Math.max(0,+o.budget.total||0),cats:c}}else delete o.budget;
+ if(o.mstart!=null){const n=Math.min(28,Math.max(1,parseInt(o.mstart)||1));if(n>1)o.mstart=n;else delete o.mstart}
  for(const k of["hue","cards"])if(o[k]&&typeof o[k]=="object")for(const c in o[k])o[k][c]=+o[k][c]||0;else delete o[k];
  if(!Array.isArray(o.cats)||o.cats.some(c=>typeof c!="string"))delete o.cats;
  for(const k of["rules","alias","icon"])if(o[k]&&typeof o[k]=="object")for(const c in o[k])o[k][c]=String(o[k][c]).slice(0,k=="icon"?8:1e4);else delete o[k];
  return Object.assign({tx:[],rules:{},cur:"₪"},own(o))}
 function fmt(n){return esc(S.cur)+" "+n.toLocaleString(undefined,{maximumFractionDigits:0})}
-function mname(m){const[y,mo]=m.split("-");return new Date(y,mo-1,1).toLocaleString(undefined,{month:"long",year:"numeric"})}
+// A "month" can start on any day (S.mstart, 1 to 28, default 1): the period from that day to the day before the next one is named
+// after the calendar month it starts in. pk(date) -> "YYYY-MM" key of the period a date is in; mrange(m) -> [first day, last day].
+const MS=()=>Math.min(28,Math.max(1,parseInt(S.mstart)||1)),p2=n=>String(n).padStart(2,"0"),dstr=d=>d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate());
+function pk(d){if(MS()==1)return d.slice(0,7);let y=+d.slice(0,4),m=+d.slice(5,7);if(+d.slice(8,10)<MS()){if(--m==0){m=12;y--}}return y+"-"+p2(m)}
+const mrange=m=>{const[y,mo]=m.split("-").map(Number);return[dstr(new Date(y,mo-1,MS())),dstr(new Date(y,mo,MS()-1))]};
+function mname(m){const[y,mo]=m.split("-");if(MS()==1)return new Date(y,mo-1,1).toLocaleString(undefined,{month:"long",year:"numeric"});
+ const[a,b]=mrange(m).map(x=>{const[yy,mm,dd]=x.split("-");return new Date(yy,mm-1,dd)}),f=o=>o.toLocaleString(undefined,{day:"numeric",month:"short"});return f(a)+" – "+f(b)+" "+b.getFullYear()}
 function fsel(e){const d=e&&e.dataset;if(!d)return null;
  if(d.skip)return `[data-skip="${d.skip}"]`;
  if(d.tid)return `[data-tid="${d.tid}"][data-f="${d.f}"]`;
@@ -291,7 +298,7 @@ function addPurchase(inc){const id=uid(),d=ymd();
  dropEmpty();q="";$("q").value="";
  if(inc){S.tx.push({id,date:d,desc:"",amt:0,inc:1,card:"",cat:""});cardF="all";cat=null}
  else S.tx.push({id,date:d,desc:"",amt:0,card:cardF!="all"?cardF:CL.find(c=>c!="Recurring")||"My card",cat:cat||"Other"});
- pendingMonth=d.slice(0,7);focusTid=id;save();render()}
+ pendingMonth=pk(d);focusTid=id;save();render()}
 function render(){
  const fs=fsel(document.activeElement);
  syncCats();if(!Array.isArray(S.recur))S.recur=[];
@@ -308,7 +315,7 @@ function render(){
  $("reclist").innerHTML=S.recur.map(r=>`<div class="row"><input dir="auto" data-rid="${r.id}" data-f="desc" value="${esc(r.desc)}" style="width:150px" aria-label="Description"><input data-rid="${r.id}" data-f="amt" type="number" step="0.01" value="${r.amt}" style="width:90px" aria-label="Amount"><input data-rid="${r.id}" data-f="day" type="number" min="1" max="28" value="${r.day}" style="width:60px" aria-label="Day of month">${r.inc?`<span class="sub">income</span>`:`<select data-rid="${r.id}" data-f="card" aria-label="Card">${copt(r.card||"Recurring")}</select>`}<button class="x" data-delrec="${r.id}" aria-label="Delete">✕</button></div>`).join("")||`<span class="msg">None yet.</span>`;
  $("cardlist").innerHTML=CL.map(c=>`<option value="${esc(c)}">`).join("");
  $("cardf").innerHTML='<option value="all">All cards</option>'+CL.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");$("cardf").value=cardF;
- const months=[...new Set(S.tx.map(t=>t.date.slice(0,7)))].sort().reverse();
+ const months=[...new Set(S.tx.map(t=>pk(t.date)))].sort().reverse();
  const cm=pendingMonth||$("month").value||"all";pendingMonth=null;
  const yrs=[...new Set(months.map(x=>x.slice(0,4)))];
  $("month").innerHTML='<option value="all">All time</option>'+yrs.map(y=>`<option value="${y}">All of ${y}</option>`).join("")+months.map(m=>`<option value="${m}">${mname(m)}</option>`).join("");
@@ -329,10 +336,26 @@ function render(){
  const base=repRows(m);
  const K=calc(base),ign=base.filter(t=>t.skip),tot=K.spent,per=K.per,by=K.by;
  // Budgets are monthly and cover all cards, so they show only with one month picked and no card filter.
- const B=S.budget&&S.budget.cats?S.budget:{total:0,cats:bare()},bOn=m.length==7&&cardF=="all",bc=bOn?B.cats:bare(),now=new Date(),nowM=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
- let bl="";if(bOn&&B.total>0){const left=B.total-tot,exp=B.total*now.getDate()/new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
-  bl=`<div class="l${left<0?" over":""}" id="budline">${left<0?fmt(-left)+" over the "+fmt(B.total)+" budget":fmt(left)+" left of "+fmt(B.total)}${m==nowM&&left>=0?(tot<=exp?" · on track":" · "+fmt(tot-exp)+" over pace"):""}</div>`}
- if(document.activeElement!=$("btotal"))$("btotal").value=B.total||"";
+ const B=S.budget&&S.budget.cats?S.budget:{total:0,cats:bare()},bOn=m.length==7&&cardF=="all",bc=bOn?B.cats:bare();
+ // Pace (this month's period only, all cards): what is left per day, where the month will end at this pace, categories running ahead.
+ const F=fixedSet(),isF=t=>!t.inc&&!t.skip&&t.amt>0&&F[fkey(t)],fx=calc(base.filter(isF)),curM=pk(ymd()),live=bOn&&m==curM;
+ let bl="",pace="",soon="";
+ if(live){const[ps,pe]=mrange(m),td=ymd(),day=1000*60*60*24,dd=(x,y)=>Math.round((new Date(y)-new Date(x))/day),
+   tc=toCome(F,m),tcSum=tc.reduce((q,o)=>q+o.amt*pct(o.card)/100,0),
+   total=dd(ps,pe)+1,gone=Math.max(1,dd(ps,td)+1),left=Math.max(1,dd(td,pe)+1),frac=gone/total,
+   fcst=tot+tcSum+(tot-fx.spent)/gone*(left-1);
+  pace=fmt(fcst)+" by the end of the month at this pace";
+  if(B.total>0){const av=B.total-tot-tcSum;
+   pace=(av>=0?fmt(av/left)+" a day for the "+left+" days left"+(tcSum>0?" (after "+fmt(tcSum)+" of fixed charges still to come)":""):fmt(-av)+" over budget once the fixed charges still to come are paid")+" · "+pace;
+   const bv=calc(base.filter(t=>!isF(t))).by,fb=bare();base.filter(isF).forEach(t=>parts(t).forEach(([c,x])=>{fb[c]=(fb[c]||0)+x*pct(t.card)/100}));tc.forEach(o=>{fb[o.cat]=(fb[o.cat]||0)+o.amt*pct(o.card)/100});
+   const ah=S.cats.filter(c=>{const b0=B.cats[c]-(fb[c]||0),u=(bv[c]||0)/b0;return B.cats[c]>0&&b0>0&&u<1&&u>frac+.2}).slice(0,3).map(c=>{const b0=B.cats[c]-(fb[c]||0);return esc(c)+": "+Math.round((bv[c]||0)/b0*100)+"% of what's free is used, "+Math.round(frac*100)+"% of the month gone"});
+   if(ah.length)pace+="<br>Ahead of pace: "+ah.join(" · ")}
+  if(tc.length)soon=`<details class="soon"><summary>${fmt(tcSum)} of fixed charges still to come (${tc.length})</summary>${tc.map(o=>`<div class="row"><span class="sub">${esc(new Date(o.dt+"T00:00").toLocaleString(undefined,{day:"numeric",month:"short"}))}</span><span dir="auto">${esc(o.k)}</span><span>${fmt(o.amt)}</span></div>`).join("")}</details>`}
+ if(bOn&&B.total>0){const left=B.total-tot;bl=`<div class="l${left<0?" over":""}" id="budline">${left<0?fmt(-left)+" over the "+fmt(B.total)+" budget":fmt(left)+" left of "+fmt(B.total)}</div>`}
+ if(pace)bl+=`<div class="l" id="pace">${pace}</div>`;
+ if(fx.spent>0)bl+=`<div class="l" id="fixedline">Fixed ${fmt(fx.spent)} · everything else ${fmt(tot-fx.spent)}</div>`;
+ bl+=soon;
+ if(document.activeElement!=$("btotal"))$("btotal").value=B.total||"";if(document.activeElement!=$("mstart"))$("mstart").value=S.mstart||"";
  {const ks=Object.keys(S.rules).sort((x,y)=>x.localeCompare(y)),co=[...S.cats,"Other"];
   $("merlist").innerHTML=ks.map(k=>{const c=S.rules[k],os=co.includes(c)?co:[...co,c];return `<div class="row"><span dir="auto" style="width:170px">${esc(k)}</span><select data-mk="${esc(k)}" aria-label="Category for ${esc(k)}">${os.map(o=>`<option value="${esc(o)}"${o==c?" selected":""}>${esc(o)}</option>`).join("")}</select><button class="x" data-delmk="${esc(k)}" aria-label="Forget ${esc(k)}">✕</button></div>`}).join("")||`<span class="msg">None yet. They are learned when you change a purchase's category.</span>`}
  $("budlist").innerHTML=S.cats.map((c,i)=>`<label class="row"><span dir="auto" style="width:150px">${esc(c)}</span><input data-bi="${i}" type="number" min="0" step="1" value="${B.cats[c]||""}" placeholder="No budget" style="width:120px" aria-label="Budget for ${esc(c)}"></label>`).join("");
@@ -371,8 +394,26 @@ function render(){
  if(focusSp){const el=document.querySelector(`[data-sp="${focusSp[0]}"][data-i="${focusSp[1]}"][data-f="amt"]`);if(el)el.focus();focusSp=null}
  if(focusTid){const el=document.querySelector(`[data-tid="${focusTid}"][data-f="desc"]`);if(el)el.focus();focusTid=null}
 }
+// Fixed charges: a purchase that comes back every month with about the same amount (one row a month, same words, 3 or more months,
+// or a recurring item). Nothing is saved; it is worked out from the purchases. fixedSet() -> {key:{amt,day,last,cat}}.
+const fkey=t=>String(t.desc).toLowerCase().replace(/[\d\/.,:*#+_-]+/g," ").replace(/\s+/g," ").trim(),
+ mnum=m=>+m.slice(0,4)*12+ +m.slice(5,7)-1;
+function fixedSet(){const g=bare(),out=bare(),cur=pk(ymd());
+ S.tx.forEach(t=>{if(t.inc||t.skip||!(t.amt>0))return;const k=fkey(t);if(k.length>2)(g[k]=g[k]||[]).push(t)});
+ for(const k in g){const rows=g[k],by=bare();rows.forEach(t=>{const q=pk(t.date);(by[q]=by[q]||[]).push(t)});
+  const ms=Object.keys(by).sort(),rec=rows.some(t=>String(t.id).startsWith("rec-")),last=ms[ms.length-1];
+  if(mnum(cur)-mnum(last)>2||ms.some(x=>by[x].length>1&&!rec))continue;
+  const am=rows.map(t=>t.amt).sort((a,b)=>a-b),med=am[am.length>>1];
+  if(!rec&&(ms.length<3||ms.filter(x=>Math.abs(by[x][0].amt-med)<=med*.15).length<3))continue;
+  const l=by[last][0];out[k]={amt:l.amt,day:+l.date.slice(8,10),last,cat:l.cat,card:l.card}}
+ return out}
+// What is still to come in the period m (today's): fixed charges seen last period but not yet this one, and not yet due.
+function toCome(F,m){const today=ymd(),[a]=mrange(m),pm=pk(dstr(new Date(+a.slice(0,4),+a.slice(5,7)-1,+a.slice(8,10)-1))),out=[],[y,mo]=a.split("-").map(Number);
+ for(const k in F){const f=F[k];if(f.last!=pm)continue;
+  const mm=f.day>=MS()?mo-1:mo,dt=dstr(new Date(y,mm,Math.min(f.day,new Date(y,mm+1,0).getDate())));if(dt>today)out.push({k,dt,amt:f.amt,cat:f.cat,card:f.card})}
+ return out.sort((x,y)=>x.dt.localeCompare(y.dt))}
 // Report (view only, not saved). All numbers come from calc() and v(); ignored rows only appear in the list when asked for.
-function repRows(m){return S.tx.filter(t=>(m=="all"||t.date.startsWith(m))&&(cardF=="all"||t.card==cardF))}
+function repRows(m){return S.tx.filter(t=>(m=="all"||pk(t.date).startsWith(m))&&(cardF=="all"||t.card==cardF))}
 const sec=(t,b)=>`<h3>${esc(t)}</h3>${b}`;
 const repList=lst=>sec("All entries ("+lst.length+")",repTable([["Date"],["Description"],["Category"],["Card"],["Amount",1]],lst.map(t=>repTr([[t.date],[esc(t.desc)+(t.note?" <small>"+esc(t.note)+"</small>":"")+(t.skip?" <small>(ignored)</small>":""),0,1],[esc(t.inc&&!t.cat?"Income":catLabel(t)),0,1],[esc(t.card||""),0,1],[t.inc?fmt(t.amt):fmt(t.skip?t.amt:v(t)),1]])).join("")));
 function repTable(head,body){return "<table class=\"rt\"><thead><tr>"+head.map(([l,n])=>"<th"+(n?" class=\"n\"":"")+">"+esc(l)+"</th>").join("")+"</tr></thead><tbody>"+body+"</tbody></table>"}
@@ -404,8 +445,8 @@ function report(){
  el.querySelector("[data-rm]").value=m}
 const repType=()=>`<label>Report <select data-rt aria-label="Report type"><option value="month"${rpT=="month"?" selected":""}>Monthly</option><option value="sel"${rpT=="sel"?" selected":""}>Selected expenses</option><option value="trend"${rpT=="trend"?" selected":""}>Trend</option></select></label>`,
  repBtns=`<button class="pri" data-rpr>Print / Save as PDF</button><button data-rx>Export to Excel</button><button data-rclose>Close</button>`;
-function trendMonths(){return[...new Set(repRows("all").map(t=>t.date.slice(0,7)))].sort().reverse().slice(0,rpN).reverse()}
-function trendRows(){const ms=trendMonths();return repRows("all").filter(t=>ms.includes(t.date.slice(0,7)))}
+function trendMonths(){return[...new Set(repRows("all").map(t=>pk(t.date)))].sort().reverse().slice(0,rpN).reverse()}
+function trendRows(){const ms=trendMonths();return repRows("all").filter(t=>ms.includes(pk(t.date)))}
 // Selected expenses (what the filters and search show) and Trend (last 6 or 12 months).
 function repOther(el){
  let body="";
@@ -415,7 +456,7 @@ function repOther(el){
   <div class="rbig"><div><b>${fmt(K.spent)}</b><span>spent in ${FOUND.filter(t=>!t.skip).length} entries${K.back?" · after "+fmt(K.back)+" paid back":""}</span></div></div>
   ${cats.length?sec("By category",repTable([["Category"],["Amount",1]],cats.map(c=>repTr([[esc(c),0,1],[fmt(K.by[c]),1]])).join(""))):""}
   ${rpL?repList(lst):""}`}
- else{const ms=trendMonths(),all=repRows("all"),ks=ms.map(x=>calc(all.filter(t=>t.date.startsWith(x)))),names=[...new Set(ks.flatMap(k=>Object.keys(k.by)))],n=ms.length,
+ else{const ms=trendMonths(),all=repRows("all"),ks=ms.map(x=>calc(all.filter(t=>pk(t.date)==x))),names=[...new Set(ks.flatMap(k=>Object.keys(k.by)))],n=ms.length,
    ch=(x,y)=>{const d=x-y;return d?(d>0?"↑ ":"↓ ")+fmt(Math.abs(d)):"–"},L=ks[n-1],P=ks[n-2];
   body=`<h2>Trend: last ${n} month${n==1?"":"s"}</h2><div class="sub">${cardF=="all"?"All cards":"Card: "+esc(cardF)}</div>
   ${n?sec("Spent per month",repTable([["Month"],["Spent",1],["Change",1]],ms.map((x,i)=>repTr([[esc(mname(x)),0,1],[fmt(ks[i].spent),1],[i?ch(ks[i].spent,ks[i-1].spent):"",1]])).join(""))):`<div class="sub">No data yet.</div>`}
@@ -548,6 +589,7 @@ document.addEventListener("change",e=>{const t=e.target;
    x.cat=t.value;const k=key(x.desc);if(k&&!x.inc)learn(k,t.value);save();later(render)}}
  else if(t.dataset.mk){const k=t.dataset.mk;if(S.rules[k]==null)return;learn(k,t.value);save();later(render)}
  else if(t.dataset.bi){const c=S.cats[+t.dataset.bi],n=Math.max(0,parseFloat(t.value)||0);if(c==null)return;if(n)bud().cats[c]=n;else delete bud().cats[c];save();later(render)}
+ else if(t.id=="mstart"){const n=Math.min(28,Math.max(1,parseInt(t.value)||1));if(n>1)S.mstart=n;else delete S.mstart;save();pendingMonth=pk(ymd());later(render)}
  else if(t.id=="btotal"){bud().total=Math.max(0,parseFloat(t.value)||0);save();later(render)}
  else if(t.id=="rkind")$("rcard").hidden=t.value=="inc";
  else if(t.dataset.rt!==undefined){rpT=t.value;render()}

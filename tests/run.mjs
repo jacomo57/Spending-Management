@@ -531,6 +531,30 @@ async function local() {
     await setField(p.locator('.cn[value="Groceries"]'), "Food");
     eq((await ci("Food").innerText()).trim(), "🍔", "icon follows a rename");
   });
+  await test("month start day; fixed charges; what is still to come; pace line", async () => {
+    const p = await open("?local=1");
+    // Pure helpers: a month that starts on the 15th.
+    eq(await p.evaluate(() => { S.mstart = 15; return [pk("2026-11-10"), pk("2026-11-15"), pk("2026-01-02"), mrange("2026-10").join(">")].join(" ") }), "2026-10 2026-11 2025-12 2026-10-15>2026-11-14", "mk and mrange with start day 15");
+    await p.evaluate(() => { delete S.mstart });
+    // Netflix every month (fixed), Gym on the 28th of the last 3 months (fixed, due later), Shufersal many times a month (not fixed).
+    await p.evaluate(() => {
+      const d = new Date(), at = (back, day) => dstr(new Date(d.getFullYear(), d.getMonth() - back, day)); let n = 0;
+      const add = (date, desc, amt) => S.tx.push({ id: "t" + (n++), date, desc, amt, card: "My card", cat: "Other" });
+      for (let b = 1; b <= 3; b++) { add(at(b, 3), "Netflix", 50); add(at(b, 28), "Gym", 200); add(at(b, 5), "Shufersal", 300); add(at(b, 9), "Shufersal", 280) }
+      add(at(0, 1), "Netflix", 50); add(ymd(), "Shufersal", 100); S.budget = { total: 3000, cats: {} }; save(); render();
+    });
+    await p.selectOption("#month", await p.evaluate(() => pk(ymd())));
+    await text(p, "#fixedline", "Fixed ₪ 50 · everything else ₪ 100");
+    await text(p, "#pace", "by the end of the month at this pace");
+    if (await p.evaluate(() => +ymd().slice(8, 10)) <= 27) await text(p, ".soon summary", "₪ 200 of fixed charges still to come");
+    eq(await p.evaluate(() => Object.keys(fixedSet()).sort().join()), "gym,netflix", "which charges count as fixed");
+    eq(await p.evaluate(() => fkey({ desc: "Disney+ 3/12 *77 Studios" })), "disney studios", "digits and signs dropped, letters kept");
+    // Month start day from the Budgets panel: saved, and months are named by their dates.
+    await p.click('[data-p="bud"]'); await setField(p.locator("#mstart"), "15");
+    eq(await p.evaluate(() => S.mstart), 15, "saved start day");
+    eq(await p.evaluate(() => [...document.querySelectorAll("#month option")].slice(-1)[0].textContent.includes("–")), true, "month names show the dates");
+    await p.reload(); eq(await p.evaluate(() => S.mstart), 15, "start day after reload");
+  });
   await test("split a purchase across categories; #tags in notes filter and total", async () => {
     const p = await open("?local=1");
     await paste(p, "Visa", "date,description,amount\n2026-11-03,Shufersal,400\n2026-11-04,Zara,100");

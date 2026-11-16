@@ -157,3 +157,5 @@ small.sr{text-align:left;padding:0 6px 3px}
 button.ci{cursor:pointer;border:1px solid transparent;background:none;padding:2px;border-radius:6px;min-height:28px}button.ci:hover{border-color:var(--line);background:var(--card)}button.ci.none{color:var(--mute);opacity:.6}
 .cat .pick{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px;padding:6px 0}.pick button{border:1px solid var(--line);background:var(--card);border-radius:6px;padding:2px 6px;font-size:16px;min-width:32px;min-height:32px}.pick button[data-pick='']{font-size:12px}.pick input{width:84px;min-height:32px}
 span.cn:hover{border-color:transparent;background:none}
+
+.soon{margin-top:4px;font-size:13px;color:var(--mute)}.soon summary{cursor:pointer}.soon .row{gap:10px;margin:2px 0}.soon .row span:last-child{margin-left:auto}

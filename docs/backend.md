@@ -15,7 +15,7 @@ Goal: two users only (the owner and their partner), each with a private, indepen
 
 ## Data layout
 - `users/{uid}`: profile (invite code used; proves the account is allowed).
-- `users/{uid}/data/settings`: everything in `S` except purchases (cards, categories, recurring items, budgets `S.budget`, category icons `S.icon`).
+- `users/{uid}/data/settings`: everything in `S` except purchases (cards, categories, recurring items, budgets `S.budget`, category icons `S.icon`, month start day `S.mstart`).
 - `users/{uid}/months/{YYYY-MM}`: that month's rows: purchases, and income rows (`inc:1`, positive amount; with a category it is a payback). Optional fields per row: `skip`, `src` (the imported values of an edited row).
 - Each document is `{v:1, json:"..."}`; the rules refuse any other shape, any other document name, and a `json` of 900,000 characters or more (the app then shows "Couldn't save"). Emptied months are written as `[]`, never deleted. Last write wins per document.
 - Offline uses Firestore's own cache (IndexedDB), cleared on sign-out. The app waits for server-confirmed data on a device that never synced, so it cannot overwrite real data with an empty state.
