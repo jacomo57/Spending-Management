@@ -11,7 +11,7 @@ Cards: S.cards[name] = percent that counts (full 100, half 50, custom, not count
 Summary: spent, In and Left over (when the view has income), a figure per card (when more than one), currency.
 Income: a row with inc:1 and a positive amount ("+ Add income", recurring income, positive rows of a bank file). No category = income, counts toward In. With a category = a payback, lowers that category and Spent in full. Card rules never apply to income. calc(rows) in app.js is the single definition of spent / in / per category / per card.
 Budgets (Budget panel): S.budget = {total, cats:{name:amount}}, monthly, saved with the settings. Shown with one month picked and no card filter: "X left of Y" under Spent, a pace note in the current month, category bars fill against their budget (amber from 80%, red when over). Budgets follow a renamed category.
-Merchants panel (learned merchant to category, change or forget), All of YEAR entries in the month picker (budgets hidden), a Note on each purchase (searchable). Categories: Compare button (two months side by side per category with the change, a total row, an In row when there is income, and a 12-month trend strip; tap a month to pick it; neutral colours, not saved). Editable, add, bars (click to filter), sort by size or own order (drag grip), colors stay per category. Other = catch-all. New accounts start with 9 default categories (no "Bills & home" or "House stuff"; their merchants sort into Rent & payments and Shopping). Accounts that already saved their categories keep them.
+Report button: a print-ready monthly (or yearly, or all-time) report with totals, against budget and last month, income and left over, categories, cards, top 10 merchants, 5 largest, recurring bills and the full list (options: list on/off, ignored rows on/off); Print / Save as PDF uses the browser, Export to Excel saves the rows. Merchants panel (learned merchant to category, change or forget), All of YEAR entries in the month picker (budgets hidden), a Note on each purchase (searchable). Categories: Compare button (two months side by side per category with the change, a total row, an In row when there is income, and a 12-month trend strip; tap a month to pick it; neutral colours, not saved). Editable, add, bars (click to filter), sort by size or own order (drag grip), colors stay per category. Other = catch-all. New accounts start with 9 default categories (no "Bills & home" or "House stuff"; their merchants sort into Rent & payments and Shopping). Accounts that already saved their categories keep them.
 Expenses: inline edit, add, month + card filters, Search box (every word must appear in description, category, card or amount; shows "N found, ₪X"; summary and bars keep showing the month; not saved), column sort, Ignore checkbox. A negative amount is a refund and lowers the totals. An added purchase left empty is dropped on the next start.
 Categorizing: learned merchant first, then EN + HE keywords, then the issuer's own category column if the file has one (Max); anything else stays in Other for manual sorting.
 Recurring (monthly, card "Recurring" unless another is chosen): starts empty; the user adds their own bills or income (Bill / Income choice) in the Recurring panel.
@@ -37,7 +37,7 @@ IDEAS: see ROADMAP.md.
 <meta name="apple-mobile-web-app-title" content="Spend">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=d43797c4e1">
+<link rel="stylesheet" href="style.css?v=da53187d87">
 </head>
 <body>
 <main>
@@ -59,6 +59,7 @@ IDEAS: see ROADMAP.md.
   <button data-p="rec">Recurring</button>
   <button data-p="bud">Budget</button>
   <button data-p="mer">Merchants</button>
+  <button id="repb">Report</button>
   <button data-p="bak" id="bakbtn">Backup</button>
   <button data-p="acc" id="accbtn" hidden>Account</button>
   <button id="wipe" class="danger">Delete all data</button><span class="msg" id="wmsg"></span><span class="sub" id="sync" role="status"></span>
@@ -70,6 +71,8 @@ IDEAS: see ROADMAP.md.
   <div class="row"><button id="dl">Download my data</button><button id="rsbtn">Restore from file</button><input type="file" id="rsfile" accept=".json,application/json" hidden><span class="msg" id="rsmsg"></span></div>
   <div class="row"><input id="delpass" type="password" placeholder="Your password" autocomplete="current-password" aria-label="Your password" style="width:170px"><button class="danger" id="delacc">Delete my account</button><span class="msg" id="accmsg"></span></div>
 </div></div>
+
+<section id="report" hidden></section>
 
 <div class="panel" id="p-imp" hidden><div class="grid">
   <div class="row"><input id="card" dir="auto" placeholder="Card name, e.g. Visa 1234" list="cardlist"><datalist id="cardlist"></datalist><select id="irule" aria-label="How this card counts"></select></div>
@@ -138,7 +141,7 @@ IDEAS: see ROADMAP.md.
 </main>
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=d43797c4e1"></script>
-<script src="cloud.js?v=d43797c4e1"></script>
+<script src="app.js?v=da53187d87"></script>
+<script src="cloud.js?v=da53187d87"></script>
 </body>
 </html>

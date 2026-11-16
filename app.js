@@ -14,7 +14,7 @@ const CATS={
 let ORDER=[];
 const COL={};
 let S={tx:[],rules:{},cur:"₪"};
-let cmp=false,cmA=null,cmB=null,q="",cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null;
+let rp=false,rpM=null,rpL=true,rpS=false,cmp=false,cmA=null,cmB=null,q="",cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null;
 // Accounts + cloud sync (Firebase): see docs/backend.md. The cloud code is in cloud.js.
 // FB_REAL = the real project's firebaseConfig (public by design; firestore.rules is the protection).
 // If it is set to null the site falls back to local-only mode (localStorage, no sign-in).
@@ -335,10 +335,42 @@ function render(){
   <td class="amt"><input type="number" step="0.01" data-tid="${t.id}" data-f="amt" value="${t.amt}">${note?`<small class="c amt">${note}</small>`:""}</td>
   <td class="k"><input type="checkbox" data-skip="${t.id}"${t.skip?" checked":""} aria-label="Ignore this purchase"></td><td class="k dl"><button class="x" data-del="${t.id}" aria-label="Delete">✕</button></td></tr>`}).join("")
   :`<tr><td colspan="7" class="empty" style="grid-column:1/-1">${S.tx.length?"Nothing matches these filters.":"No purchases yet. Press Import above, or load the sample data to try it out."}</td></tr>`;
+ report();
  if(fs){const el=document.querySelector(fs);if(el&&el!==document.activeElement)el.focus()}
  if(focusCat!=null){const el=document.querySelector(`[data-ren="${focusCat}"]`);if(el){el.focus();el.select()}focusCat=null}
  if(focusTid){const el=document.querySelector(`[data-tid="${focusTid}"][data-f="desc"]`);if(el)el.focus();focusTid=null}
 }
+// Report (view only, not saved). All numbers come from calc() and v(); ignored rows only appear in the list when asked for.
+function repRows(m){return S.tx.filter(t=>(m=="all"||t.date.startsWith(m))&&(cardF=="all"||t.card==cardF))}
+function repTable(head,body){return "<table class=\"rt\"><thead><tr>"+head.map(([l,n])=>"<th"+(n?" class=\"n\"":"")+">"+esc(l)+"</th>").join("")+"</tr></thead><tbody>"+body+"</tbody></table>"}
+const repTr=cells=>"<tr>"+cells.map(([x,n,d])=>"<td"+(n?" class=\"n\"":"")+(d?" dir=\"auto\"":"")+">"+x+"</td>").join("")+"</tr>";
+function report(){
+ const el=$("report");el.hidden=!rp;document.body.classList.toggle("rep",rp);if(!rp)return;
+ const opts=$("month").innerHTML,m=rpM!=null&&[...$("month").options].some(o=>o.value==rpM)?rpM:$("month").value,rows=repRows(m),K=calc(rows),
+  ttl=m=="all"?"All time":m.length==4?"Year "+m:mname(m),live=rows.filter(t=>!t.skip),sp=live.filter(t=>!t.inc);
+ let prev="";if(m.length==7){const[y,mo]=m.split("-").map(Number),pm=mo==1?(y-1)+"-12":y+"-"+String(mo-1).padStart(2,"0"),pr=repRows(pm);
+  if(pr.length){const d=K.spent-calc(pr).spent;prev=d?`${d>0?"↑":"↓"} ${fmt(Math.abs(d))} against ${esc(mname(pm))}`:"same as "+esc(mname(pm))}}
+ const B=S.budget&&S.budget.total>0&&m.length==7&&cardF=="all"?S.budget:null,bl=B?(B.total>=K.spent?fmt(B.total-K.spent)+" left of "+fmt(B.total)+" budget":fmt(K.spent-B.total)+" over the "+fmt(B.total)+" budget"):"";
+ const cats=Object.keys(K.by).sort((x,y)=>K.by[y]-K.by[x]||x.localeCompare(y)),cb=B?B.cats:{},
+  mer={};sp.forEach(t=>{const k=key(t.desc)||t.desc;(mer[k]=mer[k]||{n:t.desc,s:0,c:0});mer[k].s+=v(t);mer[k].c++});
+ const top=Object.values(mer).filter(x=>x.s>0).sort((x,y)=>y.s-x.s).slice(0,10),big=sp.filter(t=>v(t)>0).sort((x,y)=>v(y)-v(x)).slice(0,5),inc=live.filter(t=>t.inc),
+  rec=S.recur.filter(r=>!r.inc),lst=(rpS?rows:live).slice().sort((x,y)=>x.date.localeCompare(y.date));
+ const sec=(t,b)=>`<h3>${esc(t)}</h3>${b}`;
+ el.innerHTML=`<div class="rctl"><label>Report for <select data-rm aria-label="Report period">${opts}</select></label><label><input type="checkbox" data-rl${rpL?" checked":""}> Full list</label><label><input type="checkbox" data-rs${rpS?" checked":""}> Show ignored in list</label><button class="pri" data-rpr>Print / Save as PDF</button><button data-rx>Export to Excel</button><button data-rclose>Close</button></div>
+ <h2>Spending report: <span dir="auto">${esc(ttl)}</span></h2><div class="sub">${cardF=="all"?"All cards":"Card: "+esc(cardF)}</div>
+ <div class="rbig"><div><b>${fmt(K.spent)}</b><span>spent${K.back?" · after "+fmt(K.back)+" paid back":""}</span></div>${K.inc?`<div><b>${fmt(K.inc)}</b><span>in</span></div><div><b>${fmt(K.inc-K.spent)}</b><span>left over</span></div>`:""}</div>
+ ${bl||prev?`<div class="sub">${[bl,prev].filter(Boolean).join(" · ")}</div>`:""}
+ ${cats.length?sec("By category",repTable([["Category"],["Amount",1],["Share",1]].concat(B?[["Budget",1]]:[]),cats.map(c=>repTr([[esc(c),0,1],[fmt(K.by[c]),1],[K.spent>0?Math.round(K.by[c]/K.spent*100)+"%":"",1]].concat(B?[[cb[c]?fmt(cb[c]):"",1]]:[]))).join(""))):""}
+ ${Object.keys(K.per).length?sec("By card",repTable([["Card"],["Counts"],["Amount",1]],Object.keys(K.per).sort((x,y)=>K.per[y]-K.per[x]).map(c=>repTr([[esc(c),0,1],[esc(rl(pct(c))||"in full")],[fmt(K.per[c]),1]])).join(""))):""}
+ ${top.length?sec("Top merchants",repTable([["Merchant"],["Purchases",1],["Amount",1]],top.map(x=>repTr([[esc(x.n),0,1],[x.c,1],[fmt(x.s),1]])).join(""))):""}
+ ${big.length?sec("Largest purchases",repTable([["Date"],["Description"],["Amount",1]],big.map(t=>repTr([[t.date],[esc(t.desc),0,1],[fmt(v(t)),1]])).join(""))):""}
+ ${inc.length?sec("Income",repTable([["Date"],["Description"],["Amount",1]],inc.map(t=>repTr([[t.date],[esc(t.desc)+(t.cat?" (paid back: "+esc(t.cat)+")":""),0,1],[fmt(t.amt),1]])).join(""))):""}
+ ${rec.length?sec("Recurring bills",repTable([["Bill"],["Day",1],["Amount",1]],rec.map(r=>repTr([[esc(r.desc),0,1],[r.day,1],[fmt(r.amt),1]])).join(""))):""}
+ ${rpL?sec("All entries ("+lst.length+")",repTable([["Date"],["Description"],["Category"],["Card"],["Amount",1]],lst.map(t=>repTr([[t.date],[esc(t.desc)+(t.note?" <small>"+esc(t.note)+"</small>":"")+(t.skip?" <small>(ignored)</small>":""),0,1],[esc(t.inc&&!t.cat?"Income":t.cat),0,1],[esc(t.card||""),0,1],[t.inc?fmt(t.amt):fmt(t.skip?t.amt:v(t)),1]])).join(""))):""}`;
+ el.querySelector("[data-rm]").value=m}
+async function exportXlsx(){const m=rpM!=null?rpM:$("month").value;await loadXlsx();
+ const d=repRows(m).sort((x,y)=>x.date.localeCompare(y.date)).map(t=>({Date:t.date,Description:t.desc,Category:t.cat||"",Card:t.card||"",Amount:t.amt,"Counted amount":t.skip?0:v(t),Type:t.inc?(t.cat?"payback":"income"):t.amt<0?"refund":"purchase",Ignored:t.skip?"yes":"",Note:t.note||""})),
+  wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(d),"Spending");XLSX.writeFile(wb,"spending-"+(m=="all"?"all":m)+".xlsx")}
 $("q").addEventListener("input",e=>{q=e.target.value;render()});
 $("go").onclick=()=>{const m=$("msg"),sl=/נטו|וטנ/.test($("paste").value)&&slip(textItems($("paste").value));if(sl){m.textContent="";return slipShow(sl)}
  const p=parse($("paste").value);
@@ -417,6 +449,10 @@ document.addEventListener("click",e=>{const t=e.target;
  if(t.dataset.cs){S.catSort=t.dataset.cs;save();render()}
  if(t.dataset.p){panel=panel==t.dataset.p?null:t.dataset.p;render();return}
  const b=t.closest&&t.closest("[data-c]");if(b){cat=cat==b.dataset.c?null:b.dataset.c;render()}
+ if(t.id=="repb"){rp=true;rpM=null;render();window.scrollTo(0,0);return}
+ if(t.dataset.rclose!==undefined){rp=false;render();return}
+ if(t.dataset.rpr!==undefined){window.print();return}
+ if(t.dataset.rx!==undefined){exportXlsx().catch(()=>{});return}
  if(t.id=="cmpb"){cmp=!cmp;render();return}
  const tb=t.closest&&t.closest("[data-tm]");if(tb){$("month").value=tb.dataset.tm;cmA=null;render();return}
  if(t.id=="clearcat"){cat=null;render()}
@@ -448,6 +484,9 @@ document.addEventListener("change",e=>{const t=e.target;
  else if(t.dataset.bi){const c=S.cats[+t.dataset.bi],n=Math.max(0,parseFloat(t.value)||0);if(c==null)return;if(n)bud().cats[c]=n;else delete bud().cats[c];save();later(render)}
  else if(t.id=="btotal"){bud().total=Math.max(0,parseFloat(t.value)||0);save();later(render)}
  else if(t.id=="rkind")$("rcard").hidden=t.value=="inc";
+ else if(t.dataset.rm!==undefined){rpM=t.value;render()}
+ else if(t.dataset.rl!==undefined){rpL=t.checked;render()}
+ else if(t.dataset.rs!==undefined){rpS=t.checked;render()}
  else if(t.id=="month"){cmA=null;render()}
  else if(t.dataset.cm){if(t.dataset.cm=="a")cmA=t.value;else cmB=t.value;render()}
  else if(t.dataset.ci){const c=CL[+t.dataset.ci],f=t.dataset.f;if(c==null)return;

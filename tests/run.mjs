@@ -248,6 +248,22 @@ async function local() {
     await p.fill("#q", "");
     await p.click('[data-delmk="zara"]'); eq(await p.locator("[data-mk]").count(), 0, "forgotten");
   });
+  await test("report shows totals, categories and entries for a month, and exports to Excel", async () => {
+    const p = await open("?local=1");
+    await paste(p, "Visa", "date,description,amount\n2026-11-03,Zara,300\n2026-11-05,קפה גן,20\n2026-10-04,Zara,100");
+    await p.selectOption("#month", "2026-11");
+    await p.click("#repb");
+    eq(await p.locator("#report").isVisible(), true, "report open");
+    eq(await p.locator("#report .rbig b").first().innerText(), "₪ 320", "spent");
+    eq(/↑ ₪ 220 against/.test(await p.locator("#report .sub").nth(1).innerText()), true, "against last month");
+    eq(await p.locator("#report table").first().locator("tbody tr").count() >= 1, true, "category rows");
+    eq(await p.locator("#report h3", { hasText: "All entries (2)" }).count(), 1, "two entries");
+    eq(await p.locator("#report td", { hasText: "קפה גן" }).count() >= 1, true, "hebrew present");
+    await p.uncheck("[data-rl]"); eq(await p.locator("#report h3", { hasText: "All entries" }).count(), 0, "list hidden");
+    const [dl] = await Promise.all([p.waitForEvent("download"), p.click("[data-rx]")]);
+    eq(/^spending-2026-11\.xlsx$/.test(dl.suggestedFilename()), true, "excel file " + dl.suggestedFilename());
+    await p.click("[data-rclose]"); eq(await p.locator("#report").isHidden(), true, "closed");
+  });
   await test("refunds import as negative amounts and reduce the total", async () => {
     const p = await open("?local=1");
     eq(await paste(p, "Visa", "date,description,amount\n2026-11-03,Zara,300\n2026-11-04,Castro,80\n2026-11-05,Zara,-120\n2026-11-06,Wolt,(30)"), "Added 4 purchases.", "import");
