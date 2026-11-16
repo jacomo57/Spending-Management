@@ -60,11 +60,16 @@ const run = Date.now().toString(36);
 const mail = n => `t${run}${n}@example.invalid`;
 let browser, fails = 0, count = 0;
 const ctxs = [];
+// A script error on the page, or anything the Content Security Policy in index.html blocks, fails the run.
+function watch(p) {
+  p.on("pageerror", e => { console.log("   page error: " + e.message); fails++ });
+  p.on("console", m => { if (/Content Security Policy/.test(m.text())) { console.log("   blocked by the page's policy: " + m.text().slice(0, 300)); fails++ } });
+}
 async function open(q = "") {
   const c = await browser.newContext({ locale: "en-US", acceptDownloads: true });
   ctxs.push(c);
   const p = await c.newPage();
-  p.on("pageerror", e => { console.log("   page error: " + e.message); fails++ });
+  watch(p);
   await p.goto(URL + q);
   return p;
 }
@@ -509,7 +514,7 @@ async function local() {
   await test("just after midnight in Israel a new purchase and a recurring bill get that day's date", async () => {
     // 00:30 on 11 July in Israel is still 10 July in UTC.
     const c = await browser.newContext({ locale: "en-US", timezoneId: "Asia/Jerusalem" }); ctxs.push(c);
-    const p = await c.newPage(); p.on("pageerror", e => { console.log("   page error: " + e.message); fails++ });
+    const p = await c.newPage(); watch(p);
     await p.clock.install({ time: new Date("2026-07-10T21:30:00Z") });
     await p.goto(URL + "?local=1");
     await p.click("#addp");
@@ -532,7 +537,7 @@ async function pwa() {
     eq(m.icons.join(), "200 image/png,200 image/png,200 image/png", "icons");
     eq(m.j.icons.some(i => i.purpose == "maskable"), true, "maskable icon");
     const v = await p.evaluate(() => APPV), urls = await cached(p, "spend-" + v);
-    for (const f of ["", "app.js?v=" + v, "cloud.js?v=" + v, "style.css?v=" + v, "vendor/xlsx.full.min.js", "icons/icon-192.png"]) eq(urls.includes(URL + f), true, "saved " + (f || "page"));
+    for (const f of ["", "app.js?v=" + v, "cloud.js?v=" + v, "style.css?v=" + v, "vendor/xlsx.full.min.js", "vendor/firebase/firebase-app.js", "vendor/firebase/firebase-auth.js", "vendor/firebase/firebase-firestore.js", "icons/icon-192.png"]) eq(urls.includes(URL + f), true, "saved " + (f || "page"));
   });
   await test("a new deploy shows on the next load; an app left open gets the Reload notice", async () => {
     const p = await open("?local=1&sw=1"); await controlled(p);
@@ -552,8 +557,6 @@ async function pwa() {
   await test("opens offline with the saved data; an offline edit syncs after reconnecting", async () => {
     const p = await open("?sw=1"); await signUp(p, A);
     await p.click("#sample"); await total(p, "₪ 3,325"); await saved(p); await controlled(p);
-    // The Firebase SDK was loaded before the worker existed; the page hands its addresses over a few seconds later.
-    await p.waitForFunction(async () => { const u = (await (await caches.open("spend-rt-1")).keys()).map(r => r.url).join(" "); return /firebase-app\.js/.test(u) && /firebase-auth\.js/.test(u) && /firebase-firestore\.js/.test(u) }, null, { timeout: 30000 });
     const c = p.context();
     try {
       site.down = true; await c.setOffline(true);

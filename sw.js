@@ -4,13 +4,14 @@
 //  - The page (index.html): network first, so a new deploy shows at once; the saved copy is used offline or after 4s on a bad line.
 //  - The app's own files: saved copy first (index.html asks for them as file?v=VERSION, so a new deploy asks for new names),
 //    refreshed in the background as a safety net in case the stamp was ever forgotten.
-//  - Fonts and the Firebase SDK (fixed addresses): saved copy first, kept across versions.
+//    The Firebase SDK in vendor/firebase/ is one of them (in FILES, so it is saved at install and counted in the version).
+//  - Fonts (fixed addresses): saved copy first, kept across versions.
 //  - The PDF and picture readers in vendor/ (about 9MB, used once a month for a payslip): saved on first use and kept across
 //    versions, so an app update does not download them again. They are still refreshed in the background when used.
 //  - Everything else (Firebase sign-in and data calls, the emulators) is never touched or stored here.
-const VERSION="21a4ead919";
+const VERSION="505c5214bf";
 const SHELL="spend-"+VERSION,RT="spend-rt-1";
-const FILES=["./","style.css?v="+VERSION,"app.js?v="+VERSION,"cloud.js?v="+VERSION,"manifest.webmanifest","icons/icon.svg","icons/icon-192.png","icons/icon-512.png","icons/maskable-512.png","icons/apple-touch-icon.png","vendor/xlsx.full.min.js"];
+const FILES=["./","style.css?v="+VERSION,"app.js?v="+VERSION,"cloud.js?v="+VERSION,"manifest.webmanifest","icons/icon.svg","icons/icon-192.png","icons/icon-512.png","icons/maskable-512.png","icons/apple-touch-icon.png","vendor/xlsx.full.min.js","vendor/firebase/firebase-app.js","vendor/firebase/firebase-auth.js","vendor/firebase/firebase-firestore.js"];
 const HOME=new URL("./",location.href).pathname;
 
 self.addEventListener("install",e=>e.waitUntil(caches.open(SHELL).then(c=>c.addAll(FILES.map(u=>new Request(u,{cache:"no-cache"}))))));
@@ -32,7 +33,7 @@ async function asset(e,r){const c=await caches.open(BIG.test(r.url)?RT:SHELL),hi
  if(hit){e.waitUntil(quiet(net));return hit}
  try{return await net}catch(x){return (await c.match(r.url,{ignoreSearch:true}))||Response.error()}}
 // Other sites we keep a copy of: "keep" = the address never changes its content, "fresh" = also refresh in the background.
-function ext(u){return u.hostname=="fonts.gstatic.com"||u.href.startsWith("https://www.gstatic.com/firebasejs/")?"keep":u.hostname=="fonts.googleapis.com"?"fresh":null}
+function ext(u){return u.hostname=="fonts.gstatic.com"?"keep":u.hostname=="fonts.googleapis.com"?"fresh":null}
 async function outside(e,url,kind){const c=await caches.open(RT),hit=await c.match(url,{ignoreVary:true});
  if(hit&&kind=="keep")return hit;
  const net=fetch(url,{mode:"cors",credentials:"omit"}).then(res=>{if(res.ok)c.put(url,res.clone());return res});
@@ -51,5 +52,5 @@ self.addEventListener("message",e=>{const d=e.data||{};
  // A page that already runs this version lets it take over quietly; an older page is told to offer a reload.
  if(d.type=="hello"){if(d.v===VERSION)self.skipWaiting();else e.source.postMessage({type:"update"})}
  if(d.type=="skip")self.skipWaiting();
- // First visit: the page loaded fonts and the Firebase SDK before this worker existed, so it sends their addresses to save now.
+ // First visit: the page loaded the fonts before this worker existed, so it sends their addresses to save now.
  if(d.type=="warm")e.waitUntil(Promise.all((d.urls||[]).map(x=>{let u;try{u=new URL(x)}catch(_){return}const k=ext(u);return k&&quiet(outside(e,u.href,k))})))});

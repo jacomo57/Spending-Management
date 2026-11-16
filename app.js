@@ -26,7 +26,7 @@ let rpT="month",rpN=12,FOUND=[],rp=false,rpM=null,rpL=true,rpS=false,cmp=false,c
 // FB_REAL = the real project's firebaseConfig (public by design; firestore.rules is the protection).
 // If it is set to null the site falls back to local-only mode (localStorage, no sign-in).
 // On localhost the page talks to the local Firebase emulators only, never the real project. Add ?local=1 for local-only mode.
-const FB_VER="13.3.0",FB_REAL={apiKey:"AIzaSyBeXWekBAG26oele2v7hAMDmLnIDW6D_uk",authDomain:"spending-management-608d5.firebaseapp.com",projectId:"spending-management-608d5",storageBucket:"spending-management-608d5.firebasestorage.app",messagingSenderId:"206144783820",appId:"1:206144783820:web:fd52344da11667da054969"};
+const FB_REAL={apiKey:"AIzaSyBeXWekBAG26oele2v7hAMDmLnIDW6D_uk",authDomain:"spending-management-608d5.firebaseapp.com",projectId:"spending-management-608d5",storageBucket:"spending-management-608d5.firebasestorage.app",messagingSenderId:"206144783820",appId:"1:206144783820:web:fd52344da11667da054969"};
 const LOCALHOST=/^(localhost|127\.0\.0\.1)$/.test(location.hostname),LOCALONLY=LOCALHOST&&/[?&]local=1/.test(location.search);
 const EMU=LOCALHOST&&!LOCALONLY;
 const FBC=EMU?{apiKey:"demo-key",authDomain:"demo-spend.firebaseapp.com",projectId:"demo-spend"}:LOCALONLY?null:FB_REAL;
@@ -544,7 +544,7 @@ const APPV=new URL(document.currentScript.src).searchParams.get("v")||"dev";
   r.addEventListener("updatefound",()=>watch(r.installing));
   // An installed app can stay open for days, so look for a new version each time it comes back to the front.
   document.addEventListener("visibilitychange",()=>{if(!document.hidden)r.update().catch(()=>{})});
-  // First visit: fonts and the Firebase SDK loaded before the worker existed. Hand over their addresses, again later for a slow line.
+  // First visit: the fonts loaded before the worker existed. Hand over their addresses, again later for a slow line.
   if(first)sw.ready.then(x=>[3000,15000,45000].forEach(ms=>setTimeout(()=>x.active&&x.active.postMessage({type:"warm",urls:performance.getEntriesByType("resource").map(e=>e.name)}),ms)))}).catch(()=>{})})();
 function start(){fixMaps();dropEmpty();recGen();S.tx.forEach(t=>{if(t.cat=="Other"&&!t.inc)t.cat=guess(t.desc)});save();
  panel=S.tx.some(t=>!String(t.id).startsWith("rec-"))?null:"imp";

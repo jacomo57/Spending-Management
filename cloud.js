@@ -95,7 +95,9 @@ async function delAccount(){const B=C.B,F=C.F,u=C.auth.currentUser,pw=$("delpass
   await B.deleteUser(u);bye()}
  catch(e){$("boot").textContent="Couldn’t finish deleting ("+(e.code||e.message)+"). Reload the page and try again."}}
 async function cloudBoot(){$("app").hidden=true;$("boot").hidden=false;
- try{const u="https://www.gstatic.com/firebasejs/"+FB_VER+"/firebase-";
+ // The SDK is served by this site (vendor/firebase/, copied by tools/firebase.mjs). The auth and firestore files import
+ // ./firebase-app.js themselves, so it must be loaded by exactly that address (no ?v=) or there would be two copies of it.
+ try{const u="./vendor/firebase/firebase-";
   const[A,B,F]=await Promise.all([import(u+"app.js"),import(u+"auth.js"),import(u+"firestore.js")]);
   const app=A.initializeApp(FBC);C.B=B;C.F=F;C.auth=B.getAuth(app);
   try{C.db=F.initializeFirestore(app,{localCache:F.persistentLocalCache({tabManager:F.persistentMultipleTabManager()})})}catch(e){C.db=F.getFirestore(app)}
