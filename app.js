@@ -27,10 +27,7 @@ const C={on:!!FBC,un:{},ready:false,user:null,syn:{settings:null,months:{}},pend
 if(!C.on)try{const r=localStorage.getItem("spend-v1");if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
 function save(){if(C.on)return cloudSave();try{localStorage.setItem("spend-v1",JSON.stringify(S))}catch(e){}}
 // Card rules: S.cards[name] = percent of that card's purchases that counts (100 full, 50 half, 0 not counted).
-// syncCards also converts the old format (purchase.kind mine/joint + S.half) once.
-function syncCards(){if(S.cards)return;S.cards={};const j=S.half===false?100:50,mine=new Set(S.tx.filter(t=>t.kind!="joint").map(t=>t.card));
- S.tx.forEach(t=>{if(!t.card)t.card=t.kind=="joint"?"Joint":"Mine";if(t.kind=="joint"){if(mine.has(t.card))t.card+=" (joint)";S.cards[t.card]=j}delete t.kind});
- (S.recur||[]).forEach(r=>{if(r.kind=="joint"){r.card="Recurring (joint)";S.cards[r.card]=j}delete r.kind});delete S.half}
+function syncCards(){if(!S.cards)S.cards={}}
 syncCards();
 const pct=c=>S.cards[c]==null?100:S.cards[c];
 // Income (asked 2026-11-15). A row with inc:1 is money that came in; its amount is stored positive and no card rule applies to it.
@@ -409,7 +406,6 @@ $("sample").onclick=()=>{const a=[["2026-11-02","Shufersal Deal Ramat Gan",312.4
 $("card").oninput=impRule;
 function recGen(){
  if(!Array.isArray(S.recur))S.recur=[];if(!S.recDone)S.recDone={};
- delete S.recSeeded;
  const today=ymd(),nowM=today.slice(0,7);
  S.recur.forEach(r=>{let m=r.start,g=0;
   while(m&&m<=nowM&&g++<120){const k=r.id+":"+m,dt=m+"-"+String(Math.min(r.day||1,28)).padStart(2,"0");
