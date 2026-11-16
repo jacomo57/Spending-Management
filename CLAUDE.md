@@ -36,5 +36,5 @@ Personal spending tracker for one user in Israel (Hebrew + English). Each card h
 - After any change to `firestore.rules`: run `.claude/rules-test.ps1` (45 checks, `failures: 0`), then `npm run deploy:rules`.
 
 ## Next steps
-- The plan lives in `ROADMAP.md`: review findings, then Steps 0 to 5, each with the model to use, what to do, how to test, and the user's part. One step per session. Tick steps off there as they finish.
-- Done: Steps 0, 1, 2, and from Step 3 income and budgets. Next: the "Gameplan for Sonnet" in `ROADMAP.md` (search, month over month, extras, reports), one part per session. The table above it says which later ideas need Fable.
+- The plan lives in `ROADMAP.md`. Everything in Steps 0 to 4 is done, plus split purchases, tags, category icons, the keyword merge and the security audit follow-ups. Google sign-in and Caspion were dropped by the user.
+- Still open: publish only the app files to GitHub Pages (workflow written; the user switches Pages, Source to GitHub Actions), then the optional ideas in Step 5 (budget alerts, Partner owes, Hebrew interface, `dev` branch, GitHub Issues).

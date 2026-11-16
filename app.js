@@ -15,7 +15,10 @@ const CATS=[
 ];
 // Icons of the starting categories (by name; a category you add or rename has none). ic(c) -> "🛒 " or "".
 const ICON={Groceries:"🛒","Eating out":"🍽️",Transport:"🚌","Rent & payments":"🏠",Insurance:"🛡️",Shopping:"🛍️",Health:"💊","Fun & travel":"🎭",Subscriptions:"🔁",Other:"📦"};
-const ic=c=>ICON[c]?ICON[c]+" ":"";
+// S.icon[category] is the icon you picked ("" = none); without one the starting categories use ICON.
+const ic=c=>{const m=S.icon&&S.icon[c],e=m!=null?m:ICON[c];return e?e+" ":""};
+const PICK="🛒 🍽️ ☕ 🍔 🚌 🚗 ⛽ 🏠 💡 📱 🛡️ 🛍️ 👕 🎁 💊 🏥 🐾 🎭 🎬 ✈️ 🏖️ 🔁 🎓 📚 💪 💇 👶 🔧 💰 📦".split(" ");
+let icOpen=null;
 // The default categories of a new account, in the order they are offered.
 const BASE=[...new Set(CATS.map(c=>c[0]).reverse())].reverse();
 let ORDER=[];
@@ -25,7 +28,7 @@ const COL=Object.create(null);
 // maps after every load, and own() drops a "__proto__" key from a loaded object before it is copied into S.
 const bare=o=>Object.assign(Object.create(null),o&&typeof o=="object"&&!Array.isArray(o)?o:null);
 const own=o=>{if(o&&typeof o=="object")delete o["__proto__"];return o};
-function fixMaps(){for(const k of["rules","cards","recDone","hue","alias"])if(!S[k]||typeof S[k]!="object"||Object.getPrototypeOf(S[k]))S[k]=bare(S[k]);
+function fixMaps(){for(const k of["rules","cards","recDone","hue","alias","icon"])if(!S[k]||typeof S[k]!="object"||Object.getPrototypeOf(S[k]))S[k]=bare(S[k]);
  const b=S.budget;if(b&&typeof b=="object"&&b.cats&&Object.getPrototypeOf(b.cats))b.cats=bare(b.cats)}
 let S={tx:[],rules:{},cur:"₪"};
 let rpT="month",rpN=12,FOUND=[],rp=false,rpM=null,rpL=true,rpS=false,cmp=false,cmA=null,cmB=null,q="",cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null;
@@ -261,7 +264,7 @@ function clean(o){const id=x=>String(x||"").replace(/[^\w:.-]/g,"")||uid();
  if(o.budget&&typeof o.budget=="object"){const c=bare(),s=o.budget.cats;if(s&&typeof s=="object")for(const k in s)if(+s[k]>0)c[k]=+s[k];o.budget={total:Math.max(0,+o.budget.total||0),cats:c}}else delete o.budget;
  for(const k of["hue","cards"])if(o[k]&&typeof o[k]=="object")for(const c in o[k])o[k][c]=+o[k][c]||0;else delete o[k];
  if(!Array.isArray(o.cats)||o.cats.some(c=>typeof c!="string"))delete o.cats;
- for(const k of["rules","alias"])if(o[k]&&typeof o[k]=="object")for(const c in o[k])o[k][c]=String(o[k][c]);else delete o[k];
+ for(const k of["rules","alias","icon"])if(o[k]&&typeof o[k]=="object")for(const c in o[k])o[k][c]=String(o[k][c]).slice(0,k=="icon"?8:1e4);else delete o[k];
  return Object.assign({tx:[],rules:{},cur:"₪"},own(o))}
 function fmt(n){return esc(S.cur)+" "+n.toLocaleString(undefined,{maximumFractionDigits:0})}
 function mname(m){const[y,mo]=m.split("-");return new Date(y,mo-1,1).toLocaleString(undefined,{month:"long",year:"numeric"})}
@@ -341,7 +344,7 @@ function render(){
  // A category with a budget fills its bar against the budget: amber from 80%, red when over.
  const bw=(c,x)=>{const b=bc[c]>0?bc[c]:0,r=b?x/b:0;return `<span class="bw${r>1?" over":""}" data-c="${esc(c)}"><span class="bar"><i style="width:${Math.max(0,Math.min(1,b?r:x/mx))*100}%;background:${r>1?"var(--bad)":r>=.8?"var(--warn)":COL[c]||"var(--mute)"}"></i></span><span class="amt">${fmt(x)}${b?`<small class="c">of ${fmt(b)}</small>`:""}</span></span>`};
  const ord=S.cats.map((_,i)=>i);if(S.catSort!="manual")ord.sort((a,b)=>(by[S.cats[b]]||0)-(by[S.cats[a]]||0));
- $("cats").innerHTML=ord.map(i=>{const c=S.cats[i];return `<div class="cat${cat==c?" sel":""}" data-row="${i}"><span class="grip" title="Drag to reorder" aria-label="Drag to reorder">⋮⋮</span><span class="ci" aria-hidden="true">${ic(c).trim()}</span><input dir="auto" class="cn" data-ren="${i}" value="${esc(c)}" aria-label="Category name">${bw(c,by[c]||0)}<button class="x" data-delcat="${i}" aria-label="Delete category">✕</button></div>`}).join("")+(by.Other?`<div class="cat${cat=="Other"?" sel":""}"><span></span><span class="ci" aria-hidden="true">${ic("Other").trim()}</span><span class="cn" style="padding:6px 8px">Other</span>${bw("Other",by.Other)}<span></span></div>`:"");
+ $("cats").innerHTML=ord.map(i=>{const c=S.cats[i];return `<div class="cat${cat==c?" sel":""}" data-row="${i}"><span class="grip" title="Drag to reorder" aria-label="Drag to reorder">⋮⋮</span><button class="ci${ic(c)?"":" none"}" data-ic="${i}" title="Change icon" aria-label="Change icon">${ic(c).trim()||"＋"}</button><input dir="auto" class="cn" data-ren="${i}" value="${esc(c)}" aria-label="Category name">${bw(c,by[c]||0)}<button class="x" data-delcat="${i}" aria-label="Delete category">✕</button>${icOpen==i?`<div class="pick">${PICK.map(e=>`<button data-pick="${e}">${e}</button>`).join("")}<button data-pick="" aria-label="No icon">none</button><input data-icin="${i}" maxlength="8" placeholder="or type" aria-label="Type your own icon"></div>`:""}</div>`}).join("")+(by.Other?`<div class="cat${cat=="Other"?" sel":""}"><span></span><span class="ci" aria-hidden="true">${ic("Other").trim()}</span><span class="cn" style="padding:6px 8px">Other</span>${bw("Other",by.Other)}<span></span></div>`:"");
  $("catmsg").textContent=catMsg;
  document.querySelectorAll("[data-cs]").forEach(b=>b.classList.toggle("on",b.dataset.cs==(S.catSort=="manual"?"manual":"size")));
  $("chip").innerHTML=cat?`<button id="clearcat">${ic(cat)}${esc(cat)} ✕</button>`:"";
@@ -449,7 +452,7 @@ function addRec(){const d=$("rdesc").value.trim(),a=parseFloat($("ramt").value),
 function renameCat(i,nv){nv=nv.trim();const old=S.cats[i];catMsg="";
  if(!nv||nv==old)return render();
  if(nv=="Other"||S.cats.includes(nv)){catMsg="That name is already used.";return render()}
- S.cats[i]=nv;if(S.hue)S.hue[nv]=S.hue[old];S.tx.forEach(t=>{if(t.cat==old)t.cat=nv;sp(t).forEach(p=>{if(p.cat==old)p.cat=nv})});
+ S.cats[i]=nv;if(S.hue)S.hue[nv]=S.hue[old];S.icon[nv]=ic(old).trim();delete S.icon[old];icOpen=null;S.tx.forEach(t=>{if(t.cat==old)t.cat=nv;sp(t).forEach(p=>{if(p.cat==old)p.cat=nv})});
  {const b=bud().cats;if(b[old]!=null){b[nv]=b[old];delete b[old]}}
  for(const k in S.rules)if(S.rules[k]==old)S.rules[k]=nv;
  for(const b of BASE)if((S.alias[b]||b)==old)S.alias[b]=nv;
@@ -496,6 +499,8 @@ function endDrag(){if(!drag)return;const d=drag;drag=null;if(!d.moved)return;
   if(arr.length==S.cats.length&&arr.every(Boolean)){arr.splice(d.to,0,arr.splice(d.from,1)[0]);S.cats=arr;S.catSort="manual";save()}render()},180)}
 document.addEventListener("pointerup",endDrag);document.addEventListener("pointercancel",endDrag);
 document.addEventListener("click",e=>{const t=e.target;
+ if(t.dataset&&t.dataset.ic!==undefined){icOpen=icOpen==+t.dataset.ic?null:+t.dataset.ic;render();return}
+ if(t.dataset&&t.dataset.pick!==undefined&&icOpen!=null){const c=S.cats[icOpen];if(c){S.icon[c]=t.dataset.pick;save()}icOpen=null;render();return}
  if(t.dataset.cs){S.catSort=t.dataset.cs;save();render()}
  if(t.dataset.p){panel=panel==t.dataset.p?null:t.dataset.p;render();return}
  const b=t.closest&&t.closest("[data-c]");if(b){cat=cat==b.dataset.c?null:b.dataset.c;render()}
@@ -531,6 +536,7 @@ document.addEventListener("change",e=>{const t=e.target;
    x[f]=(f=="desc"||f=="card"||f=="note")?val.trim().slice(0,f=="note"?500:1e4):val;if(f=="amt")fitSplit(x);if(f=="note"&&!x.note)delete x.note;if(f=="desc"&&x.cat=="Other"&&!x.inc)x.cat=guess(x.desc);save();later(render)}}
  else if(t.dataset.rid){const r=S.recur.find(x=>x.id==t.dataset.rid),f=t.dataset.f;
   if(r){r[f]=f=="amt"?(parseFloat(t.value)||0):f=="day"?Math.min(28,Math.max(1,parseInt(t.value)||1)):t.value;recGen();save();later(render)}}
+ else if(t.dataset.icin!==undefined){const c=S.cats[+t.dataset.icin];if(c){S.icon[c]=t.value.trim().slice(0,8);save()}icOpen=null;render()}
  else if(t.dataset.ren!==undefined){const i=+t.dataset.ren,nv=t.value;later(()=>renameCat(i,nv))}
  else if(t.dataset.sp){const x=S.tx.find(y=>y.id==t.dataset.sp),p=x&&sp(x)[+t.dataset.i];if(!p)return later(render);
   if(t.dataset.f=="cat")p.cat=t.value;

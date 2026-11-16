@@ -88,12 +88,13 @@ The rule: Fable for anything that changes what is saved, how it syncs, how the n
 | 3.1 Search | Sonnet | Done 2026-11-16 |
 | 3.3 Month over month | Sonnet | Done 2026-11-16 |
 | 3 extras: learned merchants list, yearly view, notes | Sonnet | Done 2026-11-16 |
-| 3 extra: note per purchase | Sonnet, with the recipe below | To do |
-| 4 Reports (all three) and Export to Excel | Sonnet | To do |
+| 3 extra: note per purchase | Sonnet, with the recipe below | Done (the note box; `#tags` build on it) |
+| 4 Reports (all three) and Export to Excel | Sonnet | Done (Report panel, Export to Excel) |
 | 5: budget alerts, "Partner owes" view, Hebrew interface | Sonnet | Later |
 | 5: split a purchase across categories, tags | Fable (changes `calc()` and the saved rows) | Done 2026-11-16 (`t.split`, `parts()`; tags are #words in the note) |
 | 5: sign in with Google or a passkey | Fable, plus console steps by the user | Dropped by the user 2026-11-16 |
 | 5: Caspion bank downloads | Fable, needs an always-on machine | Dropped by the user 2026-11-16 |
+| 5: icons for the categories, with a picker | Fable (new saved map `S.icon`) | Done 2026-11-16 |
 | 5: `dev` branch, GitHub Issues, short CLAUDE.md | Any model; the user decides | Later |
 
 ## Step 3: Income, budgets, search, comparisons
@@ -190,9 +191,9 @@ Workload:
 
 Done, one commit each: recurring bills use the local date (test at 00:30 Israel time); old `kind`/`S.half`/`recSeeded` migrations removed; one `uid()` helper; prototype-safe maps (`bare()`, `fixMaps()`, `own()` in `app.js`; a merchant, card or category may be called `constructor`); Firestore rules allow only `data/settings` and `months/{YYYY-MM or none}` as `{v:1,json}` under 900,000 characters (45 rule checks, deployed); Firebase SDK served from `vendor/firebase/` and a Content Security Policy in `index.html`.
 
-Still open, needs the user:
+Still open, needs the user (this one step):
 
-1. **Publish only the app (optional).** A GitHub Actions workflow that uploads `index.html`, `style.css`, `app.js`, `cloud.js`, `sw.js`, `manifest.webmanifest`, `icons/`, `vendor/` as the Pages artifact, so `tests/`, `.claude/`, `docs/`, `ROADMAP.md` and `CLAUDE.md` are no longer served. The user must switch Settings, Pages, Source to "GitHub Actions" (give click-by-click steps). Confirm the live site and the installed app still update.
+1. **Publish only the app.** Workflow written 2026-11-16 (`.github/workflows/pages.yml`: copies `index.html`, `style.css`, `app.js`, `cloud.js`, `sw.js`, `manifest.webmanifest`, `icons/`, `vendor/` to the Pages artifact, so `tests/`, `.claude/`, `docs/`, `ROADMAP.md` and `CLAUDE.md` are no longer served). It only takes effect once the user switches Settings, Pages, Source to "GitHub Actions"; after that confirm the live site and that `/ROADMAP.md` is gone (404).
 2. Done 2026-11-16: the keyword lists of "Bills & home" and "House stuff" are now extra keyword groups of "Rent & payments" and "Shopping" in `CATS` (kept in their old place in the order, so `guess()` gives the same answers: 97,360 old-against-new checks, no differences); `NODEF` and `FB` are gone.
 
 The user confirmed on 2026-11-16 that the live site signs in and saves under the policy.

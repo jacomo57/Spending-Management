@@ -515,6 +515,22 @@ async function local() {
     await total(p, "₪ 20");
     eq(await p.evaluate(() => [Object.getPrototypeOf(S) === Object.prototype, S.polluted, S.cards.__proto__].join()), "true,,25", "after restore");
   });
+  await test("category icons: starting icons, pick one, type one, none; kept after reload and rename", async () => {
+    const p = await open("?local=1");
+    const ci = c => p.locator('.cat:has(.cn[value="' + c + '"]) .ci');
+    eq((await ci("Groceries").innerText()).trim(), "🛒", "starting icon");
+    await ci("Groceries").click(); await p.locator('[data-pick="🍔"]').click();
+    eq((await ci("Groceries").innerText()).trim(), "🍔", "picked icon");
+    await ci("Health").click(); await setField(p.locator("[data-icin]"), "🌟");
+    eq((await ci("Health").innerText()).trim(), "🌟", "typed icon");
+    await ci("Transport").click(); await p.locator('[data-pick=""]').click();
+    eq((await ci("Transport").innerText()).trim(), "＋", "no icon");
+    await p.reload();
+    eq((await ci("Groceries").innerText()).trim(), "🍔", "picked icon after reload");
+    eq((await ci("Transport").innerText()).trim(), "＋", "no icon after reload");
+    await setField(p.locator('.cn[value="Groceries"]'), "Food");
+    eq((await ci("Food").innerText()).trim(), "🍔", "icon follows a rename");
+  });
   await test("split a purchase across categories; #tags in notes filter and total", async () => {
     const p = await open("?local=1");
     await paste(p, "Visa", "date,description,amount\n2026-11-03,Shufersal,400\n2026-11-04,Zara,100");
