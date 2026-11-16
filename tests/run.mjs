@@ -200,6 +200,10 @@ async function smoke() {
   await test("a month too big for the server shows Couldn't save, after a normal save worked", async () => {
     const p = await open(); await signUp(p, mail("r"));
     await paste(p, "Visa", "date,description,amount\n2026-11-03,Zara,300"); await total(p, "₪ 300"); await saved(p);
+    // A row whose date is not a proper one (a 3-digit year from a badly typed statement) is saved in the "none" document.
+    await p.evaluate(() => { S.tx.push({ id: "odd", date: "202-02-01", desc: "Odd", amt: 5, card: "Visa", cat: "Other" }); save() });
+    await p.waitForFunction(() => !C.pend, null, { timeout: 15000 }); eq(await p.textContent("#sync"), "Saved", "odd date saved");
+    eq(await p.evaluate(() => Object.keys(C.syn.months).sort().join()), "2026-11,none", "month documents");
     await p.evaluate(() => { S.tx.push({ id: "big", date: "2026-10-01", desc: "x".repeat(900001), amt: 1, card: "Visa", cat: "Other" }); save() });
     await text(p, "#sync", "Couldn’t save");
     await p.evaluate(() => { S.tx = S.tx.filter(t => t.id != "big") });

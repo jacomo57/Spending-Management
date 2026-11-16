@@ -2,7 +2,8 @@
 // Layout in Firestore, per account: users/{uid} (profile, proves a valid invite code),
 // users/{uid}/data/settings (everything in S except purchases) and users/{uid}/months/{YYYY-MM} (that month's purchases).
 // Each document is {v:1,json:"..."}. C.syn holds what this device last wrote or applied, so save() only writes real changes.
-const mk=t=>(t.date||"").slice(0,7)||"none";
+// The month document a row is saved in. The rules only accept YYYY-MM or "none", so a row with a missing or odd date goes to "none".
+const mk=t=>/^\d{4}-\d{2}/.test(t.date||"")?t.date.slice(0,7):"none";
 function ser(){const o=Object.assign({},S);delete o.tx;const g=bare();S.tx.forEach(t=>(g[mk(t)]=g[mk(t)]||[]).push(t));
  const out={settings:JSON.stringify(o),months:bare()};for(const m in g)out.months[m]=JSON.stringify(g[m]);return out}
 function stat(){$("sync").textContent=!C.on||!C.ready?"":C.err||(C.pend?(navigator.onLine?"Saving…":"Offline. Changes will sync when you’re back online."):"Saved")}

@@ -1,6 +1,6 @@
 // Copies the Firebase SDK's browser files (app, auth, firestore) from node_modules/firebase into vendor/firebase/,
 // so the site loads them from itself and not from gstatic.com. Run after changing the firebase version in package.json:
-//   node tools/firebase.mjs      (then set FB_VER in app.js to the same version and run npm test)
+//   node tools/firebase.mjs      (then run npm test)
 // The auth and firestore files import the app file by its gstatic address; that is rewritten to the local copy.
 import fs from "node:fs";
 import path from "node:path";
