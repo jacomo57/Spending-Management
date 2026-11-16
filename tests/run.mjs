@@ -297,6 +297,23 @@ async function local() {
     await p.setInputFiles("#file", f); await p.locator("#slip").waitFor({ timeout: 20000 }); await p.click("#slipgo");
     eq(await p.locator("#msg").textContent(), "That payslip is already added.", "second upload"); eq(await rows(p), 1, "rows");
   });
+  await test("payslip picture: the net pay is read from a JPEG; a picture without one is refused", async () => {
+    const box = (top, left, t) => `<div style="position:absolute;top:${top}px;left:${left}px">${t}</div>`;
+    const shot = async (name, body) => { const f = path.join(TMP, name), g = await browser.newPage({ viewport: { width: 900, height: 900 } }); await g.setContent(`<html dir="rtl"><body style="font:20px Arial;background:#fff">${body}</body></html>`); await g.screenshot({ path: f, type: "jpeg", quality: 85 }); await g.close(); return f };
+    const f = await shot("payslip.jpg", [[40, 300, "<b>תלוש משכורת לחודש 08/2026</b>"], [120, 600, "שכר יסוד"], [120, 400, "7,836.00"],
+      [500, 60, "9,147.00"], [500, 220, "סה\"כ תשלומים"], [580, 60, "8,700.00"], [580, 220, "שכר נטו"],
+      [660, 60, "7,912.35"], [660, 220, "<b>נטו לתשלום</b>"], [660, 700, "הערות"], [800, 300, "בתאריך 02/09/2026"]].map(b => box(...b)).join(""));
+    const p = await open("?local=1");
+    await p.locator("#p-imp").waitFor(); await p.setInputFiles("#file", f);
+    try { await p.locator("#slip").waitFor({ timeout: 120000 }) } catch (e) { throw new Error("payslip picture not recognised, message: " + await p.locator("#msg").textContent()) }
+    await text(p, "#sliptxt", "08/2026"); await text(p, "#sliptxt", "₪ 7,912");
+    eq(await p.inputValue("#slipdate"), "2026-09-02", "issue date");
+    await p.click("#slipgo"); await text(p, "#sin", "₪ 7,912");
+    eq(await p.locator('tr.inc input[value="Salary 08/2026"]').count(), 1, "income row");
+    await p.setInputFiles("#file", await shot("other.jpg", box(100, 300, "סתם מכתב 120.00")));
+    await p.waitForFunction(() => /Couldn’t find the net pay/.test(document.getElementById("msg").textContent), null, { timeout: 120000 });
+    eq(await p.locator("#slip").isVisible(), false, "no payslip row"); eq(await rows(p), 1, "rows");
+  });
   await test("payslip as pasted text, and a PDF that is not a payslip", async () => {
     const p = await open("?local=1");
     await p.locator("#p-imp").waitFor();

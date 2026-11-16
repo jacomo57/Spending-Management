@@ -9,8 +9,11 @@
     "deploy:rules": "firebase deploy --only firestore:rules --project spending-management-608d5"
   },
   "devDependencies": {
+    "@tesseract.js-data/eng": "^1.0.0",
+    "@tesseract.js-data/heb": "^1.0.0",
     "pdfjs-dist": "^6.5.438",
     "playwright-core": "^1.65.1",
+    "tesseract.js": "^7.0.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   }
 }

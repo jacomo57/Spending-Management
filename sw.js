@@ -5,8 +5,10 @@
 //  - The app's own files: saved copy first (index.html asks for them as file?v=VERSION, so a new deploy asks for new names),
 //    refreshed in the background as a safety net in case the stamp was ever forgotten.
 //  - Fonts and the Firebase SDK (fixed addresses): saved copy first, kept across versions.
+//  - The PDF and picture readers in vendor/ (about 9MB, used once a month for a payslip): saved on first use and kept across
+//    versions, so an app update does not download them again. They are still refreshed in the background when used.
 //  - Everything else (Firebase sign-in and data calls, the emulators) is never touched or stored here.
-const VERSION="f831cb50c8";
+const VERSION="1a73e0ae3b";
 const SHELL="spend-"+VERSION,RT="spend-rt-1";
 const FILES=["./","style.css?v="+VERSION,"app.js?v="+VERSION,"cloud.js?v="+VERSION,"manifest.webmanifest","icons/icon.svg","icons/icon-192.png","icons/icon-512.png","icons/maskable-512.png","icons/apple-touch-icon.png","vendor/xlsx.full.min.js"];
 const HOME=new URL("./",location.href).pathname;
@@ -24,7 +26,8 @@ async function page(e,r){const c=await caches.open(SHELL),hit=()=>c.match("./");
  const slow=new Promise(ok=>setTimeout(ok,4000)).then(hit).then(h=>h||net);
  // A server error also falls back to the saved copy; with no saved copy the server's own answer is shown.
  try{const res=await Promise.race([net,slow]);return res.ok?res:(await hit())||res}catch(x){return (await hit())||Response.error()}}
-async function asset(e,r){const c=await caches.open(SHELL),hit=await c.match(r.url);
+const BIG=/\/vendor\/(pdf\.|tesseract|worker\.|heb\.|eng\.)/;
+async function asset(e,r){const c=await caches.open(BIG.test(r.url)?RT:SHELL),hit=await c.match(r.url);
  const net=fetch(r.url,{cache:"no-cache"}).then(res=>{if(res.ok)c.put(r.url,res.clone());return res});
  if(hit){e.waitUntil(quiet(net));return hit}
  try{return await net}catch(x){return (await c.match(r.url,{ignoreSearch:true}))||Response.error()}}

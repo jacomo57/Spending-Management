@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <!--
 SPEND, SORTED: spec (keep updated with each edit)
-Files: index.html (markup), style.css, app.js (data, import, rendering), cloud.js (accounts + sync), sw.js (service worker), manifest.webmanifest, icons/, vendor/xlsx.full.min.js (SheetJS 0.20.3, loaded on first Excel file), vendor/pdf.min.mjs + pdf.worker.min.mjs (pdf.js 6.5.438 legacy build, loaded on first PDF; not saved for offline until used once). Tests: npm test.
+Files: index.html (markup), style.css, app.js (data, import, rendering), cloud.js (accounts + sync), sw.js (service worker), manifest.webmanifest, icons/, vendor/xlsx.full.min.js (SheetJS 0.20.3, loaded on first Excel file), vendor/pdf.min.mjs + pdf.worker.min.mjs (pdf.js 6.5.438 legacy build, loaded on first PDF; not saved for offline until used once), vendor/tesseract.min.js + worker.min.js + tesseract-core-lstm.wasm.js + heb/eng.traineddata.gz (tesseract.js 7.0.0, text recognition for payslip pictures, about 7.5MB, loaded on first picture). Tests: npm test.
 Installable app (PWA): manifest + icons, so it can be added to a phone's home screen or installed from Chrome/Edge. sw.js saves the app's files: the page is fetched from the network first (saved copy offline or after 4s), the app's files and the Firebase SDK and fonts come from the saved copy. Firebase sign-in and data calls are never stored by it. The version after style.css, app.js and cloud.js and VERSION in sw.js are written by tools/stamp.mjs before every npm test; never edit them by hand. A new version shows on the next load; an app left open shows "Update available, Reload". On localhost the service worker is off unless the address has ?sw=1.
 Storage: localStorage "spend-v1" in local-only mode; Firestore per account in cloud mode. No bank connection.
 Panels: Import, Cards, Recurring, Budget, Backup (copy/paste, local-only mode), Account (cloud mode), Delete all (press twice).
 Import: CSV/Excel/pasted text. Finds each header row (several sheets are fine), uses the purchase date and the charged amount ("סכום חיוב", not "סכום עסקה"). Identical rows in one file are all kept; importing again skips only copies already saved on that card. Refunds come in as negative amounts. Installments ("תשלום 3 מתוך 5") are dated in their own month and labelled "3/5". The card's last 4 digits are read from the file to suggest a card name. A bank-style file (most amounts negative) imports the negatives as spending and the positives as income. A purchase edited after import remembers its imported values (src), so importing the same file again does not add it back. Tested on real Isracard and Max files (2026-11-15).
-Payslip (תלוש שכר): pick the PDF in Import, or paste its text. Only the net pay ("נטו לתשלום"), the slip's month and its issue date are read; a line shows them with a date box and "Add as income", which adds one income row "Salary MM/YYYY". The same slip is not added twice. Nothing else from the slip is saved. A scanned or photographed slip has no text and cannot be read; a password-locked PDF gets a message.
+Payslip (תלוש שכר): pick the PDF in Import, or paste its text. Only the net pay ("נטו לתשלום"), the slip's month and its issue date are read; a line shows them with a date box and "Add as income", which adds one income row "Salary MM/YYYY". The same slip is not added twice. Nothing else from the slip is saved. A picture of the slip (photo, screenshot, JPEG/PNG) is read by text recognition inside the browser, nothing is uploaded: Hebrew pass for the label, then the numbers on that row are read again as digits only when the first pass did not give a proper amount. A message asks to check the amount. A password-locked PDF gets a message.
 Cards: S.cards[name] = percent that counts (full 100, half 50, custom, not counted 0). Rename a card in the Cards panel. A joint card is a card set to half. Old data (kind mine/joint + S.half) converts once in syncCards.
 Summary: spent, In and Left over (when the view has income), a figure per card (when more than one), currency.
 Income: a row with inc:1 and a positive amount ("+ Add income", recurring income, positive rows of a bank file). No category = income, counts toward In. With a category = a payback, lowers that category and Spent in full. Card rules never apply to income. calc(rows) in app.js is the single definition of spent / in / per category / per card.
@@ -17,8 +17,8 @@ Categorizing: learned merchant first, then EN + HE keywords, then the issuer's o
 Recurring (monthly, card "Recurring" unless another is chosen): starts empty; the user adds their own bills or income (Bill / Income choice) in the Recurring panel.
 Accounts + cloud sync (Firebase, see docs/backend.md): only active when FB_REAL is set or on localhost (emulators). Sign in (with a Show/Hide button for the password), Create account (needs invite code), Forgot password, Account panel (Sign out, Download my data, Restore from file with second press + undo, Delete my account with password + press twice). Data per account in Firestore, live sync between devices, "Saved / Saving… / Offline" status.
 FB_REAL is set (project spending-management-608d5), so the live site requires sign-in.
-Tested automatically on the emulator (npm test): sign up/in, wrong invite, two-device sync, per-account privacy, delete all, download + restore, delete account, income and budgets on a second device and after signing out, import cases above, income by hand, paybacks, recurring income, budgets, payslip (a made-up PDF and pasted text), re-import after an edit, installable files, update notice, opening offline and syncing an offline edit.
-UNTESTED: phone layout on a real phone (only checked in the browser pane at 375 and 768px), installing on a real phone, the 4s slow-network fallback, password reset email, category drag, recurring bills, undo, a real bank export (only a made-up one), a real payslip PDF (only one made by the test), a password-locked PDF, the budget pace note on other days of the month, .xls (old Excel) files, pasted email text with refunds (refunds are only read from tables).
+Tested automatically on the emulator (npm test): sign up/in, wrong invite, two-device sync, per-account privacy, delete all, download + restore, delete account, income and budgets on a second device and after signing out, import cases above, income by hand, paybacks, recurring income, budgets, payslip (a made-up PDF, a made-up JPEG and pasted text), re-import after an edit, installable files, update notice, opening offline and syncing an offline edit.
+UNTESTED: phone layout on a real phone (only checked in the browser pane at 375 and 768px), installing on a real phone, the 4s slow-network fallback, password reset email, category drag, recurring bills, undo, a real bank export (only a made-up one), a real payslip PDF (only one made by the test; a real payslip screenshot was read correctly by hand on 2026-11-16), a phone photo of a paper payslip (tilted or shadowed pictures will likely fail), a password-locked PDF, the budget pace note on other days of the month, .xls (old Excel) files, pasted email text with refunds (refunds are only read from tables).
 Phone layout (under 640px): each expense is a card (description and amount on top, date, category and card below, Ignore and delete at the bottom), sort buttons wrap above, tools row scrolls sideways, 44px touch targets, 16px inputs, safe-area padding; text fields use dir=auto for Hebrew. 640-900px keeps the desktop table, which scrolls inside its box.
 Undo: 8s button + Ctrl/Cmd+Z, session only.
 IDEAS: see ROADMAP.md.
@@ -37,7 +37,7 @@ IDEAS: see ROADMAP.md.
 <meta name="apple-mobile-web-app-title" content="Spend">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=f831cb50c8">
+<link rel="stylesheet" href="style.css?v=1a73e0ae3b">
 </head>
 <body>
 <main>
@@ -72,8 +72,8 @@ IDEAS: see ROADMAP.md.
 
 <div class="panel" id="p-imp" hidden><div class="grid">
   <div class="row"><input id="card" dir="auto" placeholder="Card name, e.g. Visa 1234" list="cardlist"><datalist id="cardlist"></datalist><select id="irule" aria-label="How this card counts"></select></div>
-  <div>Upload a card statement (Excel or CSV) or a payslip (PDF), or paste the rows below.</div>
-  <input type="file" id="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.pdf">
+  <div>Upload a card statement (Excel or CSV) or a payslip (PDF or picture), or paste the rows below.</div>
+  <input type="file" id="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.pdf,image/*">
   <div class="row" id="slip" hidden><span id="sliptxt"></span><input type="date" id="slipdate" aria-label="Date the money arrived"><button class="pri" id="slipgo">Add as income</button></div>
   <textarea id="paste" placeholder="date,description,amount&#10;2026-11-03,Shufersal Deal,214.50"></textarea>
   <div class="row"><button class="pri" id="go">Import and sort</button><button id="sample">Load sample data</button><span class="msg" id="msg"></span></div>
@@ -129,7 +129,7 @@ IDEAS: see ROADMAP.md.
 </main>
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=f831cb50c8"></script>
-<script src="cloud.js?v=f831cb50c8"></script>
+<script src="app.js?v=1a73e0ae3b"></script>
+<script src="cloud.js?v=1a73e0ae3b"></script>
 </body>
 </html>

@@ -174,6 +174,35 @@ async function pdfItems(buf){const L=await loadPdf(),task=L.getDocument({data:bu
   tc.items.forEach(i=>{const s=(i.str||"").replace(/₪/g,"").trim();if(s)out.push({s,x:i.transform[4]+(i.width||0)/2,y:i.transform[5],h:i.height||10,p})})}}
  finally{task.destroy().catch(()=>{})}
  return out}
+// A picture of a payslip (photo or screenshot): the text is recognised inside the browser (tesseract.js with its Hebrew data, in
+// vendor/, loaded on first use); the picture is not sent anywhere. A large photo is shrunk first so a phone finishes in reasonable time.
+// Each recognised word becomes a piece placed on its text line, so slip() reads it the same way as a PDF.
+// Digits beside Hebrew are often misread in the full-page pass, so every number on a row that holds "נטו" or "לתשלום" is read a second
+// time on its own: cut out, enlarged, digits only. A number the first pass already read as a proper amount is kept as it is.
+// The user still sees the amount and confirms it before anything is added.
+function loadOcr(){return window.Tesseract?Promise.resolve():new Promise((ok,no)=>{const s=document.createElement("script");s.src="vendor/tesseract.min.js";s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
+async function imgItems(f){await loadOcr();const bm=await createImageBitmap(f),k=Math.min(1,2600/Math.max(bm.width,bm.height));
+ // cut(x,y,w,h,z): that part of the picture (in the shrunk picture's coordinates) on a white canvas, enlarged z times.
+ const cut=(x,y,w,h,z)=>{const c=document.createElement("canvas");c.width=Math.max(1,Math.round(w*z));c.height=Math.max(1,Math.round(h*z));const g=c.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,c.width,c.height);g.drawImage(bm,x/k,y/k,w/k,h/k,0,0,c.width,c.height);return c};
+ const W=bm.width*k,H=bm.height*k,src=cut(0,0,W,H,1),at=u=>new URL(u,location.href).href;
+ let w=null;
+ try{w=await Tesseract.createWorker("heb",1,{workerPath:at("vendor/worker.min.js"),corePath:at("vendor/tesseract-core-lstm.wasm.js"),langPath:at("vendor"),workerBlobURL:false});
+  const r=await w.recognize(src,{},{blocks:true}),out=[];
+  (r.data.blocks||[]).forEach(b=>b.paragraphs.forEach(p=>p.lines.forEach(l=>{const y=-(l.bbox.y0+l.bbox.y1)/2,h=l.bbox.y1-l.bbox.y0;
+   l.words.forEach(x=>{const s=x.text.replace(/^[^\dא-ת]+|[^\dא-ת]+$/g,"");if(s)out.push({s,x:(x.bbox.x0+x.bbox.x1)/2,y,h,p:1,b:x.bbox})})})));
+  const lab=out.filter(i=>/נטו|לתשלום/.test(i.s)),isN=i=>/\d/.test(i.s)&&!/[א-ת]/.test(i.s),nums=[];
+  // Pieces of one number that the first pass split ("9" and "147.00") are joined into one box before the second read.
+  out.filter(i=>isN(i)&&!MONEY.test(i.s)&&lab.some(l=>Math.abs(l.y-i.y)<=l.h*1.5)).sort((p,q)=>q.y-p.y||p.b.x0-q.b.x0).forEach(i=>{const n=nums[nums.length-1];
+   if(n&&n.y==i.y&&i.b.x0-n.b.x1<i.h){n.b={x0:n.b.x0,y0:Math.min(n.b.y0,i.b.y0),x1:i.b.x1,y1:Math.max(n.b.y1,i.b.y1)};n.x=(n.b.x0+n.b.x1)/2;i.s=""}else nums.push(i)});
+  if(nums.length){await w.reinitialize("eng");await w.setParameters({tessedit_char_whitelist:"0123456789.,",tessedit_pageseg_mode:"7"});
+   for(const i of nums){const h=i.b.y1-i.b.y0,px=h*.5,py=h*.4,x=Math.max(0,i.b.x0-px),y=Math.max(0,i.b.y0-py);
+    const t=(await w.recognize(cut(x,y,Math.min(W,i.b.x1+px)-x,Math.min(H,i.b.y1+py)-y,Math.max(1,Math.min(6,44/h))))).data.text.replace(/\s+/g,"").replace(/^[.,]+|[.,]+$/g,"");
+    // A comma is easily read as a point ("8.640.00", "8.640"): a mark before two final digits is the decimal point, marks before
+    // groups of three only group.
+    const d=t.match(/^(\d[\d.,]*)[.,](\d{2})$/),n=d?d[1].replace(/[.,]/g,"")+"."+d[2]:/^\d{1,3}([.,]\d{3})+$/.test(t)?t.replace(/\./g,","):t;
+    if(n)i.s=n}}
+  return out.filter(i=>i.s).map(({s,x,y,h,p})=>({s,x,y,h,p}))}
+ finally{bm.close();if(w)w.terminate()}}
 let slipP=null;
 function slipShow(s){slipP=s;$("slip").hidden=!s;if(!s)return;
  $("sliptxt").innerHTML="Payslip"+(s.month?" "+esc(s.month):"")+" · net pay <b>"+fmt(s.net)+"</b> · arrived on";$("slipdate").value=s.date||new Date().toISOString().slice(0,10)}
@@ -182,10 +211,15 @@ function slipAdd(){const s=slipP,d=$("slipdate").value;if(!s)return;if(!d){$("ms
  if(S.tx.some(t=>t.inc&&t.desc==desc&&t.amt==s.net&&(s.month||t.date==d))){$("msg").textContent="That payslip is already added.";return}
  S.tx.push({id:Math.random().toString(36).slice(2),date:d,desc,amt:s.net,inc:1,card:"",cat:""});save();
  $("msg").textContent="Added "+desc+" as income.";render()}
-function readFile(f){const m=$("msg"),r=new FileReader();slipShow(null);
+// readN: when another file is picked while one is still being read, only the newest one's result is shown.
+let readN=0;
+function readFile(f){const m=$("msg"),r=new FileReader(),my=++readN;slipShow(null);
+ if(/^image\//.test(f.type)||/\.(jpe?g|png|webp|bmp)$/i.test(f.name)){m.textContent="Reading the picture… this can take up to a minute.";
+  return imgItems(f).then(it=>{if(my!=readN)return;const s=slip(it);$("file").value="";m.textContent=s?"Check the amount against the payslip before adding it.":"Couldn’t find the net pay (נטו לתשלום) in that picture. Try a sharper, straight picture, or use + Add income and type the amount.";slipShow(s)})
+   .catch(()=>{if(my!=readN)return;$("file").value="";m.textContent="Couldn’t read that picture."})}
  if(/\.pdf$/i.test(f.name)){m.textContent="Reading the file…";
-  r.onload=()=>pdfItems(r.result).then(it=>{const s=slip(it);$("file").value="";m.textContent=s?"":it.length?"Couldn’t find the net pay (נטו לתשלום) in that PDF. Card statements import from Excel or CSV.":"That PDF has no text to read (a scan or a photo). Use + Add income and type the amount.";slipShow(s)})
-   .catch(e=>{$("file").value="";m.textContent=e&&e.name=="PasswordException"?"That PDF is locked with a password. Open it, copy its text and paste it below, or save a copy without the password.":"Couldn’t read that PDF."});
+  r.onload=()=>pdfItems(r.result).then(it=>{if(my!=readN)return;const s=slip(it);$("file").value="";m.textContent=s?"":it.length?"Couldn’t find the net pay (נטו לתשלום) in that PDF. Card statements import from Excel or CSV.":"That PDF has no text to read (a scan). Save the page as a picture and pick that instead.";slipShow(s)})
+   .catch(e=>{if(my!=readN)return;$("file").value="";m.textContent=e&&e.name=="PasswordException"?"That PDF is locked with a password. Open it, copy its text and paste it below, or save a copy without the password.":"Couldn’t read that PDF."});
   return r.readAsArrayBuffer(f)}
  if(!/\.xlsx?$/i.test(f.name)){r.onload=()=>{$("paste").value=r.result};return r.readAsText(f)}
  m.textContent="Reading the file…";
