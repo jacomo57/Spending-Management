@@ -12,7 +12,14 @@ const CATS={
 "Subscriptions":["subscription","apple.com/bill","icloud","google one","google *","youtube","disney","hbo","prime video","chatgpt","openai","anthropic","claude","dropbox","adobe","notion","microsoft","patreon","audible","membership"]
 };
 let ORDER=[];
-const COL={};
+const COL=Object.create(null);
+// Maps keyed by a name that the user or a statement supplies (merchant, card, category) have no prototype, so a name like
+// "constructor" or "__proto__" is an ordinary key. Saved data is JSON, which gives plain objects back: fixMaps() rebuilds the
+// maps after every load, and own() drops a "__proto__" key from a loaded object before it is copied into S.
+const bare=o=>Object.assign(Object.create(null),o&&typeof o=="object"&&!Array.isArray(o)?o:null);
+const own=o=>{if(o&&typeof o=="object")delete o["__proto__"];return o};
+function fixMaps(){for(const k of["rules","cards","recDone","hue","alias"])if(!S[k]||typeof S[k]!="object"||Object.getPrototypeOf(S[k]))S[k]=bare(S[k]);
+ const b=S.budget;if(b&&typeof b=="object"&&b.cats&&Object.getPrototypeOf(b.cats))b.cats=bare(b.cats)}
 let S={tx:[],rules:{},cur:"₪"};
 let rpT="month",rpN=12,FOUND=[],rp=false,rpM=null,rpL=true,rpS=false,cmp=false,cmA=null,cmB=null,q="",cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null;
 // Accounts + cloud sync (Firebase): see docs/backend.md. The cloud code is in cloud.js.
@@ -23,12 +30,10 @@ const FB_VER="13.3.0",FB_REAL={apiKey:"AIzaSyBeXWekBAG26oele2v7hAMDmLnIDW6D_uk",
 const LOCALHOST=/^(localhost|127\.0\.0\.1)$/.test(location.hostname),LOCALONLY=LOCALHOST&&/[?&]local=1/.test(location.search);
 const EMU=LOCALHOST&&!LOCALONLY;
 const FBC=EMU?{apiKey:"demo-key",authDomain:"demo-spend.firebaseapp.com",projectId:"demo-spend"}:LOCALONLY?null:FB_REAL;
-const C={on:!!FBC,un:{},ready:false,user:null,syn:{settings:null,months:{}},pend:0,err:"",unsub:[],mode:null};
-if(!C.on)try{const r=localStorage.getItem("spend-v1");if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
+const C={on:!!FBC,un:{},ready:false,user:null,syn:{settings:null,months:bare()},pend:0,err:"",unsub:[],mode:null};
+if(!C.on)try{const r=localStorage.getItem("spend-v1");if(r)S=Object.assign(S,own(JSON.parse(r)))}catch(e){}
 function save(){if(C.on)return cloudSave();try{localStorage.setItem("spend-v1",JSON.stringify(S))}catch(e){}}
 // Card rules: S.cards[name] = percent of that card's purchases that counts (100 full, 50 half, 0 not counted).
-function syncCards(){if(!S.cards)S.cards={}}
-syncCards();
 const pct=c=>S.cards[c]==null?100:S.cards[c];
 // Income (asked 2026-11-15). A row with inc:1 is money that came in; its amount is stored positive and no card rule applies to it.
 //  - no category (cat ""): plain income (salary, a tax refund). Counts toward "In", never toward spending.
@@ -36,13 +41,13 @@ const pct=c=>S.cards[c]==null?100:S.cards[c];
 // v(t) is what one row adds to "Spent". calc() is the one definition of the numbers; the summary, budgets, comparisons and reports
 // must all use it. calc(rows) -> {spent, inc, back, by:{category:spent}, per:{card:spent}}; ignored rows are left out.
 const v=t=>t.inc?(t.cat?-t.amt:0):t.amt*pct(t.card)/100;
-function calc(list){const o={spent:0,inc:0,back:0,by:{},per:{}};
+function calc(list){const o={spent:0,inc:0,back:0,by:bare(),per:bare()};
  list.forEach(t=>{if(t.skip)return;const x=v(t);o.spent+=x;
   if(!t.inc){o.by[t.cat]=(o.by[t.cat]||0)+x;o.per[t.card]=(o.per[t.card]||0)+x}
   else if(t.cat){o.back+=t.amt;o.by[t.cat]=(o.by[t.cat]||0)+x}else o.inc+=t.amt});
  return o}
 // Budgets: S.budget = {total, cats:{name:amount}}, per month, saved with the settings. 0 or missing = no budget.
-const bud=()=>{if(!S.budget||typeof S.budget!="object")S.budget={total:0,cats:{}};if(!S.budget.cats)S.budget.cats={};return S.budget};
+const bud=()=>{if(!S.budget||typeof S.budget!="object")S.budget={total:0,cats:bare()};if(!S.budget.cats)S.budget.cats=bare();return S.budget};
 // What a row looked like when it was imported. Kept in t.src once the row is edited, so importing the same file again still skips it.
 const rid=x=>[x.date,x.desc,x.amt].join("|")+(x.inc?"|i":"");
 const rl=p=>p==100?"":p==50?"counts at half":p==0?"not counted":"counts at "+p+"%";
@@ -55,7 +60,7 @@ function renameCard(old,nv){crdMsg="";if(!nv||nv==old)return render();
 // Default categories for a new account. "Bills & home" and "House stuff" are not offered by default; their keywords
 // stay in CATS and are routed by FB to "Rent & payments" and "Shopping" (unless the user adds categories with those names).
 const NODEF=["Bills & home","House stuff"];
-function syncCats(){if(!Array.isArray(S.cats))S.cats=Object.keys(CATS).filter(c=>!NODEF.includes(c));if(!S.alias)S.alias={};ORDER=[...S.cats,"Other"];if(!S.hue)S.hue={};S.cats.forEach(c=>{if(S.hue[c]==null)S.hue[c]=(Object.keys(S.hue).length*41+150)%360});ORDER.forEach(c=>COL[c]=c=="Other"?"hsl(150 8% 55%)":`hsl(${S.hue[c]} 55% 46%)`)}
+function syncCats(){fixMaps();if(!Array.isArray(S.cats))S.cats=Object.keys(CATS).filter(c=>!NODEF.includes(c));ORDER=[...S.cats,"Other"];S.cats.forEach(c=>{if(S.hue[c]==null)S.hue[c]=(Object.keys(S.hue).length*41+150)%360});ORDER.forEach(c=>COL[c]=c=="Other"?"hsl(150 8% 55%)":`hsl(${S.hue[c]} 55% 46%)`)}
 syncCats();
 const $=id=>document.getElementById(id);
 // Today in the user's own time zone (toISOString is UTC, which is a day behind in Israel from midnight to about 3am).
@@ -127,7 +132,7 @@ function parse(text){const lines=text.split(/\r?\n/).filter(l=>l.trim());if(!lin
 // When a file is imported again, a row is skipped only for as many identical copies as are already saved on that card.
 // A saved row is matched by how it looked when imported (t.src), so editing it does not bring it back; an edited row also
 // matches by what it says now (a hand-typed row that was corrected to the statement's values). Returns [purchases added, income added].
-function add(list,card){const id=rid,have={},alt={};let n=0,ni=0;
+function add(list,card){const id=rid,have=bare(),alt=bare();let n=0,ni=0;
  S.tx.forEach(t=>{if(t.card==card){const k=t.src||id(t);have[k]=(have[k]||0)+1;if(t.src){const c=id(t);alt[c]=(alt[c]||0)+1}}});
  list.forEach(x=>{const k=id(x);if(have[k]>0){have[k]--;return}if(alt[k]>0){alt[k]--;return}
   const t={id:uid(),date:x.date,desc:x.desc,amt:x.amt,card,cat:x.inc?"":guess(x.desc,x.hint)};
@@ -236,10 +241,11 @@ function clean(o){const id=x=>String(x||"").replace(/[^\w:.-]/g,"")||uid();
  o.tx.forEach(t=>{t.id=id(t.id);t.desc=String(t.desc||"");if(t.src!=null)t.src=String(t.src);if(t.note!=null)t.note=String(t.note).slice(0,500);
   if(t.inc){t.inc=1;t.amt=Math.abs(t.amt);t.card=String(t.card||"");t.cat=String(t.cat||"")}else{delete t.inc;t.card=String(t.card||"My card");t.cat=String(t.cat||"Other")}});
  if(!Array.isArray(o.recur))o.recur=[];o.recur.forEach(r=>{r.id=id(r.id);r.amt=+r.amt||0;r.day=Math.min(28,Math.max(1,parseInt(r.day)||1));r.desc=String(r.desc||"");if(r.inc)r.inc=1;else delete r.inc});
- if(o.budget&&typeof o.budget=="object"){const c={},s=o.budget.cats;if(s&&typeof s=="object")for(const k in s)if(+s[k]>0)c[k]=+s[k];o.budget={total:Math.max(0,+o.budget.total||0),cats:c}}else delete o.budget;
+ if(o.budget&&typeof o.budget=="object"){const c=bare(),s=o.budget.cats;if(s&&typeof s=="object")for(const k in s)if(+s[k]>0)c[k]=+s[k];o.budget={total:Math.max(0,+o.budget.total||0),cats:c}}else delete o.budget;
  for(const k of["hue","cards"])if(o[k]&&typeof o[k]=="object")for(const c in o[k])o[k][c]=+o[k][c]||0;else delete o[k];
  if(!Array.isArray(o.cats)||o.cats.some(c=>typeof c!="string"))delete o.cats;
- return Object.assign({tx:[],rules:{},cur:"₪"},o)}
+ for(const k of["rules","alias"])if(o[k]&&typeof o[k]=="object")for(const c in o[k])o[k][c]=String(o[k][c]);else delete o[k];
+ return Object.assign({tx:[],rules:{},cur:"₪"},own(o))}
 function fmt(n){return esc(S.cur)+" "+n.toLocaleString(undefined,{maximumFractionDigits:0})}
 function mname(m){const[y,mo]=m.split("-");return new Date(y,mo-1,1).toLocaleString(undefined,{month:"long",year:"numeric"})}
 function fsel(e){const d=e&&e.dataset;if(!d)return null;
@@ -268,7 +274,7 @@ function addPurchase(inc){const id=uid(),d=ymd();
 function render(){
  const fs=fsel(document.activeElement);
  syncCats();if(!Array.isArray(S.recur))S.recur=[];
- $("cur").value=S.cur;syncCards();
+ $("cur").value=S.cur;
  CL=[...new Set([...S.tx.filter(t=>!t.inc).map(t=>t.card),...S.recur.filter(r=>!r.inc).map(r=>r.card||"Recurring")])].sort((a,b)=>a.localeCompare(b));
  if(cardF!="all"&&!CL.includes(cardF))cardF="all";
  const rc=[...new Set(["Recurring",...CL])],copt=s=>rc.map(c=>`<option${c==s?" selected":""}>${esc(c)}</option>`).join("");
@@ -302,7 +308,7 @@ function render(){
  const base=repRows(m);
  const K=calc(base),ign=base.filter(t=>t.skip),tot=K.spent,per=K.per,by=K.by;
  // Budgets are monthly and cover all cards, so they show only with one month picked and no card filter.
- const B=S.budget&&S.budget.cats?S.budget:{total:0,cats:{}},bOn=m.length==7&&cardF=="all",bc=bOn?B.cats:{},now=new Date(),nowM=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
+ const B=S.budget&&S.budget.cats?S.budget:{total:0,cats:bare()},bOn=m.length==7&&cardF=="all",bc=bOn?B.cats:bare(),now=new Date(),nowM=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
  let bl="";if(bOn&&B.total>0){const left=B.total-tot,exp=B.total*now.getDate()/new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
   bl=`<div class="l${left<0?" over":""}" id="budline">${left<0?fmt(-left)+" over the "+fmt(B.total)+" budget":fmt(left)+" left of "+fmt(B.total)}${m==nowM&&left>=0?(tot<=exp?" · on track":" · "+fmt(tot-exp)+" over pace"):""}</div>`}
  if(document.activeElement!=$("btotal"))$("btotal").value=B.total||"";
@@ -355,7 +361,7 @@ function report(){
  let prev="";if(m.length==7){const[y,mo]=m.split("-").map(Number),pm=mo==1?(y-1)+"-12":y+"-"+String(mo-1).padStart(2,"0"),pr=repRows(pm);
   if(pr.length){const d=K.spent-calc(pr).spent;prev=d?`${d>0?"↑":"↓"} ${fmt(Math.abs(d))} against ${esc(mname(pm))}`:"same as "+esc(mname(pm))}}
  const B=S.budget&&S.budget.total>0&&m.length==7&&cardF=="all"?S.budget:null,bl=B?(B.total>=K.spent?fmt(B.total-K.spent)+" left of "+fmt(B.total)+" budget":fmt(K.spent-B.total)+" over the "+fmt(B.total)+" budget"):"";
- const cats=Object.keys(K.by).sort((x,y)=>K.by[y]-K.by[x]||x.localeCompare(y)),cb=B?B.cats:{},
+ const cats=Object.keys(K.by).sort((x,y)=>K.by[y]-K.by[x]||x.localeCompare(y)),cb=B&&B.cats||bare(),
   mer=Object.create(null);sp.forEach(t=>{const k=key(t.desc)||t.desc;(mer[k]=mer[k]||{n:t.desc,s:0,c:0});mer[k].s+=v(t);mer[k].c++});
  const top=Object.values(mer).filter(x=>x.s>0).sort((x,y)=>y.s-x.s).slice(0,10),big=sp.filter(t=>v(t)>0).sort((x,y)=>v(y)-v(x)).slice(0,5),inc=live.filter(t=>t.inc),
   rec=S.recur.filter(r=>!r.inc),lst=(rpS?rows:live).slice().sort((x,y)=>x.date.localeCompare(y.date));
@@ -407,7 +413,7 @@ $("sample").onclick=()=>{const a=[["2026-11-02","Shufersal Deal Ramat Gan",312.4
  add(a.map(x=>({date:x[0],desc:x[1],amt:x[2]})),"My Visa");add(b.map(x=>({date:x[0],desc:x[1],amt:x[2]})),"Joint card");render()};
 $("card").oninput=impRule;
 function recGen(){
- if(!Array.isArray(S.recur))S.recur=[];if(!S.recDone)S.recDone={};
+ if(!Array.isArray(S.recur))S.recur=[];if(!S.recDone)S.recDone=bare();
  const today=ymd(),nowM=today.slice(0,7);
  S.recur.forEach(r=>{let m=r.start,g=0;
   while(m&&m<=nowM&&g++<120){const k=r.id+":"+m,dt=m+"-"+String(Math.min(r.day||1,28)).padStart(2,"0");
@@ -430,19 +436,19 @@ function renameCat(i,nv){nv=nv.trim();const old=S.cats[i];catMsg="";
 function learn(k,c){S.rules[k]=c;S.tx.forEach(y=>{if(!y.inc&&key(y.desc)==k)y.cat=c})}
 function addCat(){let n="New category",i=2;while(S.cats.includes(n))n="New category "+i++;
  S.cats.push(n);focusCat=S.cats.length-1;catMsg="";save();render()}
-function delCat(i){const old=S.cats[i],oAlias={...S.alias},oRules={},oTx=S.tx.filter(t=>t.cat==old).map(t=>t.id);for(const k in S.rules)if(S.rules[k]==old)oRules[k]=old;S.cats.splice(i,1);const oBud=bud().cats[old];delete S.budget.cats[old];
+function delCat(i){const old=S.cats[i],oAlias=bare(S.alias),oRules=bare(),oTx=S.tx.filter(t=>t.cat==old).map(t=>t.id);for(const k in S.rules)if(S.rules[k]==old)oRules[k]=old;S.cats.splice(i,1);const oBud=bud().cats[old];delete S.budget.cats[old];
  S.tx.forEach(t=>{if(t.cat==old)t.cat="Other"});
  for(const k in S.rules)if(S.rules[k]==old)delete S.rules[k];
  for(const b in CATS)if((S.alias[b]||b)==old)S.alias[b]="Other";
  if(cat==old)cat=null;catMsg="";pushUndo("Deleted category “"+old+"”",()=>{S.cats.splice(Math.min(i,S.cats.length),0,old);S.alias=oAlias;Object.assign(S.rules,oRules);if(oBud)bud().cats[old]=oBud;S.tx.forEach(t=>{if(oTx.includes(t.id))t.cat=old})});save();render()}
 let wp=false;$("wipe").onclick=()=>{if(!wp){wp=true;$("wipe").textContent="Press again to delete everything";$("wmsg").textContent="This removes all purchases, recurring items and learned corrections.";setTimeout(()=>{wp=false;$("wipe").textContent="Delete all data";$("wmsg").textContent=""},6000);return}
- const snap={tx:S.tx,rules:S.rules,recur:S.recur,recDone:S.recDone};S.tx=[];S.rules={};S.recur=[];S.recDone={};pushUndo("Deleted all data",()=>{S.tx=snap.tx.concat(S.tx);S.rules=Object.assign({},snap.rules,S.rules);S.recur=snap.recur.concat(S.recur);S.recDone=Object.assign({},snap.recDone,S.recDone)});save();wp=false;cat=null;$("wipe").textContent="Delete all data";$("wmsg").textContent="All clear.";render()};
+ const snap={tx:S.tx,rules:S.rules,recur:S.recur,recDone:S.recDone};S.tx=[];S.rules=bare();S.recur=[];S.recDone=bare();pushUndo("Deleted all data",()=>{S.tx=snap.tx.concat(S.tx);S.rules=Object.assign(bare(snap.rules),S.rules);S.recur=snap.recur.concat(S.recur);S.recDone=Object.assign(bare(snap.recDone),S.recDone)});save();wp=false;cat=null;$("wipe").textContent="Delete all data";$("wmsg").textContent="All clear.";render()};
 // Download my data / Restore from file (Account panel). The file holds everything in S. Restoring replaces what is saved, after a second press.
 $("dl").onclick=()=>{const a=document.createElement("a"),u=URL.createObjectURL(new Blob([JSON.stringify({app:"spend-sorted",v:1,saved:new Date().toISOString(),data:S})],{type:"application/json"}));
  a.href=u;a.download="spend-backup-"+ymd()+".json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);$("rsmsg").textContent="Saved to your downloads. Keep the file somewhere private."};
 let rsPend=null,rsT=null;
 function rsReset(){rsPend=null;clearTimeout(rsT);$("rsbtn").textContent="Restore from file";$("rsfile").value=""}
-$("rsbtn").onclick=()=>{if(!rsPend)return $("rsfile").click();const old=S;S=rsPend;rsReset();syncCards();cat=null;cardF="all";
+$("rsbtn").onclick=()=>{if(!rsPend)return $("rsfile").click();const old=S;S=rsPend;rsReset();fixMaps();cat=null;cardF="all";
  pushUndo("Restored from file",()=>{S=old});save();render();$("rsmsg").textContent="Restored "+S.tx.length+" purchases."};
 $("rsfile").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
  r.onload=()=>{let o=null;try{o=JSON.parse(r.result);o=clean(o&&o.data||o)}catch(x){o=null}rsReset();
@@ -540,7 +546,7 @@ const APPV=new URL(document.currentScript.src).searchParams.get("v")||"dev";
   document.addEventListener("visibilitychange",()=>{if(!document.hidden)r.update().catch(()=>{})});
   // First visit: fonts and the Firebase SDK loaded before the worker existed. Hand over their addresses, again later for a slow line.
   if(first)sw.ready.then(x=>[3000,15000,45000].forEach(ms=>setTimeout(()=>x.active&&x.active.postMessage({type:"warm",urls:performance.getEntriesByType("resource").map(e=>e.name)}),ms)))}).catch(()=>{})})();
-function start(){syncCards();dropEmpty();recGen();S.tx.forEach(t=>{if(t.cat=="Other"&&!t.inc)t.cat=guess(t.desc)});save();
+function start(){fixMaps();dropEmpty();recGen();S.tx.forEach(t=>{if(t.cat=="Other"&&!t.inc)t.cat=guess(t.desc)});save();
  panel=S.tx.some(t=>!String(t.id).startsWith("rec-"))?null:"imp";
  $("accbtn").textContent=C.on?"Account":"Backup";document.querySelectorAll(".cl").forEach(e=>e.hidden=!C.on);$("who").textContent=C.user?C.user.email:"";
  $("boot").hidden=true;$("app").hidden=false;render();stat()}

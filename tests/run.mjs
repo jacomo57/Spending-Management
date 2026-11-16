@@ -472,6 +472,32 @@ async function local() {
     await p.locator('tr:has([data-f="desc"][value=""]) [data-f="date"]').press("Tab");
     await p.reload(); await total(p, "₪ 300"); eq(await rows(p), 1, "rows after reload");
   });
+  await test("a merchant, card or category called constructor or __proto__ is an ordinary name", async () => {
+    const p = await open("?local=1");
+    await paste(p, "constructor", "date,description,amount\n2026-11-03,constructor,100\n2026-11-04,Kiosk,50");
+    await total(p, "₪ 150");
+    const catOf = d => p.locator(`tr:has([data-f="desc"][value="${d}"]) select[data-id]`);
+    eq(await catOf("constructor").inputValue(), "Other", "category before it is learned");
+    await catOf("constructor").selectOption("Transport");
+    if (!(await p.locator("#p-imp").isVisible())) await p.click('[data-p="imp"]');
+    await p.fill("#card", "__proto__"); await p.selectOption("#irule", "50");
+    await p.fill("#paste", "date,description,amount\n2026-11-05,constructor,30\n2026-11-05,Kiosk,20"); await p.click("#go");
+    await total(p, "₪ 175");
+    eq(await catOf("constructor").first().inputValue(), "Transport", "learned category");
+    await setField(p.locator('.cn[value="Transport"]'), "constructor");
+    await text(p, '.cat:has(.cn[value="constructor"]) .amt', "₪ 115");
+    await p.click('[data-p="bud"]'); await setField(p.locator('#budlist label:has-text("constructor") input'), "200");
+    await p.reload(); await total(p, "₪ 175");
+    eq(await catOf("constructor").first().inputValue(), "constructor", "category after reload");
+    eq(await p.evaluate(() => [S.cards.__proto__, S.rules.constructor, S.budget.cats.constructor, typeof COL.constructor].join()), "50,constructor,200,string", "saved maps");
+    // A restore file with a __proto__ key must not change what S inherits from.
+    const f = path.join(TMP, "proto.json");
+    fs.writeFileSync(f, '{"app":"spend-sorted","v":1,"data":{"tx":[{"id":"a","date":"2026-11-03","desc":"Zara","amt":80,"card":"__proto__","cat":"Shopping"}],"cards":{"__proto__":25},"__proto__":{"cur":"X","polluted":1}}}');
+    await p.click("#accbtn"); await p.setInputFiles("#rsfile", f);
+    await p.locator("#rsbtn", { hasText: "Replace everything" }).click();
+    await total(p, "₪ 20");
+    eq(await p.evaluate(() => [Object.getPrototypeOf(S) === Object.prototype, S.polluted, S.cards.__proto__].join()), "true,,25", "after restore");
+  });
   await test("just after midnight in Israel a new purchase and a recurring bill get that day's date", async () => {
     // 00:30 on 11 July in Israel is still 10 July in UTC.
     const c = await browser.newContext({ locale: "en-US", timezoneId: "Asia/Jerusalem" }); ctxs.push(c);

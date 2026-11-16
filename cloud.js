@@ -3,8 +3,8 @@
 // users/{uid}/data/settings (everything in S except purchases) and users/{uid}/months/{YYYY-MM} (that month's purchases).
 // Each document is {v:1,json:"..."}. C.syn holds what this device last wrote or applied, so save() only writes real changes.
 const mk=t=>(t.date||"").slice(0,7)||"none";
-function ser(){const o=Object.assign({},S);delete o.tx;const g={};S.tx.forEach(t=>(g[mk(t)]=g[mk(t)]||[]).push(t));
- const out={settings:JSON.stringify(o),months:{}};for(const m in g)out.months[m]=JSON.stringify(g[m]);return out}
+function ser(){const o=Object.assign({},S);delete o.tx;const g=bare();S.tx.forEach(t=>(g[mk(t)]=g[mk(t)]||[]).push(t));
+ const out={settings:JSON.stringify(o),months:bare()};for(const m in g)out.months[m]=JSON.stringify(g[m]);return out}
 function stat(){$("sync").textContent=!C.on||!C.ready?"":C.err||(C.pend?(navigator.onLine?"Saving…":"Offline. Changes will sync when you’re back online."):"Saved")}
 // C.un[key] counts this device's writes to a document that the server has not confirmed yet. While it is above zero,
 // incoming versions of that document are ignored (ours is newer and will win); when it reaches zero we re-check.
@@ -27,16 +27,16 @@ function listen(){const F=C.F,uid=C.user.uid,opt={includeMetadataChanges:true};l
  const check=()=>{if(C.ready||!sS||!mS)return;
   if(sS.exists()&&sS.metadata.fromCache)trust=true;
   if(!(sS.exists()||!sS.metadata.fromCache)||!(trust||!mS.metadata.fromCache))return;
-  S=Object.assign({tx:[],rules:{},cur:"₪"},sS.exists()&&parse(sS.data().json)||{});S.tx=[];
+  S=Object.assign({tx:[],rules:{},cur:"₪"},sS.exists()&&own(parse(sS.data().json))||{});S.tx=[];
   mS.docs.slice().sort((a,b)=>a.id<b.id?-1:1).forEach(d=>{const a=parse(d.data().json);if(Array.isArray(a))S.tx.push(...a)});
-  syncCards();C.syn=ser();if(!sS.exists())C.syn.settings=null;mS.forEach(d=>{if(!(d.id in C.syn.months))C.syn.months[d.id]=d.data().json});
+  fixMaps();C.syn=ser();if(!sS.exists())C.syn.settings=null;mS.forEach(d=>{if(!(d.id in C.syn.months))C.syn.months[d.id]=d.data().json});
   C.ready=true;C.err="";C.again=()=>{onS(sS);onM(mS)};start()};
  const fail=e=>{if(C.user&&C.user.uid!=uid)return;stop();
   if(e.code=="permission-denied")authShow("code");else{$("boot").hidden=false;$("boot").textContent="Couldn’t load your data ("+(e.code||e.message)+"). Check your connection and reload."}};
  // After the first load, apply only confirmed changes that came from another device.
  const onS=d=>{sS=d;if(!C.ready)return check();
   if(d.metadata.hasPendingWrites||C.un.s||!d.exists()||d.data().json===C.syn.settings)return;
-  const o=parse(d.data().json);if(!o)return;S=Object.assign({rules:{},cur:"₪"},o,{tx:S.tx});syncCards();C.syn.settings=ser().settings;remoteRender()};
+  const o=parse(d.data().json);if(!o)return;S=Object.assign({rules:{},cur:"₪"},own(o),{tx:S.tx});fixMaps();C.syn.settings=ser().settings;remoteRender()};
  const onM=q=>{mS=q;if(!C.ready)return check();
   const chg=[];q.forEach(d=>{const j=d.data().json;if(!d.metadata.hasPendingWrites&&!C.un["m:"+d.id]&&j!==C.syn.months[d.id])chg.push([d.id,parse(j),j])});
   if(!chg.length)return;
