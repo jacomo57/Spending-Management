@@ -176,11 +176,11 @@ function render(){
  const rc=[...new Set(["Recurring",...CL])],copt=s=>rc.map(c=>`<option${c==s?" selected":""}>${esc(c)}</option>`).join("");
  ["imp","crd","rec","bak","acc"].forEach(p=>{$("p-"+p).hidden=panel!=p});
  document.querySelectorAll("[data-p]").forEach(b=>b.classList.toggle("on",b.dataset.p==panel));
- $("cardrules").innerHTML=CL.map((c,i)=>{const p=pct(c),n=S.tx.filter(t=>t.card==c).length;return `<div class="row"><input data-ci="${i}" data-f="name" value="${esc(c)}" style="width:170px" aria-label="Card name"><select data-ci="${i}" data-f="rule" aria-label="How this card counts">${ruleOpts(p,1)}</select>${[100,50,0].includes(p)?"":`<input data-ci="${i}" data-f="pct" type="number" min="0" max="100" value="${p}" style="width:70px" aria-label="Percent that counts"><span class="sub">%</span>`}<span class="sub">${n} purchase${n==1?"":"s"}</span></div>`}).join("")||`<span class="msg">No cards yet. Import or add a purchase first.</span>`;
+ $("cardrules").innerHTML=CL.map((c,i)=>{const p=pct(c),n=S.tx.filter(t=>t.card==c).length;return `<div class="row"><input dir="auto" data-ci="${i}" data-f="name" value="${esc(c)}" style="width:170px" aria-label="Card name"><select data-ci="${i}" data-f="rule" aria-label="How this card counts">${ruleOpts(p,1)}</select>${[100,50,0].includes(p)?"":`<input data-ci="${i}" data-f="pct" type="number" min="0" max="100" value="${p}" style="width:70px" aria-label="Percent that counts"><span class="sub">%</span>`}<span class="sub">${n} purchase${n==1?"":"s"}</span></div>`}).join("")||`<span class="msg">No cards yet. Import or add a purchase first.</span>`;
  $("crdmsg").textContent=crdMsg;
  if(!$("irule").options.length)impRule();
  {const rv=$("rcard").value;$("rcard").innerHTML=copt(rc.includes(rv)?rv:"Recurring")}
- $("reclist").innerHTML=S.recur.map(r=>`<div class="row"><input data-rid="${r.id}" data-f="desc" value="${esc(r.desc)}" style="width:150px" aria-label="Description"><input data-rid="${r.id}" data-f="amt" type="number" step="0.01" value="${r.amt}" style="width:90px" aria-label="Amount"><input data-rid="${r.id}" data-f="day" type="number" min="1" max="28" value="${r.day}" style="width:60px" aria-label="Day of month"><select data-rid="${r.id}" data-f="card" aria-label="Card">${copt(r.card||"Recurring")}</select><button class="x" data-delrec="${r.id}" aria-label="Delete">✕</button></div>`).join("")||`<span class="msg">None yet.</span>`;
+ $("reclist").innerHTML=S.recur.map(r=>`<div class="row"><input dir="auto" data-rid="${r.id}" data-f="desc" value="${esc(r.desc)}" style="width:150px" aria-label="Description"><input data-rid="${r.id}" data-f="amt" type="number" step="0.01" value="${r.amt}" style="width:90px" aria-label="Amount"><input data-rid="${r.id}" data-f="day" type="number" min="1" max="28" value="${r.day}" style="width:60px" aria-label="Day of month"><select data-rid="${r.id}" data-f="card" aria-label="Card">${copt(r.card||"Recurring")}</select><button class="x" data-delrec="${r.id}" aria-label="Delete">✕</button></div>`).join("")||`<span class="msg">None yet.</span>`;
  $("cardlist").innerHTML=CL.map(c=>`<option value="${esc(c)}">`).join("");
  $("cardf").innerHTML='<option value="all">All cards</option>'+CL.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");$("cardf").value=cardF;
  const months=[...new Set(S.tx.map(t=>t.date.slice(0,7)))].sort().reverse();
@@ -198,7 +198,7 @@ function render(){
  const mx=Math.max(1,...Object.values(by));
  const bw=(c,x)=>`<span class="bw" data-c="${esc(c)}"><span class="bar"><i style="width:${Math.max(0,x)/mx*100}%;background:${COL[c]||"var(--mute)"}"></i></span><span class="amt">${fmt(x)}</span></span>`;
  const ord=S.cats.map((_,i)=>i);if(S.catSort!="manual")ord.sort((a,b)=>(by[S.cats[b]]||0)-(by[S.cats[a]]||0));
- $("cats").innerHTML=ord.map(i=>{const c=S.cats[i];return `<div class="cat${cat==c?" sel":""}" data-row="${i}"><span class="grip" title="Drag to reorder" aria-label="Drag to reorder">⋮⋮</span><input class="cn" data-ren="${i}" value="${esc(c)}" aria-label="Category name">${bw(c,by[c]||0)}<button class="x" data-delcat="${i}" aria-label="Delete category">✕</button></div>`}).join("")+(by.Other?`<div class="cat${cat=="Other"?" sel":""}"><span></span><span class="cn" style="padding:6px 8px">Other</span>${bw("Other",by.Other)}<span></span></div>`:"");
+ $("cats").innerHTML=ord.map(i=>{const c=S.cats[i];return `<div class="cat${cat==c?" sel":""}" data-row="${i}"><span class="grip" title="Drag to reorder" aria-label="Drag to reorder">⋮⋮</span><input dir="auto" class="cn" data-ren="${i}" value="${esc(c)}" aria-label="Category name">${bw(c,by[c]||0)}<button class="x" data-delcat="${i}" aria-label="Delete category">✕</button></div>`}).join("")+(by.Other?`<div class="cat${cat=="Other"?" sel":""}"><span></span><span class="cn" style="padding:6px 8px">Other</span>${bw("Other",by.Other)}<span></span></div>`:"");
  $("catmsg").textContent=catMsg;
  document.querySelectorAll("[data-cs]").forEach(b=>b.classList.toggle("on",b.dataset.cs==(S.catSort=="manual"?"manual":"size")));
  $("chip").innerHTML=cat?`<button id="clearcat">${esc(cat)} ✕</button>`:"";
@@ -207,13 +207,13 @@ function render(){
  const cols=[["date","Date"],["desc","Description"],["cat","Category"],["card","Card"],["amt","Amount"]];
  $("head").innerHTML=cols.map(([k,l])=>`<th${k=="amt"?' class="amt"':""} aria-sort="${sk==k?(sd==1?"ascending":"descending"):"none"}"><button data-sort="${k}">${l}${sk==k?(sd==1?" ▲":" ▼"):""}</button></th>`).join("")+`<th class="k">Ignore</th><th></th>`;
  $("rows").innerHTML=list.length?list.map(t=>{const os=ORDER.includes(t.cat)?ORDER:[...ORDER,t.cat],note=[t.amt<0?"refund":"",pct(t.card)==100?"":pct(t.card)?"counts "+fmt(v(t)):"not counted"].filter(Boolean).join(" · ");
-  return `<tr${t.skip?' class="skip"':""}><td><input type="date" data-tid="${t.id}" data-f="date" value="${t.date}"></td>
-  <td><input data-tid="${t.id}" data-f="desc" placeholder="Description" value="${esc(t.desc)}" style="min-width:190px"></td>
-  <td><select data-id="${t.id}">${os.map(c=>`<option${c==t.cat?" selected":""}>${esc(c)}</option>`).join("")}</select></td>
-  <td><input data-tid="${t.id}" data-f="card" list="cardlist" value="${esc(t.card||"")}" style="width:115px"></td>
+  return `<tr${t.skip?' class="skip"':""}><td class="d"><input type="date" data-tid="${t.id}" data-f="date" value="${t.date}"></td>
+  <td class="ds"><input dir="auto" data-tid="${t.id}" data-f="desc" placeholder="Description" value="${esc(t.desc)}" style="min-width:190px"></td>
+  <td class="ct"><select data-id="${t.id}">${os.map(c=>`<option${c==t.cat?" selected":""}>${esc(c)}</option>`).join("")}</select></td>
+  <td class="cd"><input dir="auto" data-tid="${t.id}" data-f="card" list="cardlist" value="${esc(t.card||"")}" style="width:115px"></td>
   <td class="amt"><input type="number" step="0.01" data-tid="${t.id}" data-f="amt" value="${t.amt}">${note?`<small class="c amt">${note}</small>`:""}</td>
-  <td class="k"><input type="checkbox" data-skip="${t.id}"${t.skip?" checked":""} aria-label="Ignore this purchase"></td><td class="k"><button class="x" data-del="${t.id}" aria-label="Delete">✕</button></td></tr>`}).join("")
-  :`<tr><td colspan="7" class="empty">${S.tx.length?"Nothing matches these filters.":"No purchases yet. Press Import above, or load the sample data to try it out."}</td></tr>`;
+  <td class="k"><input type="checkbox" data-skip="${t.id}"${t.skip?" checked":""} aria-label="Ignore this purchase"></td><td class="k dl"><button class="x" data-del="${t.id}" aria-label="Delete">✕</button></td></tr>`}).join("")
+  :`<tr><td colspan="7" class="empty" style="grid-column:1/-1">${S.tx.length?"Nothing matches these filters.":"No purchases yet. Press Import above, or load the sample data to try it out."}</td></tr>`;
  if(fs){const el=document.querySelector(fs);if(el&&el!==document.activeElement)el.focus()}
  if(focusCat!=null){const el=document.querySelector(`[data-ren="${focusCat}"]`);if(el){el.focus();el.select()}focusCat=null}
  if(focusTid){const el=document.querySelector(`[data-tid="${focusTid}"][data-f="desc"]`);if(el)el.focus();focusTid=null}

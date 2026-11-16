@@ -15,7 +15,8 @@ Recurring (monthly, card "Recurring" unless another is chosen): starts empty; th
 Accounts + cloud sync (Firebase, see docs/backend.md): only active when FB_REAL is set or on localhost (emulators). Sign in (with a Show/Hide button for the password), Create account (needs invite code), Forgot password, Account panel (Sign out, Download my data, Restore from file with second press + undo, Delete my account with password + press twice). Data per account in Firestore, live sync between devices, "Saved / Saving… / Offline" status.
 FB_REAL is set (project spending-management-608d5), so the live site requires sign-in.
 Tested automatically on the emulator (npm test): sign up/in, wrong invite, two-device sync, per-account privacy, delete all, download + restore, delete account, import cases above, installable files, update notice, opening offline and syncing an offline edit.
-UNTESTED: installing on a real phone, the 4s slow-network fallback, password reset email, category drag, recurring, undo, income rows of bank files, .xls (old Excel) files, pasted email text with refunds (refunds are only read from tables).
+UNTESTED: phone layout on a real phone (only checked in the browser pane at 375 and 768px), installing on a real phone, the 4s slow-network fallback, password reset email, category drag, recurring, undo, income rows of bank files, .xls (old Excel) files, pasted email text with refunds (refunds are only read from tables).
+Phone layout (under 640px): each expense is a card (description and amount on top, date, category and card below, Ignore and delete at the bottom), sort buttons wrap above, tools row scrolls sideways, 44px touch targets, 16px inputs, safe-area padding; text fields use dir=auto for Hebrew. 640-900px keeps the desktop table, which scrolls inside its box.
 Undo: 8s button + Ctrl/Cmd+Z, session only.
 IDEAS: see ROADMAP.md.
 -->
@@ -33,7 +34,7 @@ IDEAS: see ROADMAP.md.
 <meta name="apple-mobile-web-app-title" content="Spend">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=eec6e36b79">
+<link rel="stylesheet" href="style.css?v=9b503c8821">
 </head>
 <body>
 <main>
@@ -66,7 +67,7 @@ IDEAS: see ROADMAP.md.
 </div></div>
 
 <div class="panel" id="p-imp" hidden><div class="grid">
-  <div class="row"><input id="card" placeholder="Card name, e.g. Visa 1234" list="cardlist"><datalist id="cardlist"></datalist><select id="irule" aria-label="How this card counts"></select></div>
+  <div class="row"><input id="card" dir="auto" placeholder="Card name, e.g. Visa 1234" list="cardlist"><datalist id="cardlist"></datalist><select id="irule" aria-label="How this card counts"></select></div>
   <div>Upload the statement file from your card issuer (Excel or CSV), or copy the purchases out of the monthly email and paste them below. The app finds the dates, merchants and amounts itself. Refunds come in as minus amounts, and importing the same file twice adds nothing.</div>
   <input type="file" id="file" accept=".csv,.tsv,.txt,.xlsx,.xls">
   <textarea id="paste" placeholder="date,description,amount&#10;2026-11-03,Shufersal Deal,214.50"></textarea>
@@ -81,7 +82,7 @@ IDEAS: see ROADMAP.md.
 <div class="panel" id="p-rec" hidden><div class="grid">
   <div>Added automatically once a month, on the day you set, under the card you choose (“Recurring” unless you pick another). Changes and deletions affect future months only; purchases already added stay.</div>
   <div class="grid" id="reclist"></div>
-  <div class="row"><input id="rdesc" placeholder="Description"><input id="ramt" type="number" step="0.01" placeholder="Amount" style="width:100px"><input id="rday" type="number" min="1" max="28" value="1" style="width:64px" aria-label="Day of month"><select id="rcard" aria-label="Card"></select><button class="pri" id="radd">Add</button></div>
+  <div class="row"><input id="rdesc" dir="auto" placeholder="Description"><input id="ramt" type="number" step="0.01" placeholder="Amount" style="width:100px"><input id="rday" type="number" min="1" max="28" value="1" style="width:64px" aria-label="Day of month"><select id="rcard" aria-label="Card"></select><button class="pri" id="radd">Add</button></div>
 </div></div>
 
 <div class="panel" id="p-bak" hidden><div class="grid">
@@ -116,7 +117,7 @@ IDEAS: see ROADMAP.md.
 </main>
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=eec6e36b79"></script>
-<script src="cloud.js?v=eec6e36b79"></script>
+<script src="app.js?v=9b503c8821"></script>
+<script src="cloud.js?v=9b503c8821"></script>
 </body>
 </html>

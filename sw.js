@@ -6,7 +6,7 @@
 //    refreshed in the background as a safety net in case the stamp was ever forgotten.
 //  - Fonts and the Firebase SDK (fixed addresses): saved copy first, kept across versions.
 //  - Everything else (Firebase sign-in and data calls, the emulators) is never touched or stored here.
-const VERSION="eec6e36b79";
+const VERSION="9b503c8821";
 const SHELL="spend-"+VERSION,RT="spend-rt-1";
 const FILES=["./","style.css?v="+VERSION,"app.js?v="+VERSION,"cloud.js?v="+VERSION,"manifest.webmanifest","icons/icon.svg","icons/icon-192.png","icons/icon-512.png","icons/maskable-512.png","icons/apple-touch-icon.png","vendor/xlsx.full.min.js"];
 const HOME=new URL("./",location.href).pathname;

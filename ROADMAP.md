@@ -69,7 +69,7 @@ Still untested from earlier work: offline use, password-reset email, category dr
 
 ## Step 2: Phone-friendly layout
 
-- [ ] Done
+- [x] Done 2026-11-16. Checked in the browser pane at 375px and 768px, light and dark, Hebrew and long text; not yet on a real phone.
 - **Model:** Sonnet. Visible work, easy to verify in the browser at phone width.
 - **Can run alongside Step 1** in a separate worktree.
 - **Do:** under about 640px turn each expense row into a compact card (description and amount on top, date, category and card below, tap to edit); tools row that wraps or scrolls; category rows that fit; touch targets at least 44px; inputs at 16px so iPhones do not zoom; `dir="auto"` on description and merchant fields; safe-area padding; sign-in and Account panels at full width.
