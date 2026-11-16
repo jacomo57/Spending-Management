@@ -197,4 +197,5 @@ Still open, both need the user:
 
 1. **Publish only the app (optional).** A GitHub Actions workflow that uploads `index.html`, `style.css`, `app.js`, `cloud.js`, `sw.js`, `manifest.webmanifest`, `icons/`, `vendor/` as the Pages artifact, so `tests/`, `.claude/`, `docs/`, `ROADMAP.md` and `CLAUDE.md` are no longer served. The user must switch Settings, Pages, Source to "GitHub Actions" (give click-by-click steps). Confirm the live site and the installed app still update.
 2. **Optional, medium risk:** merge the keyword lists of "Bills & home" and "House stuff" into "Rent & payments" and "Shopping" and delete `NODEF`, `FB`, the two `HINT` targets. Only if the user wants it; keep keyword order so `guess()` results do not change.
-3. **Live check of the policy by the user:** sign in once on the live site and on the phone; if anything fails to load, the browser console names the blocked address to add to the policy in `index.html`.
+
+The user confirmed on 2026-11-16 that the live site signs in and saves under the policy.
