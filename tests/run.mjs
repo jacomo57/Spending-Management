@@ -347,7 +347,7 @@ async function local() {
     const p = await open("?local=1"), f = "date,description,amount\n2026-11-03,Rent,-4000\n2026-11-05,Shufersal,-200\n2026-11-10,Salary,9000";
     eq(await paste(p, "Bank", f), "Added 2 purchases and 1 income.", "import");
     await total(p, "₪ 4,200"); await text(p, "#sin", "₪ 9,000"); await text(p, "#sleft", "₪ 4,800");
-    eq(await p.locator('tr.inc:has(input[value="Salary"]) select').inputValue(), "", "income has no category");
+    eq(await p.locator('tr.inc:has(input[value="Salary"]) select[data-id]').inputValue(), "", "income has no category");
     eq(await paste(p, "Bank", f), "Added 0 purchases, skipped 3 already saved.", "re-import");
   });
   await test("add income by hand; giving it a category turns it into a payback that lowers spending", async () => {
@@ -358,10 +358,10 @@ async function local() {
     await setField(p.locator('tr.inc [data-f="amt"]'), "-150");
     await total(p, "₪ 500"); await text(p, "#sin", "₪ 150"); await text(p, "#sleft", "₪ -350");
     eq(await p.locator('tr.inc [data-f="amt"]').inputValue(), "150", "income amount is kept positive");
-    await p.locator("tr.inc select").selectOption("Groceries");
+    await p.locator("tr.inc select[data-id]").selectOption("Groceries");
     await total(p, "₪ 350"); eq(await p.locator("#sin").count(), 0, "a payback is not income");
     await text(p, '.bw[data-c="Groceries"] .amt', "₪ 250");
-    eq(await p.locator('tr:has(input[value="Zara"]) select').inputValue(), "Shopping", "payback did not re-sort purchases");
+    eq(await p.locator('tr:has(input[value="Zara"]) select[data-id]').inputValue(), "Shopping", "payback did not re-sort purchases");
     await p.reload(); await total(p, "₪ 350");
     eq(await p.evaluate(() => CL.join()), "Visa", "income adds no card");
   });
@@ -483,7 +483,7 @@ async function local() {
     await total(p, "₪ 443");
     eq(await p.locator('input[value="חנות רהיטים 3/3"]').count(), 1, "installment label");
     eq(await p.locator('tr:has(input[value="חנות רהיטים 3/3"]) [data-f="date"]').inputValue(), "2026-10-15", "installment date moved to its own month");
-    eq(await p.locator('tr:has(input[value="שופרסל דיל"]) select').inputValue(), "Groceries", "category");
+    eq(await p.locator('tr:has(input[value="שופרסל דיל"]) select[data-id]').inputValue(), "Groceries", "category");
   });
   await test("Max-style Excel: two sheets, issuer category, real date cells", async () => {
     const H = ["תאריך עסקה", "שם בית העסק", "קטגוריה", "4 ספרות אחרונות של כרטיס האשראי", "סוג עסקה", "סכום חיוב", "מטבע חיוב", "סכום עסקה מקורי", "מטבע עסקה מקורי", "תאריך חיוב", "הערות"];
@@ -506,8 +506,8 @@ async function local() {
     await total(p, "₪ 3,144");
     eq(await p.locator('tr:has(input[value="ביטוח רכב ישיר 3/5"]) [data-f="date"]').inputValue(), "2026-10-05", "installment date");
     eq(await p.locator('tr:has(input[value="חנות כלשהי"]) [data-f="date"]').inputValue(), "2026-10-27", "real date cell");
-    eq(await p.locator('tr:has(input[value="חנות של דני"]) select').inputValue(), "Shopping", "issuer category used");
-    eq(await p.locator('tr:has(input[value="קיוסק הפינה"]) select').first().inputValue(), "Eating out", "issuer category used");
+    eq(await p.locator('tr:has(input[value="חנות של דני"]) select[data-id]').inputValue(), "Shopping", "issuer category used");
+    eq(await p.locator('tr:has(input[value="קיוסק הפינה"]) select[data-id]').first().inputValue(), "Eating out", "issuer category used");
     await upload(p, f); await p.click("#go");
     eq(await p.locator("#msg").textContent(), "Added 0 purchases, skipped 6 already saved.", "re-import");
   });
@@ -641,6 +641,18 @@ async function local() {
     eq(await p.evaluate(() => S.defCard === CL[0]), true, "star sets the default card"); await p.locator("[data-def]").first().click();
     eq(await p.evaluate(() => S.defCard), undefined, "star again clears it");
     eq(await p.evaluate(() => [guess("שלומי שיער"), guess("Moshe Barber Shop"), guess("מספרה דנה"), guess("Chairs Ltd")].join("|")), "Health|Health|Health|Other", "care words go to Health");
+  });
+  await test("the card of a purchase is a dropdown of saved cards, with + New card", async () => {
+    const p = await open("?local=1");
+    await paste(p, "Visa", "date,description,amount\n2026-11-03,Shufersal,400");
+    await paste(p, "Max", "date,description,amount\n2026-11-04,Zara,100");
+    const sel = 'tr:has([data-f="desc"][value="Shufersal"]) select[data-f="card"]';
+    eq((await p.locator(sel + " option").allTextContents()).join("|"), "Max|Visa|＋ New card…", "options");
+    await p.selectOption(sel, "Max");
+    eq(await p.evaluate(() => S.tx.find(t => t.desc == "Shufersal").card), "Max", "picked a saved card");
+    p.once("dialog", d => d.accept("Cash"));
+    await p.selectOption(sel, "__new");
+    eq(await p.evaluate(() => S.tx.find(t => t.desc == "Shufersal").card), "Cash", "new card typed");
   });
   await test("split a purchase across categories; #tags in notes filter and total", async () => {
     const p = await open("?local=1");

@@ -104,7 +104,7 @@ td.amt input{width:100%}
 td.d{grid-column:1;grid-row:2}
 td.ct{grid-column:2;grid-row:2}
 td.cd{grid-column:3;grid-row:2}
-td.cd input{width:100%!important;min-width:0}
+td.cd input,td.cd select{width:100%!important;min-width:0}
 td.k{grid-row:3;display:flex;align-items:center;min-height:44px;text-align:left}
 td.k:not(.dl){grid-column:1/3;gap:10px;font-size:14px;color:var(--mute)}
 td.k:not(.dl)::after{content:"Ignore";order:2}
