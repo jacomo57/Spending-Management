@@ -54,3 +54,20 @@ Save the macro and make sure it is switched on.
 - The card is the one you used last in the app. To send another, add `,"card":{"stringValue":"Visa 1234"}` inside the body's `fields`.
 - When the card statement is imported later, the row with the same amount within 2 days merges with this one instead of doubling.
 - Lost phone, or the key was seen by someone: Account, "New key" (the old one stops working at once), then paste the new key into the macro.
+
+## Choosing the card
+- In the app, Cards panel: press **☆ Default** on the card you use most (press again to clear). Quick add and the phone use it when nothing else names a card. Without one they use the card of your latest purchase.
+- Quick add also has a card box, so you can pick another card for one purchase.
+- To send a card from the macro, add `,"card":{"stringValue":"Max 5315"}` inside the body's `fields` (name or last 4 digits).
+
+## The macro: "Wallet payment" (added 2026-11-17, from a real notification: title `SLOMI`, text `₪60.00 with max Total ••5315`)
+The app reads the amount (₪60.00), uses the title as the purchase name, and picks the card whose name contains the word after "with" (here `max`) or the last 4 digits; otherwise your default card. Nothing is lost: if the amount cannot be read the purchase is added at 0 with the notification text in its note.
+
+Add Macro, name `Wallet payment`.
+- **Trigger**: Device Events, **Notification Received**. Application: Google Wallet only. Text content: leave empty or choose "Contains" `with` (so only payment notifications match). MacroDroid asks for Notification Access: allow it (this is the sensitive permission; it lets MacroDroid read notifications).
+- **Action**: **HTTP Request**, the same as the Quick expense macro, with this body (put the two notification values in with the magic-text button: "Notification title" and "Notification text"):
+  ```
+  {"fields":{"key":{"stringValue":"PASTE-KEY-HERE"},"title":{"stringValue":"{notification_title}"},"text":{"stringValue":"{notification_text}"},"date":{"stringValue":"{year}-{month_digit}-{dayofmonth}"}}}
+  ```
+- Test: pay with the phone, or press "Test macro" with a sample. A row appears (marked "not on a statement yet"), and the statement import later merges with it.
+- If the card is wrong: the digits in Wallet (••5315) can differ from the physical card's. Rename the app card to include the issuer word (for example `Max 1234`), or set it as the Default.

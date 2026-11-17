@@ -491,7 +491,7 @@ async function local() {
     const f = xlsx("transaction-details_export_1.xlsx", [
       ["עסקאות במועד החיוב", [...top,
         ["05-08-2026", "ביטוח רכב ישיר", "ביטוח", "5678", "תשלומים", 650.4, "₪", 3252, "₪", "02-11-2026", "תשלום 3 מתוך 5"],
-        ["13-10-2026", "המספרה של דני", "קוסמטיקה וטיפוח", "5678", "רגילה", 60, "₪", 60, "₪", "02-11-2026", ""],
+        ["13-10-2026", "חנות של דני", "קוסמטיקה וטיפוח", "5678", "רגילה", 60, "₪", 60, "₪", "02-11-2026", ""],
         ["23-10-2026", "קיוסק הפינה", "מסעדות, קפה וברים", "5678", "רגילה", 24, "₪", 24, "₪", "02-11-2026", ""],
         ["23-10-2026", "קיוסק הפינה", "מסעדות, קפה וברים", "5678", "רגילה", 24, "₪", 24, "₪", "02-11-2026", ""],
         [new Date(Date.UTC(2026, 9, 27)), "חנות כלשהי", "שונות", "5678", "רגילה", 135.4, "₪", 135.4, "₪", new Date(Date.UTC(2026, 10, 2)), ""],
@@ -506,7 +506,7 @@ async function local() {
     await total(p, "₪ 3,144");
     eq(await p.locator('tr:has(input[value="ביטוח רכב ישיר 3/5"]) [data-f="date"]').inputValue(), "2026-10-05", "installment date");
     eq(await p.locator('tr:has(input[value="חנות כלשהי"]) [data-f="date"]').inputValue(), "2026-10-27", "real date cell");
-    eq(await p.locator('tr:has(input[value="המספרה של דני"]) select').inputValue(), "Shopping", "issuer category used");
+    eq(await p.locator('tr:has(input[value="חנות של דני"]) select').inputValue(), "Shopping", "issuer category used");
     eq(await p.locator('tr:has(input[value="קיוסק הפינה"]) select').first().inputValue(), "Eating out", "issuer category used");
     await upload(p, f); await p.click("#go");
     eq(await p.locator("#msg").textContent(), "Added 0 purchases, skipped 6 already saved.", "re-import");
@@ -633,6 +633,14 @@ async function local() {
     ].map(t => [t.amt, t.date == ymd() ? "today" : t.date, t.card, t.note ? "note" : "", t.auto].join("|")).join(" ; ")),
       "45|today|Max 5678||1 ; 1234.5|2026-11-05|Max 5678||1 ; 12|today|Visa|note|1 ; 0|today|Visa|note|1 ; 0|today|Brand new||1", "phone items");
     eq(await p.evaluate(() => [inboxAdd([["x1", { amt: "9" }], ["x1", { amt: "9" }]]).join(), inboxAdd([["x1", { amt: "9" }]]).length].join("|")), "in-x1|0", "an item is added once");
+    // Google Wallet notification (title = merchant, text = "₪60.00 with max Total ••5315"): the amount, the merchant, the card by its name.
+    eq(await p.evaluate(() => { S.tx.push({ id: "mx", date: "2026-01-01", desc: "q", amt: 1, card: "Max 9999", cat: "Other" }); const t = inboxRow("w", { title: "SLOMI", text: "₪60.00 with max Total ••5315" }); return [t.amt, t.desc, t.card, t.cat].join("|") }), "60|SLOMI|Max 5678|Other", "wallet notification");
+    // The default card is used when nothing in the item names a card; the star button sets and clears it.
+    eq(await p.evaluate(() => { S.defCard = "Visa"; const a = inboxRow("d1", { amt: 3, desc: "x" }).card; delete S.defCard; return a }), "Visa", "default card for the phone");
+    await p.click("[data-p=crd]"); await p.locator("[data-def]").first().click();
+    eq(await p.evaluate(() => S.defCard === CL[0]), true, "star sets the default card"); await p.locator("[data-def]").first().click();
+    eq(await p.evaluate(() => S.defCard), undefined, "star again clears it");
+    eq(await p.evaluate(() => [guess("שלומי שיער"), guess("Moshe Barber Shop"), guess("מספרה דנה"), guess("Chairs Ltd")].join("|")), "Health|Health|Health|Other", "care words go to Health");
   });
   await test("split a purchase across categories; #tags in notes filter and total", async () => {
     const p = await open("?local=1");
