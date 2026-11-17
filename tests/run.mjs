@@ -653,6 +653,8 @@ async function local() {
     p.once("dialog", d => d.accept("Cash"));
     await p.selectOption(sel, "__new");
     eq(await p.evaluate(() => S.tx.find(t => t.desc == "Shufersal").card), "Cash", "new card typed");
+    await p.click("[data-p=crd]"); await p.fill("#cname", "Diners"); await p.click("#cadd");
+    eq((await p.locator(sel + " option").allTextContents()).includes("Diners"), true, "card added from the Cards panel shows in the dropdown");
   });
   await test("split a purchase across categories; #tags in notes filter and total", async () => {
     const p = await open("?local=1");

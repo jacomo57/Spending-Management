@@ -30,7 +30,7 @@ Icons (2026-11-16): each category has an emoji icon. The starting categories hav
 Month start day, fixed charges, pace (2026-11-16): Budgets panel "Month starts on day" (S.mstart, 1 to 28, default 1) makes every month run from that day to the day before the next, named by its dates (pk(date) gives a period key, mrange(m) its first and last day; cloud.js still stores calendar months, nothing there changed). Fixed charges are worked out, not saved (fixedSet()): same words, one row a month, about the same amount (within 15%) in 3 or more months, or a recurring item. The top shows "Fixed X · everything else Y". For the current month with all cards: a day allowance ("X a day for N days left", after the fixed charges still to come, shown when a budget is set), a forecast ("Z by the end of the month at this pace" = spent + fixed still to come + the other spending's daily pace), "Ahead of pace" for categories whose free part (budget minus their fixed charges) is used faster than the month passes, and a "still to come" list of fixed charges seen last month and not yet due. No alert when a fixed charge changes price (asked not to). Tested (local mode).
 Quick add (2026-11-16): "+ Quick add" (first button) or the app icon's long-press shortcut "Add purchase" (manifest shortcut, address ?add=1, removed from the address once opened) shows a sheet: amount, optional merchant (suggestions from your most used), card (the last one used). Save adds a purchase dated today with a guessed category and an Undo toast. Opening: the page now opens on the current month (or the latest month with data) instead of All time, so budgets and pace show without picking a month. Ideas: read Google Wallet notifications on Android (needs a separate automation app and an inbox the phone may write to; not built), iPhone Wallet automation in Shortcuts.
 Bars (2026-11-16): the "Bars: amount / budget" button above the categories (S.barMode, saved) picks what the category bars show: every bar against the largest category, or a bar with a budget filling toward it (one without a budget stays empty). The "of ₪X" note next to the amount is always shown; the warning colour (rose, --warn) starts at 80% of a budget and red (--bad) when over, in both modes.
-Card of a purchase (2026-11-17): a dropdown of saved cards plus "＋ New card…" (asks for a name).
+Cards panel has "Add card" (2026-11-17). Card of a purchase (2026-11-17): a dropdown of saved cards plus "＋ New card…" (asks for a name).
 Default card (2026-11-17): Cards panel star button sets S.defCard, used by Quick add and the phone inbox (else the latest card). Google Wallet notifications: amount, merchant (title), card by the issuer word after "with" or last 4 digits (inboxRow). More Health keywords (hair, beauty, massage, therapy). UNTESTED on a phone: the Wallet macro (docs/phone.md).
 Phone inbox and statement matching (2026-11-16): Account panel "Add from your phone" makes a key and shows an address; a phone automation that sends the key can add a purchase without signing in or opening the app (details and rules: docs/backend.md). Rows from the phone and from Quick add are marked t.auto=1 and show "not on a statement yet" for 40 days; when a statement row with the same amount within 2 days is imported (same card first, then any card) the two become one row: the statement's date, description and card, your category, note and split (your own description moves to the note). The import message says "matched N you had already added". Tested on the emulator: key on/new/off, wrong key refused, typed item, raw notification text (English and Hebrew shape, made-up), merge, no double rows after reload. UNTESTED: the real project's address from a real phone, MacroDroid itself, a real Google Wallet notification's wording, two devices open at once when an item arrives.
 Undo: 8s button + Ctrl/Cmd+Z, session only.
@@ -52,7 +52,7 @@ IDEAS: see ROADMAP.md.
 <meta name="apple-mobile-web-app-title" content="Spend">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=2109de2eb8">
+<link rel="stylesheet" href="style.css?v=a448bb9f1f">
 </head>
 <body>
 <main>
@@ -101,7 +101,7 @@ IDEAS: see ROADMAP.md.
 
 <div class="panel" id="p-crd" hidden><div class="grid">
   <div>Choose how much of each card counts toward your totals.</div>
-  <div class="grid" id="cardrules"></div><span class="msg" id="crdmsg"></span>
+  <div class="grid" id="cardrules"></div><div class="row"><input id="cname" dir="auto" placeholder="New card name" style="width:170px" aria-label="New card name"><button id="cadd">Add card</button></div><span class="msg" id="crdmsg"></span>
 </div></div>
 
 <div class="panel" id="p-rec" hidden><div class="grid">
@@ -159,7 +159,7 @@ IDEAS: see ROADMAP.md.
 </form></div>
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=2109de2eb8"></script>
-<script src="cloud.js?v=2109de2eb8"></script>
+<script src="app.js?v=a448bb9f1f"></script>
+<script src="cloud.js?v=a448bb9f1f"></script>
 </body>
 </html>

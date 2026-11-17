@@ -344,7 +344,7 @@ function render(){
  const fs=fsel(document.activeElement);
  syncCats();if(!Array.isArray(S.recur))S.recur=[];
  $("cur").value=S.cur;
- CL=[...new Set([...S.tx.filter(t=>!t.inc).map(t=>t.card),...S.recur.filter(r=>!r.inc).map(r=>r.card||"Recurring")])].sort((a,b)=>a.localeCompare(b));
+ CL=[...new Set([...S.tx.filter(t=>!t.inc).map(t=>t.card),...S.recur.filter(r=>!r.inc).map(r=>r.card||"Recurring"),...Object.keys(S.cards)])].sort((a,b)=>a.localeCompare(b));
  if(cardF!="all"&&!CL.includes(cardF))cardF="all";
  const rc=[...new Set(["Recurring",...CL])],copt=s=>rc.map(c=>`<option${c==s?" selected":""}>${esc(c)}</option>`).join("");
  ["imp","crd","rec","bud","mer","acc"].forEach(p=>{$("p-"+p).hidden=panel!=p});
@@ -586,6 +586,7 @@ document.addEventListener("pointerup",endDrag);document.addEventListener("pointe
 document.addEventListener("click",e=>{const t=e.target;
  if(t.dataset&&t.dataset.ic!==undefined){icOpen=icOpen==+t.dataset.ic?null:+t.dataset.ic;render();return}
  if(t.dataset&&t.dataset.pick!==undefined&&icOpen!=null){const c=S.cats[icOpen];if(c){S.icon[c]=t.dataset.pick;save()}icOpen=null;render();return}
+if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cname").focus();if(CL.includes(n)){crdMsg="That card already exists.";return render()}S.cards[n]=100;crdMsg="";$("cname").value="";save();render();return}
  if(t.dataset.def!==undefined){const c=CL[+t.dataset.def];if(c){if(S.defCard==c)delete S.defCard;else S.defCard=c;save();render()}return}
  if(t.dataset.cs){S.catSort=t.dataset.cs;save();render()}
  if(t.id=="bmb"){if(S.barMode=="budget")delete S.barMode;else S.barMode="budget";save();render()}
