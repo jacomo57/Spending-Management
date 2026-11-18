@@ -189,6 +189,16 @@ Workload:
 - [x] `dev` branch (2026-11-18): work and push on `dev`, fast-forward `main` after tests and review pass.
 - Ask for a short status once per step rather than checking in mid-task.
 
+## Next: cosmetic and flow redesign (agreed 2026-11-18, nothing built yet)
+
+Goal: no new features. The app is opened rarely, mostly on the phone, for a quick look; the PC is for development and a monthly look on a big screen. Hebrew interface and "Partner owes" stay parked (Hebrew: keep it possible, so use start/end instead of left/right in new CSS). Baseline checked 2026-11-18: 49 tests pass, dark mode at 375px and a 165-row report fine; real print preview and real phone not checked.
+
+- **Wait for inspiration first.** Claude collects example screenshots (web, Reddit); the user picks a look before any design change. Every change stays revertable: small commits on `dev`, one screen per step, each with `npm test`, `/code-review` and a live-site check.
+- **Main screen at a glance:** spent this month, budget left and pace, then the top 4 categories. The user can choose which categories show or their order, because rent is always the biggest and not interesting (a new saved setting: ask Fable-level care, it changes saved data).
+- **One "More" menu** replaces the button row, ordered by use: Import, Cards, Recurring, Budget, Report, Merchants, Account. Only "+ Add purchase" stays visible.
+- **Expenses list** shows the latest 5 with "Show all".
+- Not decided: the look itself (waiting for references).
+
 ## Audit follow-ups (done 2026-11-16, Fable)
 
 Done, one commit each: recurring bills use the local date (test at 00:30 Israel time); old `kind`/`S.half`/`recSeeded` migrations removed; one `uid()` helper; prototype-safe maps (`bare()`, `fixMaps()`, `own()` in `app.js`; a merchant, card or category may be called `constructor`); Firestore rules allow only `data/settings` and `months/{YYYY-MM or none}` as `{v:1,json}` under 900,000 characters (45 rule checks, deployed); Firebase SDK served from `vendor/firebase/` and a Content Security Policy in `index.html`.
