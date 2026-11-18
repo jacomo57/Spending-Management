@@ -16,7 +16,7 @@ Budgets (Budget panel): S.budget = {total, cats:{name:amount}}, monthly, saved w
 Report button (types: Monthly, Selected expenses = what the filters and search show, Trend = last 6 or 12 months): a print-ready monthly (or yearly, or all-time) report with totals, against budget and last month, income and left over, categories, cards, top 10 merchants, 5 largest, recurring bills and the full list (options: list on/off, ignored rows on/off); Print / Save as PDF uses the browser, Export to Excel saves the rows. Merchants panel (learned merchant to category, change or forget), All of YEAR entries in the month picker (budgets hidden), a Note on each purchase (searchable). Categories: Compare button (two months side by side per category with the change, a total row, an In row when there is income, and a 12-month trend strip; tap a month to pick it; neutral colours, not saved). Editable, add, bars (click to filter), sort by size or own order (drag grip), colors stay per category. Other = catch-all. New accounts start with 9 default categories. Accounts that already saved their categories keep them. Utility and home-shop keywords are extra keyword groups of Rent & payments and Shopping in CATS (app.js), checked in their old place in the order.
 Expenses: inline edit, add, month + card filters, Search box (every word must appear in description, category, card or amount; shows "N found, ₪X"; summary and bars keep showing the month; not saved), column sort, Ignore checkbox. A negative amount is a refund and lowers the totals. An added purchase left empty is dropped on the next start.
 Categorizing: learned merchant first, then EN + HE keywords, then the issuer's own category column if the file has one (Max); anything else stays in Other for manual sorting.
-Recurring (monthly, card "Recurring" unless another is chosen): starts empty; the user adds their own bills or income (Bill / Income choice) in the Recurring panel.
+Recurring (monthly, card "Recurring" unless another is chosen): starts empty; the user adds their own bills or income (Bill / Income choice) in the Recurring panel. The form is hidden behind a "+ Add recurring" button (Cancel closes it; adding closes it). A bill starts in the month it was added; its month's row is added when the app loads and also when an app left open returns to the front on a later day (visibilitychange). Tested.
 Accounts + cloud sync (Firebase, see docs/backend.md): only active when FB_REAL is set or on localhost (emulators). Sign in (with a Show/Hide button for the password), Create account (needs invite code), Forgot password, Account panel (Sign out, Download my data, Restore from file with second press + undo, Delete my account with password + press twice). Data per account in Firestore, live sync between devices, "Saved / Saving… / Offline" status.
 FB_REAL is set (project spending-management-608d5), so the live site requires sign-in.
 Tested automatically on the emulator (npm test): sign up/in, wrong invite, two-device sync, per-account privacy, delete all, download + restore, delete account, income and budgets on a second device and after signing out, import cases above, income by hand, paybacks, recurring income, budgets, payslip (a made-up PDF, a made-up JPEG and pasted text), re-import after an edit, installable files, update notice, opening offline and syncing an offline edit.
@@ -39,7 +39,7 @@ Phone inbox and statement matching (2026-11-16): Account panel "Add from your ph
 Undo: 8s button + Ctrl/Cmd+Z, session only.
 Speed (2026-11-18): measured with a script (phone-like: 4x slower CPU, 150ms delay) the page took about 1s to show your data; most of it is Firebase starting (checking the saved login with Google, then reading the saved data). Changes: the saved page is shown at once (before it waited for the network, up to 4s on a bad line; measured on a server with 250ms per answer: 700ms to 430ms to the totals), the Firebase files are preloaded and the connections to sign-in and the database start while the page loads (<link rel=modulepreload/preconnect>; nothing is sent). Tried and dropped: drawing a saved copy of the data before Firebase answers (the drawing itself is the slow part, so it made the total longer). NOT measured: the real Firebase servers from a real phone.
 Card names (2026-11-18): not case sensitive. A name typed in Import, the New card box, the Cards panel or a phone item that matches an existing card ignoring upper/lower case ("max" for "MAX") is that card (canon() in app.js); a rename that only changes the case is allowed. Cards already saved under two spellings are NOT merged automatically: rename one to the other's spelling is refused as already used, so change the rows or delete one by hand.
-IDEAS: see ROADMAP.md.
+IDEAS: see docs/handoff.md and the GitHub Issues.
 -->
 <html lang="en">
 <head>
@@ -63,7 +63,7 @@ IDEAS: see ROADMAP.md.
 <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=91abfd3126">
+<link rel="stylesheet" href="style.css?v=f7db797968">
 </head>
 <body>
 <main>
@@ -124,7 +124,8 @@ IDEAS: see ROADMAP.md.
 <div class="panel" id="p-rec" hidden><div class="grid">
   <div>Added automatically every month on the day you set.</div>
   <div class="grid" id="reclist"></div>
-  <div class="row"><input id="rdesc" dir="auto" placeholder="Description"><input id="ramt" type="number" step="0.01" placeholder="Amount" style="width:100px"><input id="rday" type="number" min="1" max="28" value="1" style="width:64px" aria-label="Day of month"><select id="rkind" aria-label="Bill or income"><option value="bill">Bill</option><option value="inc">Income</option></select><select id="rcard" aria-label="Card"></select><button class="pri" id="radd">Add</button></div>
+  <div class="row"><button id="recnew">+ Add recurring</button></div>
+  <div class="row" id="recform" hidden><input id="rdesc" dir="auto" placeholder="Description"><input id="ramt" type="number" step="0.01" placeholder="Amount" style="width:100px"><input id="rday" type="number" min="1" max="28" value="1" style="width:64px" aria-label="Day of month"><select id="rkind" aria-label="Bill or income"><option value="bill">Bill</option><option value="inc">Income</option></select><select id="rcard" aria-label="Card"></select><button class="pri" id="radd">Add</button><button type="button" id="rcancel">Cancel</button></div>
 </div></div>
 
 <div class="panel" id="p-bud" hidden><div class="grid">
@@ -171,7 +172,7 @@ IDEAS: see ROADMAP.md.
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="toast top" id="bnote" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=91abfd3126"></script>
-<script src="cloud.js?v=91abfd3126"></script>
+<script src="app.js?v=f7db797968"></script>
+<script src="cloud.js?v=f7db797968"></script>
 </body>
 </html>

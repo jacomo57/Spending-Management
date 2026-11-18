@@ -1,4 +1,8 @@
-# Roadmap
+# Archive
+
+History of what was built, decided and checked (moved here from ROADMAP.md on 2026-11-18). **Not read at session start.** Every handoff appends to it, so it stays complete: see "Handoff rules" in CLAUDE.md. The living plan is `docs/handoff.md`.
+
+(The old text below says "read CLAUDE.md and ROADMAP.md" and "one step = one session": that was the workflow until 2026-11-18. Now a session reads CLAUDE.md and `docs/handoff.md` only.)
 
 Written 2026-11-15 after a review of everything built so far. One step = one new Claude session.
 To start a step, open a fresh session and say: **"Pull, read CLAUDE.md and ROADMAP.md, then do Step N."**
@@ -214,3 +218,10 @@ Still open, needs the user (this one step):
 2. Done 2026-11-16: the keyword lists of "Bills & home" and "House stuff" are now extra keyword groups of "Rent & payments" and "Shopping" in `CATS` (kept in their old place in the order, so `guess()` gives the same answers: 97,360 old-against-new checks, no differences); `NODEF` and `FB` are gone.
 
 The user confirmed on 2026-11-16 that the live site signs in and saves under the policy.
+
+## 2026-11-18: redesign part 1 (Sonnet), recurring button, handoff files
+
+- Redesign part 1 done: Copilot-blue palette (light and dark), Auto/Light/Dark switch in the More menu (localStorage `spend-theme`, per device), summary card with a progress bar toward the budget (green, amber from 80%, red when over), one More menu (Import, Cards, Recurring, Budget, Report, Merchants, Account, Theme, Delete all data) with only + Add purchase visible, expenses list shows the latest 5 with Show all. 50 tests. Checked at 375px light and dark and at desktop. Not checked: a real phone; a brief flash on load if Light/Dark is chosen against the device setting (theme is applied from app.js, not the head, to keep sw.js untouched); an edited row can drop out of the latest 5 if its date or amount moves it.
+- Review found 5 points: fixed the list staying expanded after adding a purchase, a redundant CSS rule and the manifest colours; skipped the other two (above).
+- ROADMAP.md was split: history is this file, the plan is `docs/handoff.md` (renamed from redesign-handoff.md). Session start now reads CLAUDE.md and the handoff only.
+- Recurring (same day): the add form is now behind a "+ Add recurring" button (Cancel and Add close it). Looked into "no recurring bills in November with day 1": adding a bill in November creates its 1 November row at once (checked in the browser), so the gap is not creation. The only hole found: bills were generated only when the app loads, so an app left open across the 1st missed the new month. Fixed: bills are also generated when the app returns to the front on a later day. Could not see the user's real data, so the exact cause there is unconfirmed (other possibilities: a month start day other than 1 in the Budget panel, or a generated row that was deleted, which is never re-added). 51 tests (1 new).

@@ -547,7 +547,9 @@ function recGen(){
 function addRec(){const d=$("rdesc").value.trim(),a=parseFloat($("ramt").value),inc=$("rkind").value=="inc";if(!d||!a)return;
  const r={id:"r"+uid(),desc:d,amt:inc?Math.abs(a):a,day:Math.min(28,Math.max(1,parseInt($("rday").value)||1)),card:$("rcard").value||"Recurring",start:ymd().slice(0,7)};
  if(inc){r.inc=1;delete r.card}S.recur.push(r);
- $("rdesc").value="";$("ramt").value="";recGen();render()}
+ $("rdesc").value="";$("ramt").value="";recForm(false);recGen();render()}
+// The add form is hidden until "+ Add recurring" is pressed (view only, not saved).
+function recForm(on){$("recform").hidden=!on;$("recnew").hidden=on;if(on)$("rdesc").focus()}
 function renameCat(i,nv){nv=nv.trim();const old=S.cats[i];catMsg="";
  if(!nv||nv==old)return render();
  if(nv=="Other"||S.cats.includes(nv)){catMsg="That name is already used.";return render()}
@@ -620,6 +622,8 @@ if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cn
  if(t.id=="addi")addPurchase(1);
  if(t.id=="slipgo")slipAdd();
  if(t.id=="radd")addRec();
+ if(t.id=="recnew")recForm(true);
+ if(t.id=="rcancel")recForm(false);
  if(t.dataset.delcat!==undefined)delCat(+t.dataset.delcat);
  if(t.dataset.delrec){const i=S.recur.findIndex(x=>x.id==t.dataset.delrec);if(i>=0){const it=S.recur[i];S.recur.splice(i,1);pushUndo("Deleted recurring “"+it.desc.slice(0,28)+"”",()=>{S.recur.splice(Math.min(i,S.recur.length),0,it)})}save();render()}
  if(t.dataset.del){const i=S.tx.findIndex(x=>x.id==t.dataset.del);if(i>=0){const it=S.tx[i];S.tx.splice(i,1);pushUndo("Deleted “"+(it.desc||"purchase").slice(0,28)+"”",()=>{S.tx.splice(Math.min(i,S.tx.length),0,it)})}save();render()}
@@ -690,6 +694,8 @@ const APPV=new URL(document.currentScript.src).searchParams.get("v")||"dev";
   document.addEventListener("visibilitychange",()=>{if(!document.hidden)r.update().catch(()=>{})});
   // First visit: the fonts loaded before the worker existed. Hand over their addresses, again later for a slow line.
   if(first)sw.ready.then(x=>[3000,15000,45000].forEach(ms=>setTimeout(()=>x.active&&x.active.postMessage({type:"warm",urls:performance.getEntriesByType("resource").map(e=>e.name)}),ms)))}).catch(()=>{})})();
+// An app left open (an installed phone app often is) runs recGen only at start: when it returns to the front on a later day, add the new month's bills.
+let recDay=ymd();document.addEventListener("visibilitychange",()=>{if(document.hidden||ymd()==recDay||$("app").hidden)return;recDay=ymd();recGen();render()});
 function start(){fixMaps();dropEmpty();recGen();S.tx.forEach(t=>{if(t.cat=="Other"&&!t.inc)t.cat=guess(t.desc)});save();
  panel=S.tx.some(t=>!String(t.id).startsWith("rec-"))?null:"imp";
  $("accbtn").textContent=C.on?"Account":"Backup";document.querySelectorAll(".cl").forEach(e=>e.hidden=!C.on);$("who").textContent=C.user?C.user.email:"";

@@ -91,6 +91,8 @@ async function total(p, want) {
 }
 const saved = p => p.waitForFunction(() => document.getElementById("sync").textContent == "Saved", null, { timeout: 15000 });
 // The list shows the latest 5 until Show all is pressed; this counts every row.
+// The Recurring form is hidden until + Add recurring is pressed.
+const recOpen = async p => { if (!(await p.locator("#rdesc").isVisible())) await p.click("#recnew") };
 const rows = async p => { const b = p.locator("#showall"); if (await b.isVisible() && /Show all/.test(await b.textContent())) await b.click(); return p.locator("#rows tr:has([data-del])").count() };
 const today = (d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"))(new Date());
 const text = async (p, sel, want) => {
@@ -312,6 +314,22 @@ async function local() {
     await p.click("#showall"); eq(await p.locator("#rows tr:has([data-del])").count(), 5, "back to 5");
     await p.fill("#q", "a"); await total(p, "₪ 28"); eq(await p.locator("#allrow").isHidden(), true, "no limit while searching");
   });
+  await test("Recurring: the add form opens from a button; an app left open adds the new month's bill when it returns to the front", async () => {
+    const c = await browser.newContext({ locale: "en-US", timezoneId: "Asia/Jerusalem" }); ctxs.push(c);
+    const p = await c.newPage(); watch(p); menuClicks(p);
+    await p.clock.install({ time: new Date("2026-10-31T10:00:00Z") });
+    await p.goto(URL + "?local=1");
+    await p.click('[data-p="rec"]');
+    eq(await p.locator("#rdesc").isHidden(), true, "form hidden"); eq(await p.locator("#recnew").isVisible(), true, "button shown");
+    await p.click("#recnew"); eq(await p.locator("#rdesc").isVisible(), true, "form open"); eq(await p.locator("#recnew").isHidden(), true, "button hidden while open");
+    await p.click("#rcancel"); eq(await p.locator("#rdesc").isHidden(), true, "cancel closes");
+    await p.click("#recnew"); await p.fill("#rdesc", "Rent"); await p.fill("#ramt", "3000"); await p.fill("#rday", "1"); await p.click("#radd");
+    eq(await p.locator("#rdesc").isHidden(), true, "closed after add"); eq(await p.locator("#recnew").isVisible(), true, "button back");
+    eq(await p.evaluate(() => S.tx.filter(t => String(t.id).startsWith("rec-")).map(t => t.date).join()), "2026-10-01", "October bill");
+    await p.clock.setSystemTime(new Date("2026-11-01T10:00:00Z"));
+    await p.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    eq(await p.evaluate(() => S.tx.filter(t => String(t.id).startsWith("rec-")).map(t => t.date).join()), "2026-10-01,2026-11-01", "November bill added without reload");
+  });
   await test("compare shows two months per category with the change, and the trend strip picks a month", async () => {
     const p = await open("?local=1");
     await paste(p, "Visa", "date,description,amount\n2026-11-03,Zara,300\n2026-10-04,Zara,100\n2026-10-05,Wolt,50");
@@ -413,7 +431,7 @@ async function local() {
   await test("recurring income is added as income, not spending", async () => {
     const p = await open("?local=1");
     await p.click('[data-p="rec"]');
-    await p.fill("#rdesc", "Salary"); await p.fill("#ramt", "9000"); await p.selectOption("#rkind", "inc");
+    await recOpen(p); await p.fill("#rdesc", "Salary"); await p.fill("#ramt", "9000"); await p.selectOption("#rkind", "inc");
     eq(await p.locator("#rcard").isVisible(), false, "card choice hidden for income");
     await p.click("#radd");
     await total(p, "₪ 0"); await text(p, "#sin", "₪ 9,000"); eq(await p.locator("tr.inc").count(), 1, "income rows");
@@ -818,7 +836,7 @@ async function local() {
     eq(await p.locator('#rows [data-f="date"]').inputValue(), "2026-07-11", "new purchase date");
     await setField(p.locator('#rows [data-f="desc"]'), "Kiosk"); await setField(p.locator('#rows [data-f="amt"]'), "10");
     await p.click('[data-p="rec"]');
-    await p.fill("#rdesc", "Gym"); await p.fill("#ramt", "200"); await p.fill("#rday", "11"); await p.click("#radd");
+    await recOpen(p); await p.fill("#rdesc", "Gym"); await p.fill("#ramt", "200"); await p.fill("#rday", "11"); await p.click("#radd");
     eq(await p.locator('tr:has([data-f="desc"][value="Gym"]) [data-f="date"]').inputValue({ timeout: 5000 }), "2026-07-11", "recurring bill date");
     await total(p, "₪ 210");
   });

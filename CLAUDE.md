@@ -12,8 +12,12 @@ Personal spending tracker for one user in Israel (Hebrew + English). Each card h
 - I work from two computers, so GitHub is the shared source of truth. At the start of every session: `git checkout dev`, `git pull`, and `npm install` if `node_modules` is missing. Never edit before pulling.
 - All work happens in `C:\Claude\Spending Project` (remote https://github.com/jacomo57/Spending-Management, public). Branches (set up 2026-11-18): work and push on `dev`; `main` is what the live site shows (https://jacomo57.github.io/Spending-Management/), updated only after the checks below pass.
 - After every change: `npm test` (must end `failures: 0`), check it in a browser, run `/code-review` and fix what it finds (skip only if very expensive, and say so), commit and push `dev`. Then release: `git checkout main`, `git merge --ff-only dev`, `git push`, `git checkout dev`; confirm the live site works.
-- Bugs and ideas live in GitHub Issues (https://github.com/jacomo57/Spending-Management/issues); `ROADMAP.md` keeps the history and plan.
+- Bugs and ideas live in GitHub Issues (https://github.com/jacomo57/Spending-Management/issues); `docs/handoff.md` is the living plan and status; `docs/archive.md` is the full history.
 - The repo is public: never commit personal data (real amounts, backups, statements). `.gitignore` covers backup/statement files. Real statement files stay outside the repo; test fixtures use made-up merchants.
+
+## Handoff rules (set 2026-11-18)
+- A session starts by reading only `CLAUDE.md` and `docs/handoff.md`. Read `docs/archive.md` only when a question needs the history.
+- At every handoff (end of a session or part, or when the user says to hand off): (1) append what was finished to `docs/archive.md` under a dated heading (what changed, what was checked, what was not, decisions and why); (2) rewrite `docs/handoff.md` so it holds only the current status, the next parts, open items and reminders, with nothing finished left in it; (3) commit both. A handoff is not done until the archive is updated.
 
 ## The app (details in `docs/app.md`, backend in `docs/backend.md`, phone setup in `docs/phone.md`)
 - Files: `index.html` (the spec comment at its top lists features, untested parts and ideas: keep it updated with every change), `style.css`, `app.js` (data, import, rendering), `cloud.js` (accounts and sync), `vendor/`, `sw.js` + `manifest.webmanifest` + `icons/` (installable app).
@@ -28,5 +32,4 @@ Personal spending tracker for one user in Israel (Hebrew + English). Each card h
 - New shells may need `$env:Path` refreshed for node, java and `firebase`. No python on this PC.
 
 ## Next steps
-- Done: Steps 0 to 4, split purchases, tags, icons, budgets and alerts, month start, pace, fixed charges, phone inbox, MacroDroid macros (popup and Google Wallet), statement matching, default card, Cards panel.
-- Left (see Issues): Partner owes (not for now), Hebrew interface, checks that need a real phone or real files.
+- See `docs/handoff.md` (current plan) and the GitHub Issues.
