@@ -151,7 +151,7 @@ function parse(text){const lines=text.split(/\r?\n/).filter(l=>l.trim());if(!lin
 // When a file is imported again, a row is skipped only for as many identical copies as are already saved on that card.
 // A saved row is matched by how it looked when imported (t.src), so editing it does not bring it back; an edited row also
 // matches by what it says now (a hand-typed row that was corrected to the statement's values). Returns [purchases added, income added].
-// A purchase added by Quick add or from the phone inbox is marked t.auto=1 ("not on a statement yet"). When a statement row with the
+// A purchase added from the phone inbox is marked t.auto=1 ("not on a statement yet"). When a statement row with the
 // same amount arrives within 2 days of it (same card first, then any card), the two are one purchase: the saved row takes the
 // statement's date, description and card, keeps its category, note and split, and loses the mark. Third number returned = rows matched.
 function add(list,card){const id=rid,have=bare(),alt=bare(),pend=S.tx.filter(t=>t.auto&&!t.inc),far=(a,b)=>Math.abs(new Date(a)-new Date(b))/864e5;let n=0,ni=0,nm=0;
@@ -328,20 +328,6 @@ function budNote(bOn,m,B,by,tot){if(!bOn)return;const L={t:bLvl(tot,B.total),c:b
  if(!msg.length)return;const el=$("bnote");el.textContent=msg.join(" · ");el.hidden=false;clearTimeout(bnT);bnT=setTimeout(()=>{el.hidden=true},8000)}
 function showToast(){const el=$("toast");clearTimeout(toastT);if(!undo.length){el.hidden=true;return}
  const u=undo[undo.length-1];el.innerHTML=`<span>${esc(u.label)}</span><button id="undo">Undo</button>`;el.hidden=false;toastT=setTimeout(()=>{el.hidden=true},8000)}
-// Quick add (button or the app icon's "Add purchase" shortcut, ?add=1): amount, optional merchant, card; today's date, category guessed.
-function qaOpen(){const cs=CL.filter(c=>c!="Recurring"),last=S.tx.filter(t=>!t.inc&&t.card!="Recurring").sort((a,b)=>b.date.localeCompare(a.date))[0],cnt=bare();
- S.tx.forEach(t=>{if(!t.inc&&t.desc)cnt[t.desc]=(cnt[t.desc]||0)+1});
- $("qalist").innerHTML=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]).slice(0,40).map(d=>`<option value="${esc(d)}">`).join("");
- $("qcard").innerHTML=(cs.length?cs:["My card"]).map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
- const dc=cs.includes(S.defCard)?S.defCard:last&&cs.includes(last.card)?last.card:"";if(dc)$("qcard").value=dc;
- $("qamt").value="";$("qdesc").value="";$("qa").hidden=false;$("qamt").focus()}
-$("qab").onclick=qaOpen;$("qx").onclick=()=>{$("qa").hidden=true};
-$("qa").addEventListener("click",e=>{if(e.target==$("qa"))$("qa").hidden=true});
-document.addEventListener("keydown",e=>{if(e.key=="Escape"&&!$("qa").hidden)$("qa").hidden=true});
-$("qaf").onsubmit=e=>{e.preventDefault();const a=parseFloat($("qamt").value),d=$("qdesc").value.trim().slice(0,200);if(!a){$("qamt").focus();return}
- const t={id:uid(),date:ymd(),desc:d,amt:a,card:$("qcard").value||"My card",cat:d?guess(d):"Other",auto:1};S.tx.push(t);
- $("qa").hidden=true;cardF="all";cat=null;q="";$("q").value="";pendingMonth=pk(t.date);save();render();
- pushUndo("Added "+fmt(a)+(d?" · "+d.slice(0,28):""),()=>{S.tx=S.tx.filter(x=>x.id!=t.id)})};
 function doUndo(){const u=undo.pop();if(!u)return;u.fn();save();render();showToast()}
 document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key=="z"&&!/INPUT|TEXTAREA|SELECT/.test(e.target.tagName||"")&&undo.length){e.preventDefault();doUndo()}});
 let pendingMonth=null,focusTid=null,focusSp=null;
@@ -359,7 +345,7 @@ function render(){
  const rc=[...new Set(["Recurring",...CL])],copt=s=>rc.map(c=>`<option${c==s?" selected":""}>${esc(c)}</option>`).join("");
  ["imp","crd","rec","bud","mer","acc"].forEach(p=>{$("p-"+p).hidden=panel!=p});
  document.querySelectorAll("[data-p]").forEach(b=>b.classList.toggle("on",b.dataset.p==panel));
- $("cardrules").innerHTML=CL.map((c,i)=>{const p=pct(c),n=S.tx.filter(t=>t.card==c).length;return `<div class="row"><input dir="auto" data-ci="${i}" data-f="name" value="${esc(c)}" style="width:170px" aria-label="Card name"><select data-ci="${i}" data-f="rule" aria-label="How this card counts">${ruleOpts(p,1)}</select>${[100,50,0].includes(p)?"":`<input data-ci="${i}" data-f="pct" type="number" min="0" max="100" value="${p}" style="width:70px" aria-label="Percent that counts"><span class="sub">%</span>`}<button data-def="${i}" class="${S.defCard==c?"pri":""}" title="Card that Quick add and the phone use when no other is named" aria-pressed="${S.defCard==c}">${S.defCard==c?"★ Default":"☆ Default"}</button><span class="sub">${n} purchase${n==1?"":"s"}</span></div>`}).join("")||`<span class="msg">No cards yet. Import or add a purchase first.</span>`;
+ $("cardrules").innerHTML=CL.map((c,i)=>{const p=pct(c),n=S.tx.filter(t=>t.card==c).length;return `<div class="row"><input dir="auto" data-ci="${i}" data-f="name" value="${esc(c)}" style="width:170px" aria-label="Card name"><select data-ci="${i}" data-f="rule" aria-label="How this card counts">${ruleOpts(p,1)}</select>${[100,50,0].includes(p)?"":`<input data-ci="${i}" data-f="pct" type="number" min="0" max="100" value="${p}" style="width:70px" aria-label="Percent that counts"><span class="sub">%</span>`}<button data-def="${i}" class="${S.defCard==c?"pri":""}" title="Card the phone uses when no other is named" aria-pressed="${S.defCard==c}">${S.defCard==c?"★ Default":"☆ Default"}</button><span class="sub">${n} purchase${n==1?"":"s"}</span></div>`}).join("")||`<span class="msg">No cards yet. Import or add a purchase first.</span>`;
  $("crdmsg").textContent=crdMsg;
  if(!$("irule").options.length)impRule();
  {const rv=$("rcard").value;$("rcard").innerHTML=copt(rc.includes(rv)?rv:"Recurring")}
@@ -691,5 +677,4 @@ const APPV=new URL(document.currentScript.src).searchParams.get("v")||"dev";
 function start(){fixMaps();dropEmpty();recGen();S.tx.forEach(t=>{if(t.cat=="Other"&&!t.inc)t.cat=guess(t.desc)});save();
  panel=S.tx.some(t=>!String(t.id).startsWith("rec-"))?null:"imp";
  $("accbtn").textContent=C.on?"Account":"Backup";document.querySelectorAll(".cl").forEach(e=>e.hidden=!C.on);$("who").textContent=C.user?C.user.email:"";
- $("boot").hidden=true;$("app").hidden=false;render();stat();
- if(/[?&]add=1/.test(location.search)){history.replaceState(null,"",location.pathname+location.search.replace(/([?&])add=1&?/,"$1").replace(/[?&]$/,"")+location.hash);qaOpen()}}
+ $("boot").hidden=true;$("app").hidden=false;render();stat();}

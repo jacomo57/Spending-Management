@@ -33,7 +33,7 @@ Goal: two users only (the owner and their partner), each with a private, indepen
 - The phone sends `POST https://firestore.googleapis.com/v1/projects/spending-management-608d5/databases/(default)/documents/users/{uid}/inbox` with no sign-in and a JSON body like `{"fields":{"key":{"stringValue":"..."},"amt":{"stringValue":"45"},"desc":{"stringValue":"Kiosk"}}}`. The Account panel shows the address and the key (Turn on, New key, Turn off).
 - Rules: create only, only if the profile exists and `key` equals the one in `data/phone`; only the listed fields, all short texts. The sender can never read, list, change or delete. The owner's app reads and deletes.
 - The app (`phoneListen()` in `cloud.js`, `inboxRow()`/`inboxAdd()` in `app.js`) turns each server-confirmed item into a purchase with id `in-{item id}` (so two open devices add the same row, not two), marks it `auto:1`, and deletes the item. `title`/`text` are a raw notification: amount (₪/ILS), merchant and the card's last 4 digits are read in the app, so the automation stays simple. An item without a readable amount becomes a row with amount 0.
-- `auto:1` rows (also made by Quick add) merge with the matching statement row on import (`add()`): same amount, within 2 days, same card first.
+- `auto:1` rows merge with the matching statement row on import (`add()`): same amount, within 2 days, same card first.
 - The key is a secret: never in the repo or chat. Claude tests with the emulator only.
 - Not handled: an installment or foreign-currency purchase (the statement amount differs, so both rows stay; delete one by hand).
 

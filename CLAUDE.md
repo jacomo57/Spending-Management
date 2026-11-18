@@ -28,5 +28,5 @@ Personal spending tracker for one user in Israel (Hebrew + English). Each card h
 - New shells may need `$env:Path` refreshed for node, java and `firebase`. No python on this PC.
 
 ## Next steps
-- Done: Steps 0 to 4, split purchases, tags, icons, budgets and alerts, month start, pace, fixed charges, Quick add, phone inbox, MacroDroid macros (popup and Google Wallet), statement matching, default card, Cards panel.
+- Done: Steps 0 to 4, split purchases, tags, icons, budgets and alerts, month start, pace, fixed charges, phone inbox, MacroDroid macros (popup and Google Wallet), statement matching, default card, Cards panel.
 - Left (see Issues): Partner owes (not for now), Hebrew interface, checks that need a real phone or real files.

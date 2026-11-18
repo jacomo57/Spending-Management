@@ -56,8 +56,7 @@ Save the macro and make sure it is switched on.
 - Lost phone, or the key was seen by someone: Account, "New key" (the old one stops working at once), then paste the new key into the macro.
 
 ## Choosing the card
-- In the app, Cards panel: press **☆ Default** on the card you use most (press again to clear). Quick add and the phone use it when nothing else names a card. Without one they use the card of your latest purchase.
-- Quick add also has a card box, so you can pick another card for one purchase.
+- In the app, Cards panel: press **☆ Default** on the card you use most (press again to clear). The phone uses it when nothing else names a card. Without one they use the card of your latest purchase.
 - To send a card from the macro, add `,"card":{"stringValue":"Max 5315"}` inside the body's `fields` (name or last 4 digits).
 
 ## The macro: "Wallet payment" (added 2026-11-17, from a real notification: title `SLOMI`, text `₪60.00 with max Total ••5315`)

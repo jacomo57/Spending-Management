@@ -602,17 +602,11 @@ async function local() {
     await p.waitForFunction(() => [...document.querySelectorAll("#month option")].slice(-1)[0].textContent.includes("–"), null, { timeout: 15000 });
     await p.reload(); eq(await p.evaluate(() => S.mstart), 15, "start day after reload");
   });
-  await test("quick add: button and ?add=1; today's date, guessed category, undo; opens on this month with its budget", async () => {
-    const p = await open("?local=1&add=1");
-    await p.locator("#qa").waitFor({ state: "visible" });
-    eq(await p.evaluate(() => location.search), "?local=1", "add=1 removed from the address");
-    await p.evaluate(() => { S.budget = { total: 1000, cats: {} }; });
-    await setField(p.locator("#qamt"), "45"); await p.fill("#qdesc", "Shufersal"); await p.click("#qsave");
-    await total(p, "₪ 45"); eq(await p.locator("#qa").isHidden(), true, "sheet closed");
-    await text(p, "#budline", "₪ 955 left of ₪ 1,000");
-    eq(await p.evaluate(() => { const x = S.tx[S.tx.length - 1]; return [x.date == ymd(), x.cat, x.amt].join() }), "true,Groceries,45", "saved row");
-    await p.click("#undo"); await total(p, "₪ 0");
-    await p.click("#qab"); await p.click("#qx"); eq(await p.locator("#qa").isHidden(), true, "cancel");
+  await test("the page opens on this month with its budget", async () => {
+    const p = await open("?local=1");
+    await p.evaluate(() => { S.budget = { total: 1000, cats: {} }; S.tx.push({ id: "n1", date: ymd(), desc: "Shufersal", amt: 45, card: "My card", cat: "Groceries" }); save(); });
+    await p.reload();
+    await total(p, "₪ 45"); await text(p, "#budline", "₪ 955 left of ₪ 1,000");
   });
   await test("bars: by amount or by budget; the 'of' note stays; kept after reload", async () => {
     const p = await open("?local=1");
@@ -687,18 +681,18 @@ async function local() {
     await p.evaluate(() => delCat(S.cats.indexOf("Wellness"))); eq(await parts(), "Other", "deleted");
     await p.evaluate(() => document.getElementById("undo").click()); eq(await parts(), "Wellness", "undo");
   });
-  await test("a quick-added purchase merges with its statement row; phone items are read (amount, date, card, odd input)", async () => {
+  await test("a phone-added purchase merges with its statement row; phone items are read (amount, date, card, odd input)", async () => {
     const p = await open("?local=1");
     await paste(p, "Max 5678", "date,description,amount\n2026-11-02,Zara,300");
-    await p.click("#qab"); await setField(p.locator("#qamt"), "62"); await p.fill("#qdesc", "lunch with dan"); await p.click("#qsave");
-    eq(await p.evaluate(() => S.tx.filter(t => t.auto).length), 1, "quick add is marked");
+    await p.evaluate(() => { S.tx.push({ id: "pa1", date: ymd(), desc: "lunch with dan", amt: 62, card: "Max 5678", cat: "Other", auto: 1 }); save(); });
+    eq(await p.evaluate(() => S.tx.filter(t => t.auto).length), 1, "phone item is marked");
     // Same amount, the day before, on another card: still the same purchase. A different amount is a new row.
     const y = await p.evaluate(() => dstr(new Date(Date.now() - 864e5)));
     const msg = await paste(p, "Visa", "date,description,amount\n" + y + ",CAFE NOIR TLV,62\n" + y + ",Kiosk,62.5");
     eq(/Added 1 purchase, matched 1/.test(msg), true, "import message: " + msg);
     eq(await p.evaluate(() => { const t = S.tx.find(t => t.desc == "CAFE NOIR TLV"); return [t.card, t.note, t.auto, S.tx.length].join("|") }), "Visa|lunch with dan||3", "merged row");
     eq(/skipped 2 already saved/.test(await paste(p, "Visa", "date,description,amount\n" + y + ",CAFE NOIR TLV,62\n" + y + ",Kiosk,62.5")), true, "second import skips both");
-    // An old quick-added row (more than 2 days from the statement's date) is left alone.
+    // An old phone-added row (more than 2 days from the statement's date) is left alone.
     await p.evaluate(() => { S.tx.push({ id: "old", date: "2026-01-01", desc: "x", amt: 77, card: "Visa", cat: "Other", auto: 1 }); save() });
     await paste(p, "Visa", "date,description,amount\n2026-01-09,Far away,77");
     eq(await p.evaluate(() => S.tx.filter(t => t.amt == 77).length), 2, "no merge across 8 days");
