@@ -1,3 +1,11 @@
+// Theme (this device only, not saved with the data): "auto" follows the device, or "light" / "dark". The browser bar colour follows too.
+const THEMES=["auto","light","dark"],TCOL={light:"#EEF3FC",dark:"#0E1626"};
+function themeGet(){try{const t=localStorage.getItem("spend-theme");return THEMES.includes(t)?t:"auto"}catch(e){return"auto"}}
+function themeSet(t){try{if(t=="auto")localStorage.removeItem("spend-theme");else localStorage.setItem("spend-theme",t)}catch(e){}themeApply(t)}
+function themeApply(t){const r=document.documentElement;if(t=="auto")r.removeAttribute("data-theme");else r.setAttribute("data-theme",t);
+ document.querySelectorAll("meta[name=theme-color]").forEach(m=>{if(m.dataset.auto===undefined)m.dataset.auto=m.content;m.content=t=="auto"?m.dataset.auto:TCOL[t]});
+ const b=document.getElementById("themeb");if(b)b.textContent="Theme: "+t[0].toUpperCase()+t.slice(1)}
+themeApply(themeGet());
 // Keyword groups, checked in this order; the first group with a matching word wins. A category may appear more than once
 // (the two extra groups hold what used to be "Bills & home" and "House stuff"), so the order of the words never changed.
 const CATS=[
@@ -31,7 +39,7 @@ const own=o=>{if(o&&typeof o=="object")delete o["__proto__"];return o};
 function fixMaps(){for(const k of["rules","cards","recDone","hue","alias","icon"])if(!S[k]||typeof S[k]!="object"||Object.getPrototypeOf(S[k]))S[k]=bare(S[k]);
  const b=S.budget;if(b&&typeof b=="object"&&b.cats&&Object.getPrototypeOf(b.cats))b.cats=bare(b.cats)}
 let S={tx:[],rules:{},cur:"₪"};
-let rpT="month",rpN=12,FOUND=[],rp=false,rpM=null,rpL=true,rpS=false,cmp=false,cmA=null,cmB=null,q="",cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null;
+let rpT="month",rpN=12,FOUND=[],rp=false,rpM=null,rpL=true,rpS=false,cmp=false,cmA=null,cmB=null,q="",cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null,showAll=false;
 // Accounts + cloud sync (Firebase): see docs/backend.md. The cloud code is in cloud.js.
 // FB_REAL = the real project's firebaseConfig (public by design; firestore.rules is the protection).
 // If it is set to null the site falls back to local-only mode (localStorage, no sign-in).
@@ -339,7 +347,7 @@ function addPurchase(inc){const id=uid(),d=ymd();
  dropEmpty();q="";$("q").value="";
  if(inc){S.tx.push({id,date:d,desc:"",amt:0,inc:1,card:"",cat:""});cardF="all";cat=null}
  else S.tx.push({id,date:d,desc:"",amt:0,card:cardF!="all"?cardF:CL.find(c=>c!="Recurring")||"My card",cat:cat||"Other"});
- pendingMonth=pk(d);focusTid=id;save();render()}
+ pendingMonth=pk(d);focusTid=id;if((S.sk||"date")!="date"||S.sd=="asc")showAll=true;save();render()}
 function render(){
  const fs=fsel(document.activeElement);
  syncCats();if(!Array.isArray(S.recur))S.recur=[];
@@ -392,7 +400,7 @@ function render(){
    const ah=S.cats.filter(c=>{const b0=B.cats[c]-(fb[c]||0),u=(bv[c]||0)/b0;return B.cats[c]>0&&b0>0&&u<1&&u>frac+.2}).slice(0,3).map(c=>{const b0=B.cats[c]-(fb[c]||0);return esc(c)+": "+Math.round((bv[c]||0)/b0*100)+"% of what's free is used, "+Math.round(frac*100)+"% of the month gone"});
    if(ah.length)pace+="<br>Ahead of pace: "+ah.join(" · ")}
   if(tc.length)soon=`<details class="soon"><summary>${fmt(tcSum)} of fixed charges still to come (${tc.length})</summary>${tc.map(o=>`<div class="row"><span class="sub">${esc(new Date(o.dt+"T00:00").toLocaleString(undefined,{day:"numeric",month:"short"}))}</span><span dir="auto">${esc(o.k)}</span><span>${fmt(o.amt)}</span></div>`).join("")}</details>`}
- if(bOn&&B.total>0){const left=B.total-tot;bl=`<div class="l${left<0?" over":""}" id="budline">${left<0?fmt(-left)+" over the "+fmt(B.total)+" budget":fmt(left)+" left of "+fmt(B.total)}</div>`}
+ if(bOn&&B.total>0){const left=B.total-tot,u=tot/B.total;bl=`<div class="bar hbar${u>1?" over":u>=.8?" mid":""}" aria-hidden="true"><i style="width:${Math.max(0,Math.min(1,u))*100}%"></i></div><div class="l${left<0?" over":""}" id="budline">${left<0?fmt(-left)+" over the "+fmt(B.total)+" budget":fmt(left)+" left of "+fmt(B.total)}</div>`}
  if(bOn){const ov=S.cats.filter(c=>bLvl(by[c]||0,B.cats[c])==2),nr=S.cats.filter(c=>bLvl(by[c]||0,B.cats[c])==1);
   if(ov.length||nr.length)bl+=`<div class="l" id="budalert">${ov.length?`<span class="over">Over budget: ${ov.map(esc).join(", ")}</span>`:""}${ov.length&&nr.length?" · ":""}${nr.length?"Near the limit (80%+): "+nr.map(esc).join(", "):""}</div>`}
  if(bOn&&bLvl(tot,B.total)==1)bl+=`<div class="l" id="totalalert">Near the limit (80%+): the whole budget</div>`;
@@ -424,10 +432,12 @@ function render(){
  {const ts=tagSums(base),el=$("tags");el.hidden=!ts.length;el.innerHTML=ts.map(([g,s])=>`<button data-tag="${esc(g)}"${q.trim().toLowerCase()=="#"+g?' class="on"':""}>#${esc(g)} <span class="sub">${fmt(s)}</span></button>`).join("")}
  $("found").hidden=!qw.length;if(qw.length)$("found").textContent=`${found.length} found, ${fmt(calc(found).spent)}`;
  const list=found.sort((a,b)=>{const x=val(a),y=val(b),c=typeof x=="number"?x-y:x.localeCompare(y);return (c*sd)||b.date.localeCompare(a.date)});
+ const lim=!qw.length&&!cat&&!showAll&&list.length>5,vis=lim?list.slice(0,5):list;
+ $("allrow").hidden=list.length<=5||qw.length>0||!!cat;$("showall").textContent=lim?"Showing the latest 5 of "+list.length+" · Show all":"Show only the latest 5";
  const cols=[["date","Date"],["desc","Description"],["cat","Category"],["card","Card"],["amt","Amount"]];
  $("head").innerHTML=cols.map(([k,l])=>`<th${k=="amt"?' class="amt"':""} aria-sort="${sk==k?(sd==1?"ascending":"descending"):"none"}"><button data-sort="${k}">${l}${sk==k?(sd==1?" ▲":" ▼"):""}</button></th>`).join("")+`<th class="k">Ignore</th><th></th>`;
  const soonest=dstr(new Date(Date.now()-40*864e5));
- $("rows").innerHTML=list.length?list.map(t=>{const os=ORDER.includes(t.cat)||t.inc&&!t.cat?ORDER:[...ORDER,t.cat],sl=sp(t),sg=t.amt<0?-1:1,
+ $("rows").innerHTML=list.length?vis.map(t=>{const os=ORDER.includes(t.cat)||t.inc&&!t.cat?ORDER:[...ORDER,t.cat],sl=sp(t),sg=t.amt<0?-1:1,
    spl=sl.map((p,i)=>`<div class="sp"><select data-sp="${t.id}" data-i="${i}" data-f="cat" aria-label="Category of this part">${(ORDER.includes(p.cat)?ORDER:[...ORDER,p.cat]).map(c=>`<option value="${esc(c)}"${c==p.cat?" selected":""}>${ic(c)}${esc(c)}</option>`).join("")}</select><input type="number" step="0.01" min="0" data-sp="${t.id}" data-i="${i}" data-f="amt" value="${esc(Math.abs(p.amt)||"")}" placeholder="Amount" aria-label="Amount of this part"><button class="x" data-spdel="${t.id}" data-i="${i}" aria-label="Remove this part">✕</button></div>`).join("")+(sl.length?`<small class="c sr">${fmt(sg*parts(t)[0][1])} stays in ${esc(t.cat)}</small>`:""),note=t.inc?(t.cat?"paid back":"income"):[t.amt<0?"refund":"",pct(t.card)==100?"":pct(t.card)?"counts "+fmt(v(t)):"not counted",t.auto&&t.date>=soonest?"not on a statement yet":""].filter(Boolean).join(" · ");
   return `<tr class="${t.skip?"skip":""}${t.inc?" inc":""}"><td class="d"><input type="date" data-tid="${t.id}" data-f="date" value="${t.date}"></td>
   <td class="ds"><input dir="auto" data-tid="${t.id}" data-f="desc" placeholder="Description" value="${esc(t.desc)}" style="min-width:190px"><input dir="auto" class="nt" data-tid="${t.id}" data-f="note" placeholder="+ note" value="${esc(t.note||"")}" aria-label="Note"></td>
@@ -588,6 +598,8 @@ function endDrag(){if(!drag)return;const d=drag;drag=null;if(!d.moved)return;
   if(arr.length==S.cats.length&&arr.every(Boolean)){arr.splice(d.to,0,arr.splice(d.from,1)[0]);S.cats=arr;S.catSort="manual";save()}render()},180)}
 document.addEventListener("pointerup",endDrag);document.addEventListener("pointercancel",endDrag);
 document.addEventListener("click",e=>{const t=e.target;
+ if(t.id=="showall"){showAll=!showAll;render();return}
+ if(t.id=="themeb"){themeSet(THEMES[(THEMES.indexOf(themeGet())+1)%3]);return}
  if(t.dataset&&t.dataset.ic!==undefined){icOpen=icOpen==+t.dataset.ic?null:+t.dataset.ic;render();return}
  if(t.dataset&&t.dataset.pick!==undefined&&icOpen!=null){const c=S.cats[icOpen];if(c){S.icon[c]=t.dataset.pick;save()}icOpen=null;render();return}
 if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cname").focus();if(CL.some(c=>sameCard(c,n))){crdMsg="That card already exists.";return render()}S.cards[n]=100;crdMsg="";$("cname").value="";save();render();return}
@@ -682,3 +694,9 @@ function start(){fixMaps();dropEmpty();recGen();S.tx.forEach(t=>{if(t.cat=="Othe
  panel=S.tx.some(t=>!String(t.id).startsWith("rec-"))?null:"imp";
  $("accbtn").textContent=C.on?"Account":"Backup";document.querySelectorAll(".cl").forEach(e=>e.hidden=!C.on);$("who").textContent=C.user?C.user.email:"";
  $("boot").hidden=true;$("app").hidden=false;render();stat();}
+
+// The More menu: opens on its button, closes on a click elsewhere, on Escape, or after choosing a panel or the report.
+{const mn=$("menu"),mb=$("more"),shut=()=>{mn.hidden=true;mb.setAttribute("aria-expanded","false")};
+ document.addEventListener("click",e=>{const t=e.target;if(t.closest&&t.closest("#more")){mn.hidden=!mn.hidden;mb.setAttribute("aria-expanded",String(!mn.hidden));return}
+  if(!mn.hidden&&(!t.closest||!t.closest("#menu")||t.dataset.p||t.id=="repb"))shut()});
+ document.addEventListener("keydown",e=>{if(e.key=="Escape"&&!mn.hidden){shut();mb.focus()}})}

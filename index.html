@@ -5,7 +5,8 @@ Files: index.html (markup), style.css, app.js (data, import, rendering), cloud.j
 Installable app (PWA): manifest + icons, so it can be added to a phone's home screen or installed from Chrome/Edge. sw.js saves the app's files: the saved page is shown at once (a new deploy shows as the "Update available, Reload" notice), the app's files (the Firebase SDK in vendor/firebase/ is one of them) and fonts come from the saved copy. Firebase sign-in and data calls are never stored by it. The version after style.css, app.js and cloud.js and VERSION in sw.js are written by tools/stamp.mjs before every npm test; never edit them by hand. A new version shows on the next load; an app left open shows "Update available, Reload". On localhost the service worker is off unless the address has ?sw=1.
 Content Security Policy (the meta tag in the head): the page may load scripts only from this site, styles and fonts from Google Fonts, and contact only Firebase sign-in and data (plus the local emulators' addresses). Tested: every test fails if the policy blocks anything (sign-in, sync, offline, payslip PDF and picture, Excel import and export, update notice all pass under it).
 Storage: localStorage "spend-v1" in local-only mode; Firestore per account in cloud mode. No bank connection.
-Panels: Import, Cards, Recurring, Budget, Account (cloud mode: sign out, Download/Restore, delete account; local-only mode shows it as "Backup" with Download/Restore only), Delete all (press twice).
+Top row (redesign part 1, 2026-11-18): "+ Add purchase" and one "More" menu (Import, Cards, Recurring, Budget, Report, Merchants, Account, then Theme and Delete all data; closes on a choice, outside click or Escape). Panels: Import, Cards, Recurring, Budget, Merchants, Account (cloud mode: sign out, Download/Restore, delete account; local-only mode shows it as "Backup" with Download/Restore only), Delete all (press twice).
+Look (2026-11-18): "Copilot blue" palette in style.css (light and dark variables on :root), the summary is a card with a progress bar toward the budget (green, amber from 80%, red when over). Theme button in the More menu cycles Auto (follows the device, default) / Light / Dark; kept per device in localStorage "spend-theme" (not synced), applied by the first lines of app.js, the browser bar colour (theme-color metas) follows;  Expenses list shows the latest 5 of the month ("Show all" / "Show only the latest 5"); no limit while searching or filtering by a category; adding a purchase shows all. Untested: a real phone, the brief flash if Light/Dark is chosen against the device setting (the theme is applied when app.js loads, not in the head).
 Import: CSV/Excel/pasted text. Finds each header row (several sheets are fine), uses the purchase date and the charged amount ("סכום חיוב", not "סכום עסקה"). Identical rows in one file are all kept; importing again skips only copies already saved on that card. Refunds come in as negative amounts. Installments ("תשלום 3 מתוך 5") are dated in their own month and labelled "3/5". The card's last 4 digits are read from the file to suggest a card name. A bank-style file (most amounts negative) imports the negatives as spending and the positives as income. A purchase edited after import remembers its imported values (src), so importing the same file again does not add it back. Tested on real Isracard and Max files (2026-11-15).
 Payslip (תלוש שכר): pick the PDF in Import, or paste its text. Only the net pay ("נטו לתשלום"), the slip's month and its issue date are read; a line shows them with a date box and "Add as income", which adds one income row "Salary MM/YYYY". The same slip is not added twice. Nothing else from the slip is saved. A picture of the slip (photo, screenshot, JPEG/PNG) is read by text recognition inside the browser, nothing is uploaded: Hebrew pass for the label, then the numbers on that row are read again as digits only when the first pass did not give a proper amount. A message asks to check the amount. A password-locked PDF gets a message.
 Cards: S.cards[name] = percent that counts (full 100, half 50, custom, not counted 0). Rename a card in the Cards panel. A joint card is a card set to half.
@@ -47,8 +48,8 @@ IDEAS: see ROADMAP.md.
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://www.google.com/images/cleardot.gif; worker-src 'self' blob:; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.googleapis.com http://127.0.0.1:9099 http://127.0.0.1:8080; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Spend, sorted</title>
-<meta name="theme-color" content="#f3f5f2" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#121715" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#EEF3FC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1626" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -62,7 +63,7 @@ IDEAS: see ROADMAP.md.
 <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=8ee5e8cb4d">
+<link rel="stylesheet" href="style.css?v=91abfd3126">
 </head>
 <body>
 <main>
@@ -79,14 +80,21 @@ IDEAS: see ROADMAP.md.
 </div></form>
 <div id="app">
 <nav class="row" aria-label="Tools">
-  <button data-p="imp">Import</button>
-  <button data-p="crd">Cards</button>
-  <button data-p="rec">Recurring</button>
-  <button data-p="bud">Budget</button>
-  <button data-p="mer">Merchants</button>
-  <button id="repb">Report</button>
-  <button data-p="acc" id="accbtn">Account</button>
-  <button id="wipe" class="danger">Delete all data</button><span class="msg" id="wmsg"></span><span class="sub" id="sync" role="status"></span>
+  <button id="addp" class="pri">+ Add purchase</button><span class="sub" id="sync" role="status"></span>
+  <div class="menuw"><button id="more" aria-haspopup="true" aria-expanded="false" aria-controls="menu">More ▾</button>
+   <div id="menu" hidden>
+    <button data-p="imp">Import</button>
+    <button data-p="crd">Cards</button>
+    <button data-p="rec">Recurring</button>
+    <button data-p="bud">Budget</button>
+    <button id="repb">Report</button>
+    <button data-p="mer">Merchants</button>
+    <button data-p="acc" id="accbtn">Account</button>
+    <hr>
+    <button id="themeb">Theme: Auto</button>
+    <button id="wipe" class="danger">Delete all data</button>
+   </div></div>
+  <span class="msg" id="wmsg"></span>
 </nav>
 
 <div class="panel" id="p-acc" hidden><div class="grid">
@@ -146,7 +154,6 @@ IDEAS: see ROADMAP.md.
 <section>
   <h2>Expenses</h2>
   <div class="row flt" style="margin-top:10px">
-    <button id="addp">+ Add purchase</button>
     <button id="addi">+ Add income</button>
     <select id="month" aria-label="Month"></select>
     <select id="cardf" aria-label="Card"></select>
@@ -156,6 +163,7 @@ IDEAS: see ROADMAP.md.
   <div class="sub" id="found" hidden></div>
   <div class="tags" id="tags" hidden></div>
   <div class="tw"><table><thead><tr id="head"></tr></thead><tbody id="rows"></tbody></table></div>
+  <div class="row allrow" id="allrow" hidden><button id="showall"></button></div>
   <p class="sub">Changing a category teaches the app that merchant. A refund is a minus amount. Income with a category is a payback and lowers that category. Choose Split… in a category box to put part of a purchase in another category. A #word in a note is a tag.</p>
 </section>
 </div>
@@ -163,7 +171,7 @@ IDEAS: see ROADMAP.md.
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="toast top" id="bnote" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=8ee5e8cb4d"></script>
-<script src="cloud.js?v=8ee5e8cb4d"></script>
+<script src="app.js?v=91abfd3126"></script>
+<script src="cloud.js?v=91abfd3126"></script>
 </body>
 </html>

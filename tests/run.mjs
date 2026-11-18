@@ -65,11 +65,17 @@ function watch(p) {
   p.on("pageerror", e => { console.log("   page error: " + e.message); fails++ });
   p.on("console", m => { if (/Content Security Policy/.test(m.text())) { console.log("   blocked by the page's policy: " + m.text().slice(0, 300)); fails++ } });
 }
+// The tool buttons live in the More menu: a click on one of them opens the menu first when it is closed.
+const MENU = /data-p|#repb|#wipe|#accbtn|#themeb/;
+function menuClicks(p) {
+  const click = p.click.bind(p);
+  p.click = async (sel, ...a) => { if (typeof sel == "string" && MENU.test(sel) && !(await p.locator("#menu").isVisible())) await click("#more"); return click(sel, ...a) };
+}
 async function open(q = "") {
   const c = await browser.newContext({ locale: "en-US", acceptDownloads: true });
   ctxs.push(c);
   const p = await c.newPage();
-  watch(p);
+  watch(p); menuClicks(p);
   await p.goto(URL + q);
   return p;
 }
@@ -84,7 +90,8 @@ async function total(p, want) {
   catch (e) { throw new Error(`total: expected ${want}, got ${await p.locator("#big .n").first().textContent().catch(() => "nothing")}`) }
 }
 const saved = p => p.waitForFunction(() => document.getElementById("sync").textContent == "Saved", null, { timeout: 15000 });
-const rows = p => p.locator("#rows tr:has([data-del])").count();
+// The list shows the latest 5 until Show all is pressed; this counts every row.
+const rows = async p => { const b = p.locator("#showall"); if (await b.isVisible() && /Show all/.test(await b.textContent())) await b.click(); return p.locator("#rows tr:has([data-del])").count() };
 const today = (d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"))(new Date());
 const text = async (p, sel, want) => {
   try { await p.waitForFunction(([s, w]) => { const e = document.querySelector(s); return e && e.textContent.includes(w) }, [sel, want], { timeout: 15000 }) }
@@ -282,6 +289,28 @@ async function local() {
     await p.fill("#q", "קפה"); eq(await rows(p), 1, "hebrew");
     await p.fill("#q", ""); eq(await rows(p), 4, "cleared"); eq(await p.locator("#found").isHidden(), true, "found hidden");
     await p.fill("#q", "zara"); await p.click("#addp"); eq(await p.inputValue("#q"), "", "search cleared by add"); eq(await rows(p), 5, "new row visible");
+  });
+  await test("More menu holds the tools; theme switch Auto/Light/Dark is kept; the list shows the latest 5 until Show all", async () => {
+    const p = await open("?local=1");
+    await paste(p, "Visa", "date,description,amount\n2026-11-01,A one,1\n2026-11-02,B two,2\n2026-11-03,C three,3\n2026-11-04,D four,4\n2026-11-05,E five,5\n2026-11-06,F six,6\n2026-11-07,G seven,7");
+    await total(p, "₪ 28");
+    eq(await p.locator("#menu").isHidden(), true, "menu closed");
+    await p.locator("#more").click(); eq(await p.locator("#menu").isVisible(), true, "menu open");
+    eq((await p.locator("#menu button").allTextContents()).slice(0, 7).join("|"), "Import|Cards|Recurring|Budget|Report|Merchants|Backup", "menu order (Account is called Backup in local mode)");
+    await p.keyboard.press("Escape"); eq(await p.locator("#menu").isHidden(), true, "Escape closes");
+    await p.locator("#more").click(); await p.locator("#more").click(); eq(await p.locator("#menu").isHidden(), true, "button closes");
+    await p.locator("#more").click(); await p.locator("main h1").click(); eq(await p.locator("#menu").isHidden(), true, "outside click closes");
+    await p.locator("#more").click(); await p.locator("#menu [data-p=bud]").click(); eq(await p.locator("#p-bud").isVisible(), true, "panel opens"); eq(await p.locator("#menu").isHidden(), true, "menu closes after a choice");
+    await p.locator("#more").click(); await p.locator("#themeb").click(); eq(await p.locator("#themeb").textContent(), "Theme: Light", "light"); eq(await p.evaluate(() => document.documentElement.dataset.theme), "light", "light set");
+    await p.locator("#themeb").click(); eq(await p.evaluate(() => document.documentElement.dataset.theme), "dark", "dark set");
+    eq(await p.evaluate(() => [...document.querySelectorAll("meta[name=theme-color]")].map(m => m.content).join()), "#0E1626,#0E1626", "browser bar follows");
+    await p.reload(); eq(await p.evaluate(() => document.documentElement.dataset.theme), "dark", "kept after reload");
+    await p.locator("#more").click(); await p.locator("#themeb").click(); eq(await p.evaluate(() => document.documentElement.dataset.theme || "none"), "none", "auto follows the device");
+    eq(await p.locator("#rows tr:has([data-del])").count(), 5, "latest 5"); await text(p, "#showall", "latest 5 of 7");
+    eq(await p.locator("#rows tr:has([data-del]) [data-f=desc]").first().inputValue(), "G seven", "newest first");
+    await p.click("#showall"); eq(await p.locator("#rows tr:has([data-del])").count(), 7, "all 7");
+    await p.click("#showall"); eq(await p.locator("#rows tr:has([data-del])").count(), 5, "back to 5");
+    await p.fill("#q", "a"); await total(p, "₪ 28"); eq(await p.locator("#allrow").isHidden(), true, "no limit while searching");
   });
   await test("compare shows two months per category with the change, and the trend strip picks a month", async () => {
     const p = await open("?local=1");
@@ -520,6 +549,7 @@ async function local() {
     await p.click("#go");
     eq(await p.locator("#msg").textContent(), "Added 6 purchases.", "import");
     await total(p, "₪ 3,144");
+    await rows(p); // show all rows (the list starts with the latest 5)
     eq(await p.locator('tr:has(input[value="ביטוח רכב ישיר 3/5"]) [data-f="date"]').inputValue(), "2026-10-05", "installment date");
     eq(await p.locator('tr:has(input[value="חנות כלשהי"]) [data-f="date"]').inputValue(), "2026-10-27", "real date cell");
     eq(await p.locator('tr:has(input[value="חנות של דני"]) select[data-id]').inputValue(), "Shopping", "issuer category used");
@@ -781,7 +811,7 @@ async function local() {
   await test("just after midnight in Israel a new purchase and a recurring bill get that day's date", async () => {
     // 00:30 on 11 July in Israel is still 10 July in UTC.
     const c = await browser.newContext({ locale: "en-US", timezoneId: "Asia/Jerusalem" }); ctxs.push(c);
-    const p = await c.newPage(); watch(p);
+    const p = await c.newPage(); watch(p); menuClicks(p);
     await p.clock.install({ time: new Date("2026-07-10T21:30:00Z") });
     await p.goto(URL + "?local=1");
     await p.click("#addp");

@@ -1,6 +1,6 @@
-:root{--bg:#f3f5f2;--ink:#16211d;--mute:#5f6d67;--card:#fff;--line:#dfe5e0;--acc:#0f7a5c;--onacc:#fff;--bad:#c4452b;--warn:#d4607a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121715;--ink:#e8eeea;--mute:#98a8a0;--card:#1a211e;--line:#2a342f;--acc:#3fc79b;--onacc:#0b1411;--bad:#ff8a70;--warn:#f08aa0;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#121715;--ink:#e8eeea;--mute:#98a8a0;--card:#1a211e;--line:#2a342f;--acc:#3fc79b;--onacc:#0b1411;--bad:#ff8a70;--warn:#f08aa0;color-scheme:dark}
+:root{--bg:#EEF3FC;--ink:#14253F;--mute:#6B7A92;--card:#fff;--line:#DDE6F6;--acc:#3B6FF0;--onacc:#fff;--bad:#c4452b;--warn:#E8A33D;--ok:#2FA866;--shadow:rgba(20,37,63,.14);box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0E1626;--ink:#EAF0FB;--mute:#8E9BB5;--card:#172238;--line:#25324D;--acc:#5B8BFF;--onacc:#06122b;--bad:#ff8a70;--warn:#F0B050;--ok:#41C27F;--shadow:rgba(0,0,0,.45);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0E1626;--ink:#EAF0FB;--mute:#8E9BB5;--card:#172238;--line:#25324D;--acc:#5B8BFF;--onacc:#06122b;--bad:#ff8a70;--warn:#F0B050;--ok:#41C27F;--shadow:rgba(0,0,0,.45);color-scheme:dark}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -14,13 +14,16 @@ select,input,textarea,button{font:inherit;color:var(--ink);background:var(--card
 button{cursor:pointer}
 body{cursor:default}
 button.pri{background:var(--acc);color:var(--onacc);border-color:var(--acc);font-weight:600}
+button{border-radius:10px}
 button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 button.danger{color:var(--bad);background:none;border-color:transparent}
 :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
-.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-top:12px}
 .grid{display:grid;gap:10px}
 textarea{width:100%;min-height:90px;font-family:ui-monospace,Menlo,monospace;font-size:12px}
-.sum{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-top:24px}
+.sum{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-top:16px;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:0 6px 20px var(--shadow)}
+.hbar{height:10px;margin:10px 0 4px;min-width:min(320px,70vw)}.hbar i{background:var(--ok)}.hbar.mid i{background:var(--warn)}.hbar.over i{background:var(--bad)}
+#budline{font-size:17px;font-weight:600;color:var(--ink)}#budline.over{color:var(--bad)}
 .big{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-end}
 .big .n{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1}
 .big .m{font-size:22px;font-weight:600}
@@ -44,7 +47,7 @@ tr.inc td.amt input{color:var(--acc);font-weight:600}
 .bar i{display:block;height:100%;border-radius:6px}
 .amt{text-align:right;font-variant-numeric:tabular-nums}
 .x{border:0;background:none;color:var(--mute);padding:2px 6px}
-.tw{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-top:10px}
+.tw{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:16px;margin-top:10px}
 table{border-collapse:collapse;width:100%;min-width:860px}
 th,td{padding:3px 6px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
 th{font-size:13px;color:var(--mute);font-weight:600;padding:8px 10px}
@@ -71,8 +74,6 @@ input[type=file]{width:100%;max-width:100%;min-height:0;padding:8px}
 select,input,textarea,button{font-size:16px;min-height:44px}
 textarea{font-size:16px}
 input[type=checkbox]{min-height:0}
-nav.row{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
-nav.row>*{flex:none}
 .big .n{font-size:36px}.big{gap:18px}
 #auth>.grid,.panel .grid[style]{max-width:none!important}
 #auth{padding:14px}
@@ -114,7 +115,7 @@ td.empty{grid-column:1/-1}
 .toast button{min-height:44px}
 }
 @media (max-width:640px){
-.flt,thead tr,nav.row{scrollbar-width:none}.flt{flex-wrap:nowrap;overflow-x:auto}.flt>*{flex:none}
+.flt,thead tr{scrollbar-width:none}.flt{flex-wrap:nowrap;overflow-x:auto}.flt>*{flex:none}
 thead tr{flex-wrap:nowrap;overflow-x:auto;gap:6px}thead th{flex:none}
 }
 
@@ -160,3 +161,11 @@ span.cn:hover{border-color:transparent;background:none}
 
 .soon{margin-top:4px;font-size:13px;color:var(--mute)}.soon summary{cursor:pointer}.soon .row{gap:10px;margin:2px 0}.soon .row span:last-child{margin-left:auto}
 #bnote{top:calc(64px + env(safe-area-inset-top,0px))}
+
+/* Top row: + Add purchase, then one More menu (Import, Cards, Recurring, Budget, Report, Merchants, Account, Theme, Delete all data). */
+nav.row{margin-top:4px}.menuw{position:relative;margin-inline-start:auto}
+#menu{position:absolute;inset-inline-end:0;top:calc(100% + 6px);min-width:220px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 30px var(--shadow);padding:6px;z-index:15;display:grid;gap:2px}
+#menu button{border:0;background:none;text-align:start;border-radius:8px;min-height:40px;padding:6px 12px;white-space:nowrap}#menu button:hover,#menu button:focus-visible{background:var(--bg)}#menu button.on{background:var(--bg);color:var(--acc);font-weight:600;border:0}
+#menu hr{border:0;border-top:1px solid var(--line);margin:4px 0;width:100%}#menu button.danger{color:var(--bad)}
+#wmsg{flex-basis:100%}#wmsg:empty{display:none}
+.allrow{margin-top:8px;justify-content:center}

@@ -200,7 +200,7 @@ Goal: no new features. The app is opened rarely, mostly on the phone, for a quic
 - **Look decided 2026-11-18: "Copilot blue"** (palette in `docs/redesign-handoff.md`).
 - **Light/dark switch: Auto (follows the phone or PC setting, default) / Light / Dark**, saved per device (localStorage, not in `S`), applied before first paint.
 - **Three sessions, in order** (full detail in `docs/redesign-handoff.md`):
-  - [ ] 1. Sonnet: theme, Auto/Light/Dark switch, hero card, "More" menu, latest-5 list. Visual only.
+  - [x] 1. Sonnet: theme, Auto/Light/Dark switch, hero card, "More" menu, latest-5 list. Visual only. Done 2026-11-18, 50 tests. Checked in the browser pane at 375px (light, dark) and desktop. Not checked: a real phone, the real live site (see commit), Light/Dark chosen against the device setting may flash for a moment on load (theme is set from app.js, not the head, to keep sw.js untouched), the manifest colour stays fixed. Categories were left as they are (part 2).
   - [ ] 2. Opus: choose which categories show and their order (new saved setting, so sync, Undo, tests, rules check).
   - [ ] 3. Sonnet: phone and dark-mode polish of every panel, report in the new look, docs and spec comment.
 
