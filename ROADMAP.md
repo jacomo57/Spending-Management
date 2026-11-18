@@ -179,14 +179,14 @@ Start each session with: **"Pull, read CLAUDE.md and ROADMAP.md, then do part N 
 
 App (model for each is in the table above):
 - [x] Re-importing after editing a purchase's description or amount added it again. Fixed 2026-11-16.
-- Budget alerts when a category passes 80% and 100% (the bars already change colour; this would be a notice).
+- [x] Budget alerts (2026-11-18): a line under the budget line lists categories at 80%+ and over 100%.
 - "Partner owes" view for a joint card: what each side paid against their share.
 - Hebrew interface option.
 
 Workload:
-- Keep CLAUDE.md under one screen; details live in `docs/`.
-- Track bugs and ideas as GitHub Issues instead of chat.
-- Test on a `dev` branch and merge to `main` when green, now that real data depends on the live site.
+- [x] CLAUDE.md shortened 2026-11-18; details live in `docs/app.md`, `docs/backend.md`, `docs/phone.md`.
+- [x] Bugs and ideas are GitHub Issues (set up 2026-11-18).
+- [x] `dev` branch (2026-11-18): work and push on `dev`, fast-forward `main` after tests and review pass.
 - Ask for a short status once per step rather than checking in mid-task.
 
 ## Audit follow-ups (done 2026-11-16, Fable)
