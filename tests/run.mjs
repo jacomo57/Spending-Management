@@ -793,11 +793,15 @@ async function pwa() {
     const v = await p.evaluate(() => APPV), urls = await cached(p, "spend-" + v);
     for (const f of ["", "app.js?v=" + v, "cloud.js?v=" + v, "style.css?v=" + v, "vendor/xlsx.full.min.js", "vendor/firebase/firebase-app.js", "vendor/firebase/firebase-auth.js", "vendor/firebase/firebase-firestore.js", "icons/icon-192.png"]) eq(urls.includes(URL + f), true, "saved " + (f || "page"));
   });
-  await test("a new deploy shows on the next load; an app left open gets the Reload notice", async () => {
+  await test("the saved page opens at once; a new deploy arrives as the Reload notice (also for an app left open)", async () => {
     const p = await open("?local=1&sw=1"); await controlled(p);
     try {
       deploy("t2"); await p.reload();
-      eq(await mark(p), "t2", "page after first deploy"); eq(await p.evaluate(() => APPV), "t2", "page version");
+      eq(await mark(p), "", "the saved page is shown first, not waiting for the network");
+      await p.locator("#upd").waitFor({ timeout: 20000 });
+      await Promise.all([p.waitForEvent("load"), p.click("#updgo")]);
+      await p.waitForFunction(() => (document.querySelector('meta[name="deploy"]') || {}).content == "t2", null, { timeout: 20000 });
+      eq(await p.evaluate(() => APPV), "t2", "page version");
       await p.waitForFunction(async () => { const k = await caches.keys(); return k.includes("spend-t2") && k.filter(x => x != "spend-rt-1").length == 1 }, null, { timeout: 20000 });
       eq(await p.locator("#upd").isVisible(), false, "no notice when the page is already new");
       deploy("t3"); await p.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update()));

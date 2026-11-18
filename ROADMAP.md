@@ -62,7 +62,7 @@ Still untested from earlier work: offline use, password-reset email, category dr
 - **Model:** Fable for the service worker (a caching mistake leaves phones stuck on an old version); the manifest and icons are simple.
 - **Can run alongside Step 2** in a separate worktree.
 - **Do:** `manifest.webmanifest`, icons (192, 512, maskable, Apple touch), theme colours for light and dark, `sw.js`.
-- **Rules for the service worker:** network-first for `index.html` so a new deploy shows up at once; cache-first with a version name for CSS, JS, fonts and the Firebase SDK; never cache Firebase API calls; a small "Update available, reload" notice when a new version is waiting; all paths relative to `/Spending-Management/`.
+- **Rules for the service worker:** `index.html` is shown from the saved copy at once (changed 2026-11-18 for speed; a new deploy shows as the Reload notice); cache-first with a version name for CSS, JS, fonts and the Firebase SDK; never cache Firebase API calls; a small "Update available, reload" notice when a new version is waiting; all paths relative to `/Spending-Management/`.
 - **Test:** install from Chrome on the PC; open with the network off and see cached data; edit offline, reconnect, confirm it syncs; deploy a change and confirm the installed app picks it up. This also closes the old "offline use untested" gap.
 - **User's part:** install on their phone (Android: Chrome menu, Add to Home screen. iPhone: Safari, Share, Add to Home Screen) and report how it looks.
 - **Done when:** installed on PC and phone, opens offline, updates itself after a deploy.

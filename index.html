@@ -2,7 +2,7 @@
 <!--
 SPEND, SORTED: spec (keep updated with each edit)
 Files: index.html (markup), style.css, app.js (data, import, rendering), cloud.js (accounts + sync), sw.js (service worker), manifest.webmanifest, icons/, vendor/xlsx.full.min.js (SheetJS 0.20.3, loaded on first Excel file), vendor/pdf.min.mjs + pdf.worker.min.mjs (pdf.js 6.5.438 legacy build, loaded on first PDF; not saved for offline until used once), vendor/tesseract.min.js + worker.min.js + tesseract-core-lstm.wasm.js + heb/eng.traineddata.gz (tesseract.js 7.0.0, text recognition for payslip pictures, about 7.5MB, loaded on first picture). Tests: npm test.
-Installable app (PWA): manifest + icons, so it can be added to a phone's home screen or installed from Chrome/Edge. sw.js saves the app's files: the page is fetched from the network first (saved copy offline or after 4s), the app's files (the Firebase SDK in vendor/firebase/ is one of them) and fonts come from the saved copy. Firebase sign-in and data calls are never stored by it. The version after style.css, app.js and cloud.js and VERSION in sw.js are written by tools/stamp.mjs before every npm test; never edit them by hand. A new version shows on the next load; an app left open shows "Update available, Reload". On localhost the service worker is off unless the address has ?sw=1.
+Installable app (PWA): manifest + icons, so it can be added to a phone's home screen or installed from Chrome/Edge. sw.js saves the app's files: the saved page is shown at once (a new deploy shows as the "Update available, Reload" notice), the app's files (the Firebase SDK in vendor/firebase/ is one of them) and fonts come from the saved copy. Firebase sign-in and data calls are never stored by it. The version after style.css, app.js and cloud.js and VERSION in sw.js are written by tools/stamp.mjs before every npm test; never edit them by hand. A new version shows on the next load; an app left open shows "Update available, Reload". On localhost the service worker is off unless the address has ?sw=1.
 Content Security Policy (the meta tag in the head): the page may load scripts only from this site, styles and fonts from Google Fonts, and contact only Firebase sign-in and data (plus the local emulators' addresses). Tested: every test fails if the policy blocks anything (sign-in, sync, offline, payslip PDF and picture, Excel import and export, update notice all pass under it).
 Storage: localStorage "spend-v1" in local-only mode; Firestore per account in cloud mode. No bank connection.
 Panels: Import, Cards, Recurring, Budget, Account (cloud mode: sign out, Download/Restore, delete account; local-only mode shows it as "Backup" with Download/Restore only), Delete all (press twice).
@@ -22,7 +22,7 @@ Tested automatically on the emulator (npm test): sign up/in, wrong invite, two-d
 Names: a merchant, card or category may be called anything, including "constructor" or "__proto__" (the lookup maps have no prototype, fixMaps() in app.js; tested).
 Dates are the device's local date everywhere (ymd() in app.js), tested with the clock set to 00:30 Israel time.
 The user signed in on the live site under the policy on 2026-11-16 and it loaded and saved.
-UNTESTED: the Content Security Policy in Safari/Firefox, the browser's own print dialog (the PDF made by script was checked: 5 pages for 160 rows, table header on every page, Hebrew present), phone layout on a real phone (only checked in the browser pane at 375 and 768px), installing on a real phone, the 4s slow-network fallback, password reset email, a real bank export (only a made-up one), a real payslip PDF (only one made by the test; a real payslip screenshot was read correctly by hand on 2026-11-16), a phone photo of a paper payslip (tilted or shadowed pictures will likely fail), a real password-locked payslip (a made-up locked PDF gets the message).
+UNTESTED: the Content Security Policy in Safari/Firefox, the browser's own print dialog (the PDF made by script was checked: 5 pages for 160 rows, table header on every page, Hebrew present), phone layout on a real phone (only checked in the browser pane at 375 and 768px), installing on a real phone, password reset email, a real bank export (only a made-up one), a real payslip PDF (only one made by the test; a real payslip screenshot was read correctly by hand on 2026-11-16), a phone photo of a paper payslip (tilted or shadowed pictures will likely fail), a real password-locked payslip (a made-up locked PDF gets the message).
 Checked 2026-11-18 (script in a real browser, partly now in npm test): a split and removing a part (with Undo) reaching a second device, the report and alert in dark and light at 420px, a made-up password-locked PDF, split on a refund, split parts after renaming or deleting their category and Undo, category drag (kept after reload), recurring bill add/delete/Undo/no duplicate after reload, .xls file, pasted text with a refund word (refund, reversal, זיכוי read as negative), pace on the 1st, mid-month, last day and 31 Dec.
 Budget alerts (2026-11-18): under the budget line, "Over budget: …" (red) and "Near the limit (80%+): …" list the categories past 100% and between 80% and 100% of their budget; shown wherever budgets show (one month, all cards). The line is always there while it applies. Also a notice at the top for 8 seconds (#bnote, budNote() in app.js) when a category, or the whole budget, rises to 80% or over 100% compared with the last time that month was drawn with the same purchases (an edit, import, Quick add or a phone item arriving); not on the first draw of a month. The whole budget near the limit (80%+) is on the alert line too (#totalalert). Pasted text: a minus sign or brackets in front of an amount (-80, (80.00)) is a refund, except in a file of 3+ rows where most are negative (bank-style: negatives are spending).
 Phone layout (under 640px): each expense is a card (description and amount on top, date, category and card below, Ignore and delete at the bottom), sort buttons wrap above, tools row scrolls sideways, 44px touch targets, 16px inputs, safe-area padding; text fields use dir=auto for Hebrew. 640-900px keeps the desktop table, which scrolls inside its box.
@@ -36,6 +36,7 @@ Cards panel has "Add card" (2026-11-17). Card of a purchase (2026-11-17): a drop
 Default card (2026-11-17): Cards panel star button sets S.defCard, used by Quick add and the phone inbox (else the latest card). Google Wallet notifications: amount, merchant (title), card by the issuer word after "with" or last 4 digits (inboxRow). More Health keywords (hair, beauty, massage, therapy). UNTESTED on a phone: the Wallet macro (docs/phone.md).
 Phone inbox and statement matching (2026-11-16): Account panel "Add from your phone" makes a key and shows an address; a phone automation that sends the key can add a purchase without signing in or opening the app (details and rules: docs/backend.md). Rows from the phone and from Quick add are marked t.auto=1 and show "not on a statement yet" for 40 days; when a statement row with the same amount within 2 days is imported (same card first, then any card) the two become one row: the statement's date, description and card, your category, note and split (your own description moves to the note). The import message says "matched N you had already added". Tested on the emulator: key on/new/off, wrong key refused, typed item, raw notification text (English and Hebrew shape, made-up), merge, no double rows after reload. UNTESTED: the real project's address from a real phone, MacroDroid itself, a real Google Wallet notification's wording, two devices open at once when an item arrives.
 Undo: 8s button + Ctrl/Cmd+Z, session only.
+Speed (2026-11-18): measured with a script (phone-like: 4x slower CPU, 150ms delay) the page took about 1s to show your data; most of it is Firebase starting (checking the saved login with Google, then reading the saved data). Changes: the saved page is shown at once (before it waited for the network, up to 4s on a bad line; measured on a server with 250ms per answer: 700ms to 430ms to the totals), the Firebase files are preloaded and the connections to sign-in and the database start while the page loads (<link rel=modulepreload/preconnect>; nothing is sent). Tried and dropped: drawing a saved copy of the data before Firebase answers (the drawing itself is the slow part, so it made the total longer). NOT measured: the real Firebase servers from a real phone.
 IDEAS: see ROADMAP.md.
 -->
 <html lang="en">
@@ -52,9 +53,15 @@ IDEAS: see ROADMAP.md.
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Spend">
+<!-- Start early what the app needs a moment later: the Firebase files (same addresses cloud.js imports) and the connections to sign-in and the database. Nothing is sent. -->
+<link rel="modulepreload" href="vendor/firebase/firebase-app.js">
+<link rel="modulepreload" href="vendor/firebase/firebase-auth.js">
+<link rel="modulepreload" href="vendor/firebase/firebase-firestore.js">
+<link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=4ac8f535f1">
+<link rel="stylesheet" href="style.css?v=46054d818a">
 </head>
 <body>
 <main>
@@ -162,7 +169,7 @@ IDEAS: see ROADMAP.md.
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="toast top" id="bnote" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=4ac8f535f1"></script>
-<script src="cloud.js?v=4ac8f535f1"></script>
+<script src="app.js?v=46054d818a"></script>
+<script src="cloud.js?v=46054d818a"></script>
 </body>
 </html>

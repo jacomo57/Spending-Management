@@ -1,7 +1,8 @@
 // Service worker for Spend, sorted: makes the app installable and usable offline.
 // VERSION is written by tools/stamp.mjs (runs before every `npm test`); it changes whenever an app file changes.
 // Rules:
-//  - The page (index.html): network first, so a new deploy shows at once; the saved copy is used offline or after 4s on a bad line.
+//  - The page (index.html): the saved copy of this version is shown at once (fast opening, also on a bad line). A new deploy arrives as
+//    a new service worker (it saves its own page) and shows the "Update available, Reload" notice. First visit: the network answers.
 //  - The app's own files: saved copy first (index.html asks for them as file?v=VERSION, so a new deploy asks for new names),
 //    refreshed in the background as a safety net in case the stamp was ever forgotten.
 //    The Firebase SDK in vendor/firebase/ is one of them (in FILES, so it is saved at install and counted in the version).
@@ -9,7 +10,7 @@
 //  - The PDF and picture readers in vendor/ (about 9MB, used once a month for a payslip): saved on first use and kept across
 //    versions, so an app update does not download them again. They are still refreshed in the background when used.
 //  - Everything else (Firebase sign-in and data calls, the emulators) is never touched or stored here.
-const VERSION="4ac8f535f1";
+const VERSION="46054d818a";
 const SHELL="spend-"+VERSION,RT="spend-rt-1";
 const FILES=["./","style.css?v="+VERSION,"app.js?v="+VERSION,"cloud.js?v="+VERSION,"manifest.webmanifest","icons/icon.svg","icons/icon-192.png","icons/icon-512.png","icons/maskable-512.png","icons/apple-touch-icon.png","vendor/xlsx.full.min.js","vendor/firebase/firebase-app.js","vendor/firebase/firebase-auth.js","vendor/firebase/firebase-firestore.js"];
 const HOME=new URL("./",location.href).pathname;
@@ -21,12 +22,11 @@ self.addEventListener("activate",e=>e.waitUntil(caches.keys()
  .then(()=>self.clients.claim())));
 
 const quiet=p=>p.catch(()=>{});
-async function page(e,r){const c=await caches.open(SHELL),hit=()=>c.match("./");
- const net=fetch(r.url,{cache:"no-cache"}).then(async res=>{if(res.ok&&!res.redirected)await c.put("./",res.clone());return res});
- e.waitUntil(quiet(net));
- const slow=new Promise(ok=>setTimeout(ok,4000)).then(hit).then(h=>h||net);
- // A server error also falls back to the saved copy; with no saved copy the server's own answer is shown.
- try{const res=await Promise.race([net,slow]);return res.ok?res:(await hit())||res}catch(x){return (await hit())||Response.error()}}
+async function page(e,r){const c=await caches.open(SHELL),hit=await c.match("./");
+ // The saved copy of this version is shown at once. It is only replaced when a new service worker installs (it saves its own page with
+ // its own file names), so the page and the files it asks for always belong to one version. First visit: the network answers.
+ if(hit)return hit;
+ try{const res=await fetch(r.url,{cache:"no-cache"});if(res.ok&&!res.redirected)e.waitUntil(quiet(c.put("./",res.clone())));return res}catch(x){return Response.error()}}
 const BIG=/\/vendor\/(pdf\.|tesseract|worker\.|heb\.|eng\.)/;
 async function asset(e,r){const c=await caches.open(BIG.test(r.url)?RT:SHELL),hit=await c.match(r.url);
  const net=fetch(r.url,{cache:"no-cache"}).then(res=>{if(res.ok)c.put(r.url,res.clone());return res});
