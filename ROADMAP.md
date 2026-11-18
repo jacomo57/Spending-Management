@@ -197,7 +197,12 @@ Goal: no new features. The app is opened rarely, mostly on the phone, for a quic
 - **Main screen at a glance:** spent this month, budget left and pace, then the top 4 categories. The user can choose which categories show or their order, because rent is always the biggest and not interesting (a new saved setting: ask Fable-level care, it changes saved data).
 - **One "More" menu** replaces the button row, ordered by use: Import, Cards, Recurring, Budget, Report, Merchants, Account. Only "+ Add purchase" stays visible.
 - **Expenses list** shows the latest 5 with "Show all".
-- Not decided: the look itself (waiting for references).
+- **Look decided 2026-11-18: "Copilot blue"** (palette in `docs/redesign-handoff.md`).
+- **Light/dark switch: Auto (follows the phone or PC setting, default) / Light / Dark**, saved per device (localStorage, not in `S`), applied before first paint.
+- **Three sessions, in order** (full detail in `docs/redesign-handoff.md`):
+  - [ ] 1. Sonnet: theme, Auto/Light/Dark switch, hero card, "More" menu, latest-5 list. Visual only.
+  - [ ] 2. Opus: choose which categories show and their order (new saved setting, so sync, Undo, tests, rules check).
+  - [ ] 3. Sonnet: phone and dark-mode polish of every panel, report in the new look, docs and spec comment.
 
 ## Audit follow-ups (done 2026-11-16, Fable)
 
