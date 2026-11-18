@@ -37,6 +37,7 @@ Default card (2026-11-17): Cards panel star button sets S.defCard, used by the p
 Phone inbox and statement matching (2026-11-16): Account panel "Add from your phone" makes a key and shows an address; a phone automation that sends the key can add a purchase without signing in or opening the app (details and rules: docs/backend.md). Rows from the phone are marked t.auto=1 and show "not on a statement yet" for 40 days; when a statement row with the same amount within 2 days is imported (same card first, then any card) the two become one row: the statement's date, description and card, your category, note and split (your own description moves to the note). The import message says "matched N you had already added". Tested on the emulator: key on/new/off, wrong key refused, typed item, raw notification text (English and Hebrew shape, made-up), merge, no double rows after reload. UNTESTED: the real project's address from a real phone, MacroDroid itself, a real Google Wallet notification's wording, two devices open at once when an item arrives.
 Undo: 8s button + Ctrl/Cmd+Z, session only.
 Speed (2026-11-18): measured with a script (phone-like: 4x slower CPU, 150ms delay) the page took about 1s to show your data; most of it is Firebase starting (checking the saved login with Google, then reading the saved data). Changes: the saved page is shown at once (before it waited for the network, up to 4s on a bad line; measured on a server with 250ms per answer: 700ms to 430ms to the totals), the Firebase files are preloaded and the connections to sign-in and the database start while the page loads (<link rel=modulepreload/preconnect>; nothing is sent). Tried and dropped: drawing a saved copy of the data before Firebase answers (the drawing itself is the slow part, so it made the total longer). NOT measured: the real Firebase servers from a real phone.
+Card names (2026-11-18): not case sensitive. A name typed in Import, the New card box, the Cards panel or a phone item that matches an existing card ignoring upper/lower case ("max" for "MAX") is that card (canon() in app.js); a rename that only changes the case is allowed. Cards already saved under two spellings are NOT merged automatically: rename one to the other's spelling is refused as already used, so change the rows or delete one by hand.
 IDEAS: see ROADMAP.md.
 -->
 <html lang="en">
@@ -61,7 +62,7 @@ IDEAS: see ROADMAP.md.
 <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=bf59c93adf">
+<link rel="stylesheet" href="style.css?v=8ee5e8cb4d">
 </head>
 <body>
 <main>
@@ -162,7 +163,7 @@ IDEAS: see ROADMAP.md.
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="toast top" id="bnote" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=bf59c93adf"></script>
-<script src="cloud.js?v=bf59c93adf"></script>
+<script src="app.js?v=8ee5e8cb4d"></script>
+<script src="cloud.js?v=8ee5e8cb4d"></script>
 </body>
 </html>

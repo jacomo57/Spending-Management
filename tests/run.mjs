@@ -608,6 +608,25 @@ async function local() {
     await p.reload();
     await total(p, "₪ 45"); await text(p, "#budline", "₪ 955 left of ₪ 1,000");
   });
+  await test("card names ignore upper and lower case: import, Cards panel, rename, phone item", async () => {
+    const p = await open("?local=1");
+    await paste(p, "MAX", "date,description,amount\n2026-11-02,Zara,100");
+    await p.click('[data-p="crd"]'); await p.selectOption('#cardrules select[data-f="rule"]', "50"); await total(p, "₪ 50");
+    await p.click('[data-p="imp"]').catch(() => { });
+    const m = await paste(p, "max", "date,description,amount\n2026-11-03,Rami,200");
+    await total(p, "₪ 150");
+    eq(await p.evaluate(() => [...new Set(S.tx.map(t => t.card))].join()), "MAX", "one card name");
+    eq(await p.evaluate(() => Object.keys(S.cards).join()), "MAX", "one rule");
+    await p.click('[data-p="crd"]'); await p.fill("#cname", "mAx"); await p.click("#cadd");
+    await text(p, "#crdmsg", "already exists");
+    await p.evaluate(() => { S.cards.Visa = 100; render() });
+    await p.fill('#cardrules input[data-f="name"][value="Visa"]', "max"); await p.press('#cardrules input[data-f="name"][value="Visa"]', "Tab");
+    await text(p, "#crdmsg", "already used");
+    await p.fill('#cardrules input[data-f="name"][value="MAX"]', "Max"); await p.press('#cardrules input[data-f="name"][value="MAX"]', "Tab");
+    await p.waitForFunction(() => S.tx.every(t => t.card == "Max"), null, { timeout: 10000 }).catch(() => { });
+    eq(await p.evaluate(() => [...new Set(S.tx.map(t => t.card))].join() + "|" + Object.keys(S.cards).sort().join()), "Max|Max,Visa", "case-only rename is allowed and moves the rule");
+    eq(await p.evaluate(() => inboxRow("z", { amt: "5", desc: "Cafe", card: "MAX" }).card), "Max", "phone item card");
+  });
   await test("bars: by amount or by budget; the 'of' note stays; kept after reload", async () => {
     const p = await open("?local=1");
     await p.evaluate(() => { S.tx = [{ id: "a", date: ymd(), desc: "x", amt: 500, card: "My card", cat: "Groceries" }, { id: "b", date: ymd(), desc: "y", amt: 90, card: "My card", cat: "Health" }]; S.budget = { total: 0, cats: { Groceries: 1000 } }; save(); render(); document.getElementById("month").value = pk(ymd()); render(); });

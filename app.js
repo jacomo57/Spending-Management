@@ -45,6 +45,10 @@ if(!C.on)try{const r=localStorage.getItem("spend-v1");if(r)S=Object.assign(S,own
 function save(){if(C.on)return cloudSave();try{localStorage.setItem("spend-v1",JSON.stringify(S))}catch(e){}}
 // Card rules: S.cards[name] = percent of that card's purchases that counts (100 full, 50 half, 0 not counted).
 const pct=c=>S.cards[c]==null?100:S.cards[c];
+// Card names ignore upper and lower case: a card typed as "max" is the card "MAX" you already have (the one with a rule, else the first).
+const cardNames=()=>[...new Set([...Object.keys(S.cards),...S.tx.filter(t=>!t.inc).map(t=>t.card),...S.recur.filter(r=>!r.inc).map(r=>r.card||"Recurring")])].filter(Boolean);
+const sameCard=(a,b)=>String(a).trim().toLowerCase()==String(b).trim().toLowerCase();
+function canon(n){n=String(n||"").trim();const all=cardNames().filter(c=>sameCard(c,n));return all.length?all.find(c=>S.cards[c]!=null)||all[0]:n}
 // Income (asked 2026-11-15). A row with inc:1 is money that came in; its amount is stored positive and no card rule applies to it.
 //  - no category (cat ""): plain income (salary, a tax refund). Counts toward "In", never toward spending.
 //  - with a category: a payback (the partner returns part of a purchase). Lowers that category and "Spent" in full; not part of "In".
@@ -75,9 +79,9 @@ const bud=()=>{if(!S.budget||typeof S.budget!="object")S.budget={total:0,cats:ba
 const rid=x=>[x.date,x.desc,x.amt].join("|")+(x.inc?"|i":"");
 const rl=p=>p==100?"":p==50?"counts at half":p==0?"not counted":"counts at "+p+"%";
 const ruleOpts=(p,custom)=>[[100,"Counts in full"],[50,"Counts at half"],[0,"Not counted"]].map(([x,l])=>`<option value="${x}"${p==x?" selected":""}>${l}</option>`).join("")+(![100,50,0].includes(p)?`<option value="${p}" selected>Custom: ${p}%</option>`:custom?`<option value="c">Custom %…</option>`:"");
-function impRule(){$("irule").innerHTML=ruleOpts(pct($("card").value.trim()||"My card"))}
+function impRule(){$("irule").innerHTML=ruleOpts(pct(canon($("card").value)||"My card"))}
 function renameCard(old,nv){crdMsg="";if(!nv||nv==old)return render();
- if(CL.includes(nv)){crdMsg="That name is already used.";return render()}
+ if(CL.some(c=>c!=old&&sameCard(c,nv))){crdMsg="That name is already used.";return render()}
  S.tx.forEach(t=>{if(t.card==old)t.card=nv});S.recur.forEach(r=>{if(!r.inc&&(r.card||"Recurring")==old)r.card=nv});
  if(S.cards[old]!=null){S.cards[nv]=S.cards[old];delete S.cards[old]}if(cardF==old)cardF=nv;if(S.defCard==old)S.defCard=nv;save();render()}
 function syncCats(){fixMaps();if(!Array.isArray(S.cats))S.cats=BASE.slice();ORDER=[...S.cats,"Other"];S.cats.forEach(c=>{if(S.hue[c]==null)S.hue[c]=(Object.keys(S.hue).length*41+150)%360});ORDER.forEach(c=>COL[c]=c=="Other"?"hsl(150 8% 55%)":`hsl(${S.hue[c]} 55% 46%)`)}
@@ -176,7 +180,7 @@ function inboxRow(id,d){const s=k=>typeof d[k]=="string"?d[k].replace(/[\u200e\u
   cards=[...new Set(S.tx.filter(t=>!t.inc&&t.card&&t.card!="Recurring").sort((a,b)=>b.date.localeCompare(a.date)).map(t=>t.card))],
   want=s("card"),iw=(all.match(/\bwith\s+([a-z]{3,})/i)||[])[1],l4=(want.match(/(\d{4})\s*$/)||all.match(/[•*·.x]{2,}\s*(\d{4})/i)||[])[1],
   card=cards.find(c=>want&&c.toLowerCase()==want.toLowerCase())||(l4&&cards.find(c=>c.includes(l4)))||(want&&!/^\D*\d{4}$/.test(want)?want:"")||(iw&&cards.find(c=>c.toLowerCase().includes(iw.toLowerCase())))||(cards.includes(S.defCard)?S.defCard:"")||cards[0]||"My card",
-  t={id,date:/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date)?date:ymd(),desc,amt,card,cat:desc?guess(desc):"Other",auto:1};
+  t={id,date:/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date)?date:ymd(),desc,amt,card:canon(card),cat:desc?guess(desc):"Other",auto:1};
  // Read from a notification without a shekel amount (foreign money, or nothing found): keep the original words in the note.
  if(!s("amt")&&!cur&&all)t.note=all.slice(0,500);
  return t}
@@ -515,7 +519,7 @@ $("go").onclick=()=>{const m=$("msg"),sl=/נטו|וטנ/.test($("paste").value)&
  const p=parse($("paste").value);
  if(!p){m.textContent="Couldn’t find date, description and amount columns. Check the first row has headers like Date, Description, Amount.";return}
  if(!p.length){m.textContent="No purchases found in that text.";return}
- const card=$("card").value.trim()||"My card";S.cards[card]=+$("irule").value;
+ const card=canon($("card").value)||"My card";S.cards[card]=+$("irule").value;
  const[n,ni,nm]=add(p,card),sk=p.length-n-ni-nm;m.textContent=`Added ${n} purchase${n==1?"":"s"}${ni?` and ${ni} income`:""}${nm?`, matched ${nm} you had already added`:""}${sk?`, skipped ${sk} already saved`:""}.`;$("paste").value="";$("file").value="";render()};
 $("sample").onclick=()=>{const a=[["2026-11-02","Shufersal Deal Ramat Gan",312.4],["2026-11-03","Wolt Tel Aviv",89],["2026-11-04","Pango Parking",24],["2026-11-05","Netflix.com",54.9],["2026-11-06","Super-Pharm",67.5],["2026-11-08","Aroma Cafe",38],["2026-11-09","Zara",259],["2026-10-28","Rami Levy",420.1],["2026-10-30","Cinema City",96],["2026-10-21","Delek Fuel",250]];
  const b=[["2026-11-01","Arnona Tel Aviv",640],["2026-11-03","Rami Levy",488.3],["2026-11-07","Electric IEC",402],["2026-11-08","Wolt Dinner",142],["2026-11-10","Booking.com Hotel",1380],["2026-10-29","Yochananof",276.8],["2026-10-25","Partner Internet",99]];
@@ -586,7 +590,7 @@ document.addEventListener("pointerup",endDrag);document.addEventListener("pointe
 document.addEventListener("click",e=>{const t=e.target;
  if(t.dataset&&t.dataset.ic!==undefined){icOpen=icOpen==+t.dataset.ic?null:+t.dataset.ic;render();return}
  if(t.dataset&&t.dataset.pick!==undefined&&icOpen!=null){const c=S.cats[icOpen];if(c){S.icon[c]=t.dataset.pick;save()}icOpen=null;render();return}
-if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cname").focus();if(CL.includes(n)){crdMsg="That card already exists.";return render()}S.cards[n]=100;crdMsg="";$("cname").value="";save();render();return}
+if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cname").focus();if(CL.some(c=>sameCard(c,n))){crdMsg="That card already exists.";return render()}S.cards[n]=100;crdMsg="";$("cname").value="";save();render();return}
  if(t.dataset.def!==undefined){const c=CL[+t.dataset.def];if(c){if(S.defCard==c)delete S.defCard;else S.defCard=c;save();render()}return}
  if(t.dataset.cs){S.catSort=t.dataset.cs;save();render()}
  if(t.id=="bmb"){if(S.barMode=="budget")delete S.barMode;else S.barMode="budget";save();render()}
@@ -620,7 +624,7 @@ document.addEventListener("change",e=>{const t=e.target;
    if(f=="amt"){val=parseFloat(val);if(!val)return later(render);if(x.inc)val=Math.abs(val)}
    if(f=="date"&&!/^\d{4}-\d{2}-\d{2}$/.test(val))return later(render);
    if(f=="desc"&&!val.trim())return later(render);
-   if(f=="card"&&val=="__new"){val=(prompt("New card name")||"").trim();if(!val)return later(render)}
+   if(f=="card"&&val=="__new"){val=canon(prompt("New card name")||"");if(!val)return later(render)}
    if(f!="card"&&f!="note"&&!x.src&&x.amt&&x.desc)x.src=rid(x);
    x[f]=(f=="desc"||f=="card"||f=="note")?val.trim().slice(0,f=="note"?500:1e4):val;if(f=="amt")fitSplit(x);if(f=="note"&&!x.note)delete x.note;if(f=="desc"&&x.cat=="Other"&&!x.inc)x.cat=guess(x.desc);save();later(render)}}
  else if(t.dataset.rid){const r=S.recur.find(x=>x.id==t.dataset.rid),f=t.dataset.f;
