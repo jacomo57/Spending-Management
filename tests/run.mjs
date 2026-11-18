@@ -609,6 +609,30 @@ async function local() {
     await text(p, '.bw[data-c="Groceries"] .c', "of ₪ 1,000");
     await p.reload(); eq(await p.evaluate(() => S.barMode), "budget", "kept after reload");
   });
+  await test("budget alert line: near the limit at 80%, over budget past 100%, none under 80%", async () => {
+    const p = await open("?local=1");
+    await p.evaluate(() => { S.tx = [{ id: "a", date: ymd(), desc: "x", amt: 500, card: "My card", cat: "Groceries" }, { id: "b", date: ymd(), desc: "y", amt: 90, card: "My card", cat: "Health" }]; S.budget = { total: 0, cats: { Groceries: 1000, Health: 100 } }; save(); render(); document.getElementById("month").value = pk(ymd()); render(); });
+    await text(p, "#budalert", "Near the limit (80%+): Health");
+    eq(((await p.locator("#budalert").textContent()) || "").includes("Groceries"), false, "Groceries at 50% is not listed");
+    await p.evaluate(() => { S.tx[0].amt = 1200; save(); render(); });
+    await text(p, "#budalert", "Over budget: Groceries");
+    await p.evaluate(() => { S.tx[0].amt = 100; S.tx[1].amt = 10; save(); render(); });
+    eq(await p.locator("#budalert").count(), 0, "no line under 80%");
+  });
+  await test("edge cases: refund in pasted text, old .xls file, split parts follow a renamed or deleted category and come back with Undo", async () => {
+    const p = await open("?local=1");
+    await paste(p, "Visa", "Purchase at Zara for ₪250.00 on 03/11/2026\nRefund from Zara of ₪80.00 on 05/11/2026");
+    await total(p, "₪ 170");
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["תאריך עסקה", "שם בית העסק", "סכום חיוב"], ["02/11/2026", "שופרסל", 120.5], ["03/11/2026", "קפה גן", 30]]), "S");
+    const f = path.join(TMP, "old.xls"); XLSX.writeFile(wb, f, { bookType: "biff8" });
+    await p.setInputFiles("#file", f); await text(p, "#msg", "File read"); await p.fill("#card", "Old card"); await p.click("#go"); await text(p, "#msg", "Added 2");
+    await total(p, "₪ 321");
+    await p.evaluate(() => { S.tx = [{ id: "s1", date: ymd(), desc: "Mixed", amt: 400, card: "My card", cat: "Groceries", split: [{ cat: "Health", amt: 100 }] }]; save(); render() });
+    const parts = () => p.evaluate(() => S.tx[0].split[0].cat);
+    await p.evaluate(() => renameCat(S.cats.indexOf("Health"), "Wellness")); eq(await parts(), "Wellness", "renamed");
+    await p.evaluate(() => delCat(S.cats.indexOf("Wellness"))); eq(await parts(), "Other", "deleted");
+    await p.evaluate(() => document.getElementById("undo").click()); eq(await parts(), "Wellness", "undo");
+  });
   await test("a quick-added purchase merges with its statement row; phone items are read (amount, date, card, odd input)", async () => {
     const p = await open("?local=1");
     await paste(p, "Max 5678", "date,description,amount\n2026-11-02,Zara,300");

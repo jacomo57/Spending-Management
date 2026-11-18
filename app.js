@@ -112,7 +112,7 @@ function loose(text){const out=[];
   const toks=[...rest.matchAll(/\(?-?\d[\d,]*(?:\.\d+)?\)?/g)].filter(t=>!isNaN(num(t[0])));
   if(!toks.length)return;const t=toks[toks.length-1];const a=Math.abs(num(t[0]));
   const desc=(rest.slice(0,t.index)+" "+rest.slice(t.index+t[0].length)).replace(/[₪$€]|ILS|[|\t]+/g," ").replace(/\s+/g," ").trim();
-  if(dt&&a&&/\D{3}/.test(desc))out.push({date:dt,desc,amt:a})});
+  if(dt&&a&&/\D{3}/.test(desc))out.push({date:dt,desc,amt:/refund|reversal|זיכוי/i.test(l)?-a:a})});
  return out}
 // Import. A statement is read as a table of cells. table() finds every header row (an Excel file can hold several sheets)
 // and from it the purchase date, merchant and charged amount columns: "סכום חיוב" (what was charged, in shekels) wins over
@@ -387,12 +387,14 @@ function render(){
    fcst=tot+tcSum+(tot-fx.spent)/gone*(left-1);
   pace=fmt(fcst)+" by the end of the month at this pace";
   if(B.total>0){const av=B.total-tot-tcSum;
-   pace=(av>=0?fmt(av/left)+" a day for the "+left+" days left"+(tcSum>0?" (after "+fmt(tcSum)+" of fixed charges still to come)":""):fmt(-av)+" over budget once the fixed charges still to come are paid")+" · "+pace;
+   pace=(av>=0?fmt(av/left)+" a day for the "+(left==1?"last day":left+" days left")+(tcSum>0?" (after "+fmt(tcSum)+" of fixed charges still to come)":""):fmt(-av)+" over budget once the fixed charges still to come are paid")+" · "+pace;
    const bv=calc(base.filter(t=>!isF(t))).by,fb=bare();base.filter(isF).forEach(t=>parts(t).forEach(([c,x])=>{fb[c]=(fb[c]||0)+x*pct(t.card)/100}));tc.forEach(o=>{fb[o.cat]=(fb[o.cat]||0)+o.amt*pct(o.card)/100});
    const ah=S.cats.filter(c=>{const b0=B.cats[c]-(fb[c]||0),u=(bv[c]||0)/b0;return B.cats[c]>0&&b0>0&&u<1&&u>frac+.2}).slice(0,3).map(c=>{const b0=B.cats[c]-(fb[c]||0);return esc(c)+": "+Math.round((bv[c]||0)/b0*100)+"% of what's free is used, "+Math.round(frac*100)+"% of the month gone"});
    if(ah.length)pace+="<br>Ahead of pace: "+ah.join(" · ")}
   if(tc.length)soon=`<details class="soon"><summary>${fmt(tcSum)} of fixed charges still to come (${tc.length})</summary>${tc.map(o=>`<div class="row"><span class="sub">${esc(new Date(o.dt+"T00:00").toLocaleString(undefined,{day:"numeric",month:"short"}))}</span><span dir="auto">${esc(o.k)}</span><span>${fmt(o.amt)}</span></div>`).join("")}</details>`}
  if(bOn&&B.total>0){const left=B.total-tot;bl=`<div class="l${left<0?" over":""}" id="budline">${left<0?fmt(-left)+" over the "+fmt(B.total)+" budget":fmt(left)+" left of "+fmt(B.total)}</div>`}
+ if(bOn){const lv=S.cats.filter(c=>B.cats[c]>0&&(by[c]||0)>0).map(c=>[c,(by[c]||0)/B.cats[c]]),ov=lv.filter(x=>x[1]>1).map(x=>x[0]),nr=lv.filter(x=>x[1]>=.8&&x[1]<=1).map(x=>x[0]);
+  if(ov.length||nr.length)bl+=`<div class="l" id="budalert">${ov.length?`<span class="over">Over budget: ${ov.map(esc).join(", ")}</span>`:""}${ov.length&&nr.length?" · ":""}${nr.length?"Near the limit (80%+): "+nr.map(esc).join(", "):""}</div>`}
  if(pace)bl+=`<div class="l" id="pace">${pace}</div>`;
  if(fx.spent>0)bl+=`<div class="l" id="fixedline">Fixed ${fmt(fx.spent)} · everything else ${fmt(tot-fx.spent)}</div>`;
  bl+=soon;
