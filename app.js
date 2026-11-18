@@ -387,35 +387,18 @@ function render(){
  const K=calc(base),ign=base.filter(t=>t.skip),tot=K.spent,per=K.per,by=K.by;
  // Budgets are monthly and cover all cards, so they show only with one month picked and no card filter.
  const B=S.budget&&S.budget.cats?S.budget:{total:0,cats:bare()},bOn=m.length==7&&cardF=="all",bc=bOn?B.cats:bare();
- // Pace (this month's period only, all cards): what is left per day, where the month will end at this pace, categories running ahead.
- const F=fixedSet(),isF=t=>!t.inc&&!t.skip&&t.amt>0&&F[fkey(t)],fx=calc(base.filter(isF)),curM=pk(ymd()),live=bOn&&m==curM;
- let bl="",pace="",soon="";
- if(live){const[ps,pe]=mrange(m),td=ymd(),day=1000*60*60*24,dd=(x,y)=>Math.round((new Date(y)-new Date(x))/day),
-   tc=toCome(F,m),tcSum=tc.reduce((q,o)=>q+o.amt*pct(o.card)/100,0),
-   total=dd(ps,pe)+1,gone=Math.max(1,dd(ps,td)+1),left=Math.max(1,dd(td,pe)+1),frac=gone/total,
-   fcst=tot+tcSum+(tot-fx.spent)/gone*(left-1);
-  pace=fmt(fcst)+" by the end of the month at this pace";
-  if(B.total>0){const av=B.total-tot-tcSum;
-   pace=(av>=0?fmt(av/left)+" a day for the "+(left==1?"last day":left+" days left")+(tcSum>0?" (after "+fmt(tcSum)+" of fixed charges still to come)":""):fmt(-av)+" over budget once the fixed charges still to come are paid")+" · "+pace;
-   const bv=calc(base.filter(t=>!isF(t))).by,fb=bare();base.filter(isF).forEach(t=>parts(t).forEach(([c,x])=>{fb[c]=(fb[c]||0)+x*pct(t.card)/100}));tc.forEach(o=>{fb[o.cat]=(fb[o.cat]||0)+o.amt*pct(o.card)/100});
-   const ah=S.cats.filter(c=>{const b0=B.cats[c]-(fb[c]||0),u=(bv[c]||0)/b0;return B.cats[c]>0&&b0>0&&u<1&&u>frac+.2}).slice(0,3).map(c=>{const b0=B.cats[c]-(fb[c]||0);return esc(c)+": "+Math.round((bv[c]||0)/b0*100)+"% of what's free is used, "+Math.round(frac*100)+"% of the month gone"});
-   if(ah.length)pace+="<br>Ahead of pace: "+ah.join(" · ")}
-  if(tc.length)soon=`<details class="soon"><summary>${fmt(tcSum)} of fixed charges still to come (${tc.length})</summary>${tc.map(o=>`<div class="row"><span class="sub">${esc(new Date(o.dt+"T00:00").toLocaleString(undefined,{day:"numeric",month:"short"}))}</span><span dir="auto">${esc(o.k)}</span><span>${fmt(o.amt)}</span></div>`).join("")}</details>`}
+ let bl="";
  if(bOn&&B.total>0){const left=B.total-tot,u=tot/B.total;bl=`<div class="bar hbar${u>1?" over":u>=.8?" mid":""}" aria-hidden="true"><i style="width:${Math.max(0,Math.min(1,u))*100}%"></i></div><div class="l${left<0?" over":""}" id="budline">${left<0?fmt(-left)+" over the "+fmt(B.total)+" budget":fmt(left)+" left of "+fmt(B.total)}</div>`}
  if(bOn){const ov=S.cats.filter(c=>bLvl(by[c]||0,B.cats[c])==2),nr=S.cats.filter(c=>bLvl(by[c]||0,B.cats[c])==1);
   if(ov.length||nr.length)bl+=`<div class="l" id="budalert">${ov.length?`<span class="over">Over budget: ${ov.map(esc).join(", ")}</span>`:""}${ov.length&&nr.length?" · ":""}${nr.length?"Near the limit (80%+): "+nr.map(esc).join(", "):""}</div>`}
  if(bOn&&bLvl(tot,B.total)==1)bl+=`<div class="l" id="totalalert">Near the limit (80%+): the whole budget</div>`;
  budNote(bOn,m,B,by,tot);
- if(pace)bl+=`<div class="l" id="pace">${pace}</div>`;
- if(fx.spent>0)bl+=`<div class="l" id="fixedline">Fixed ${fmt(fx.spent)} · everything else ${fmt(tot-fx.spent)}</div>`;
- bl+=soon;
  if(document.activeElement!=$("btotal"))$("btotal").value=B.total||"";if(document.activeElement!=$("mstart"))$("mstart").value=S.mstart||"";
  {const ks=Object.keys(S.rules).sort((x,y)=>x.localeCompare(y)),co=[...S.cats,"Other"];
   $("merlist").innerHTML=ks.map(k=>{const c=S.rules[k],os=co.includes(c)?co:[...co,c];return `<div class="row"><span dir="auto" style="width:170px">${esc(k)}</span><select data-mk="${esc(k)}" aria-label="Category for ${esc(k)}">${os.map(o=>`<option value="${esc(o)}"${o==c?" selected":""}>${esc(o)}</option>`).join("")}</select><button class="x" data-delmk="${esc(k)}" aria-label="Forget ${esc(k)}">✕</button></div>`}).join("")||`<span class="msg">None yet. They are learned when you change a purchase's category.</span>`}
  $("budlist").innerHTML=S.cats.map((c,i)=>`<label class="row"><span dir="auto" style="width:150px">${esc(c)}</span><input data-bi="${i}" type="number" min="0" step="1" value="${B.cats[c]||""}" placeholder="No budget" style="width:120px" aria-label="Budget for ${esc(c)}"></label>`).join("");
  const shown=Object.keys(per).sort((a,b)=>per[b]-per[a]||a.localeCompare(b)),one=shown.length==1?rl(pct(shown[0])):"";
  $("big").innerHTML=`<div><div class="n">${fmt(tot)}</div><div class="l">spent${one?" · "+one:""}${K.back?" · after "+fmt(K.back)+" paid back":""}</div>${bl}</div>`+
-  (K.inc?`<div><div class="m" id="sin">${fmt(K.inc)}</div><div class="l">in</div></div><div><div class="m${K.inc<tot?" over":""}" id="sleft">${fmt(K.inc-tot)}</div><div class="l">left over</div></div>`:"")+
   (shown.length>1?shown.map(c=>`<div><div class="m">${fmt(per[c])}</div><div class="l">${esc(c)}${rl(pct(c))?" · "+rl(pct(c)):""}</div></div>`).join(""):"")+(ign.length?`<div class="l">Not counting ${ign.length} ignored (${fmt(ign.reduce((a,t)=>a+v(t),0))})</div>`:"");
  const mx=Math.max(1,...Object.values(by));
  // Bars (S.barMode): by amount (every bar against the largest category) or by budget (a bar with a budget fills toward it, one without stays empty).
@@ -461,24 +444,6 @@ function render(){
  if(focusSp){const el=document.querySelector(`[data-sp="${focusSp[0]}"][data-i="${focusSp[1]}"][data-f="amt"]`);if(el)el.focus();focusSp=null}
  if(focusTid){const el=document.querySelector(`[data-tid="${focusTid}"][data-f="desc"]`);if(el)el.focus();focusTid=null}
 }
-// Fixed charges: a purchase that comes back every month with about the same amount (one row a month, same words, 3 or more months,
-// or a recurring item). Nothing is saved; it is worked out from the purchases. fixedSet() -> {key:{amt,day,last,cat}}.
-const fkey=t=>String(t.desc).toLowerCase().replace(/[\d\/.,:*#+_-]+/g," ").replace(/\s+/g," ").trim(),
- mnum=m=>+m.slice(0,4)*12+ +m.slice(5,7)-1;
-function fixedSet(){const g=bare(),out=bare(),cur=pk(ymd());
- S.tx.forEach(t=>{if(t.inc||t.skip||!(t.amt>0))return;const k=fkey(t);if(k.length>2)(g[k]=g[k]||[]).push(t)});
- for(const k in g){const rows=g[k],by=bare();rows.forEach(t=>{const q=pk(t.date);(by[q]=by[q]||[]).push(t)});
-  const ms=Object.keys(by).sort(),rec=rows.some(t=>String(t.id).startsWith("rec-")),last=ms[ms.length-1];
-  if(mnum(cur)-mnum(last)>2||ms.some(x=>by[x].length>1&&!rec))continue;
-  const am=rows.map(t=>t.amt).sort((a,b)=>a-b),med=am[am.length>>1];
-  if(!rec&&(ms.length<3||ms.filter(x=>Math.abs(by[x][0].amt-med)<=med*.15).length<3))continue;
-  const l=by[last][0];out[k]={amt:l.amt,day:+l.date.slice(8,10),last,cat:l.cat,card:l.card}}
- return out}
-// What is still to come in the period m (today's): fixed charges seen last period but not yet this one, and not yet due.
-function toCome(F,m){const today=ymd(),[a]=mrange(m),pm=pk(dstr(new Date(+a.slice(0,4),+a.slice(5,7)-1,+a.slice(8,10)-1))),out=[],[y,mo]=a.split("-").map(Number);
- for(const k in F){const f=F[k];if(f.last!=pm)continue;
-  const mm=f.day>=MS()?mo-1:mo,dt=dstr(new Date(y,mm,Math.min(f.day,new Date(y,mm+1,0).getDate())));if(dt>today)out.push({k,dt,amt:f.amt,cat:f.cat,card:f.card})}
- return out.sort((x,y)=>x.dt.localeCompare(y.dt))}
 // Report (view only, not saved). All numbers come from calc() and v(); ignored rows only appear in the list when asked for.
 function repRows(m){return S.tx.filter(t=>(m=="all"||pk(t.date).startsWith(m))&&(cardF=="all"||t.card==cardF))}
 const sec=(t,b)=>`<h3>${esc(t)}</h3>${b}`;

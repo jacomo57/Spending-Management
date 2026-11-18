@@ -94,6 +94,9 @@ const saved = p => p.waitForFunction(() => document.getElementById("sync").textC
 // The Recurring form is hidden until + Add recurring is pressed.
 const recOpen = async p => { if (!(await p.locator("#rdesc").isVisible())) await p.click("#recnew") };
 const rows = async p => { const b = p.locator("#showall"); if (await b.isVisible() && /Show all/.test(await b.textContent())) await b.click(); return p.locator("#rows tr:has([data-del])").count() };
+// Income and left over are not on the main screen any more: they are the 2nd and 3rd big numbers of the report.
+const repIn = async (p, inc, left) => { await p.click("#repb"); await text(p, "#report .rbig div:nth-child(2) b", inc); if (left != null) await text(p, "#report .rbig div:nth-child(3) b", left); await p.click("[data-rclose]") };
+const repBigCount = async p => { await p.click("#repb"); await text(p, "#report .rbig b", "₪"); const n = await p.locator("#report .rbig div").count(); await p.click("[data-rclose]"); return n };
 const today = (d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"))(new Date());
 const text = async (p, sel, want) => {
   try { await p.waitForFunction(([s, w]) => { const e = document.querySelector(s); return e && e.textContent.includes(w) }, [sel, want], { timeout: 15000 }) }
@@ -178,11 +181,11 @@ async function smoke() {
     await setField(d1.locator('tr.inc [data-f="desc"]'), "Salary");
     await setField(d1.locator('tr.inc [data-f="amt"]'), "9000");
     await saved(d1);
-    await text(d2, "#sin", "₪ 9,000"); await total(d2, "₪ 2,635");
+    await repIn(d2, "₪ 9,000"); await total(d2, "₪ 2,635");
     await d2.selectOption("#month", "2026-11"); await text(d2, "#budline", "₪ 5,000");
     await d2.click("#accbtn"); await d2.click("#signout");
     await signIn(d2, A); await d2.locator("#app").waitFor();
-    await text(d2, "#sin", "₪ 9,000");
+    await repIn(d2, "₪ 9,000");
     await d2.selectOption("#month", "2026-11"); await text(d2, "#budline", "₪ 5,000");
     await d2.selectOption("#month", "all");
   });
@@ -427,7 +430,7 @@ async function local() {
   await test("bank-style file: negatives import as spending, positives as income; re-import skips both", async () => {
     const p = await open("?local=1"), f = "date,description,amount\n2026-11-03,Rent,-4000\n2026-11-05,Shufersal,-200\n2026-11-10,Salary,9000";
     eq(await paste(p, "Bank", f), "Added 2 purchases and 1 income.", "import");
-    await total(p, "₪ 4,200"); await text(p, "#sin", "₪ 9,000"); await text(p, "#sleft", "₪ 4,800");
+    await total(p, "₪ 4,200"); await repIn(p, "₪ 9,000", "₪ 4,800");
     eq(await p.locator('tr.inc:has(input[value="Salary"]) select[data-id]').inputValue(), "", "income has no category");
     eq(await paste(p, "Bank", f), "Added 0 purchases, skipped 3 already saved.", "re-import");
   });
@@ -437,10 +440,10 @@ async function local() {
     await p.click("#addi");
     await setField(p.locator('tr.inc [data-f="desc"]'), "Partner");
     await setField(p.locator('tr.inc [data-f="amt"]'), "-150");
-    await total(p, "₪ 500"); await text(p, "#sin", "₪ 150"); await text(p, "#sleft", "₪ -350");
+    await total(p, "₪ 500"); await repIn(p, "₪ 150", "₪ -350");
     eq(await p.locator('tr.inc [data-f="amt"]').inputValue(), "150", "income amount is kept positive");
     await p.locator("tr.inc select[data-id]").selectOption("Groceries");
-    await total(p, "₪ 350"); eq(await p.locator("#sin").count(), 0, "a payback is not income");
+    await total(p, "₪ 350"); eq(await repBigCount(p), 1, "a payback is not income");
     await text(p, '.bw[data-c="Groceries"] .amt', "₪ 250");
     eq(await p.locator('tr:has(input[value="Zara"]) select[data-id]').inputValue(), "Shopping", "payback did not re-sort purchases");
     await p.reload(); await total(p, "₪ 350");
@@ -452,8 +455,8 @@ async function local() {
     await recOpen(p); await p.fill("#rdesc", "Salary"); await p.fill("#ramt", "9000"); await p.selectOption("#rkind", "inc");
     eq(await p.locator("#rcard").isVisible(), false, "card choice hidden for income");
     await p.click("#radd");
-    await total(p, "₪ 0"); await text(p, "#sin", "₪ 9,000"); eq(await p.locator("tr.inc").count(), 1, "income rows");
-    await p.reload(); await text(p, "#sin", "₪ 9,000"); eq(await p.locator("tr.inc").count(), 1, "income rows after reload");
+    await total(p, "₪ 0"); await repIn(p, "₪ 9,000"); eq(await p.locator("tr.inc").count(), 1, "income rows");
+    await p.reload(); await repIn(p, "₪ 9,000"); eq(await p.locator("tr.inc").count(), 1, "income rows after reload");
   });
   await test("budgets: left this month, bar against the budget, follows a renamed category", async () => {
     const p = await open("?local=1"), mo = today.slice(0, 7);
@@ -490,7 +493,7 @@ async function local() {
     await text(p, "#sliptxt", "10/2026"); await text(p, "#sliptxt", "₪ 8,640");
     eq(await p.inputValue("#slipdate"), "2026-11-03", "issue date");
     await p.click("#slipgo");
-    await text(p, "#sin", "₪ 8,640"); await total(p, "₪ 0");
+    await repIn(p, "₪ 8,640"); await total(p, "₪ 0");
     eq(await p.locator('tr.inc input[value="Salary 10/2026"]').count(), 1, "income row");
     eq(await p.locator('tr.inc [data-f="date"]').inputValue(), "2026-11-03", "income date");
     eq(await p.evaluate(() => JSON.stringify(S).includes("000000018")), false, "nothing else from the slip is saved");
@@ -508,7 +511,7 @@ async function local() {
     try { await p.locator("#slip").waitFor({ timeout: 120000 }) } catch (e) { throw new Error("payslip picture not recognised, message: " + await p.locator("#msg").textContent()) }
     await text(p, "#sliptxt", "08/2026"); await text(p, "#sliptxt", "₪ 7,912");
     eq(await p.inputValue("#slipdate"), "2026-09-02", "issue date");
-    await p.click("#slipgo"); await text(p, "#sin", "₪ 7,912");
+    await p.click("#slipgo"); await repIn(p, "₪ 7,912");
     eq(await p.locator('tr.inc input[value="Salary 08/2026"]').count(), 1, "income row");
     await p.setInputFiles("#file", await shot("other.jpg", box(100, 300, "סתם מכתב 120.00")));
     await p.waitForFunction(() => /Couldn’t find the net pay/.test(document.getElementById("msg").textContent), null, { timeout: 120000 });
@@ -520,7 +523,7 @@ async function local() {
     await p.fill("#paste", "תלוש משכורת לחודש 09/2026\nשכר נטו 8,100.00\nנטו לתשלום 8,050.50 ₪");
     await p.click("#go"); await p.locator("#slip").waitFor();
     await text(p, "#sliptxt", "09/2026"); await p.fill("#slipdate", "2026-10-05"); await p.click("#slipgo");
-    await text(p, "#sin", "₪ 8,051"); eq(await p.inputValue("#paste"), "", "pasted slip cleared");
+    await repIn(p, "₪ 8,051"); eq(await p.inputValue("#paste"), "", "pasted slip cleared");
     const f = path.join(TMP, "other.pdf"), g = await browser.newPage();
     await g.setContent("<p>Just a letter, total 120.00</p>"); await g.pdf({ path: f }); await g.close();
     await p.setInputFiles("#file", f);
@@ -644,24 +647,18 @@ async function local() {
     await setField(p.locator('.cn[value="Groceries"]'), "Food");
     eq((await ci("Food").innerText()).trim(), "🍔", "icon follows a rename");
   });
-  await test("month start day; fixed charges; what is still to come; pace line", async () => {
+  await test("month start day (pure helpers and the Budget panel); no pace, fixed or income lines on the main screen", async () => {
     const p = await open("?local=1");
     // Pure helpers: a month that starts on the 15th.
     eq(await p.evaluate(() => { S.mstart = 15; return [pk("2026-11-10"), pk("2026-11-15"), pk("2026-01-02"), mrange("2026-10").join(">")].join(" ") }), "2026-10 2026-11 2025-12 2026-10-15>2026-11-14", "mk and mrange with start day 15");
     await p.evaluate(() => { delete S.mstart });
-    // Netflix every month (fixed), Gym on the 28th of the last 3 months (fixed, due later), Shufersal many times a month (not fixed).
-    await p.evaluate(() => {
-      const d = new Date(), at = (back, day) => dstr(new Date(d.getFullYear(), d.getMonth() - back, day)); let n = 0;
-      const add = (date, desc, amt) => S.tx.push({ id: "t" + (n++), date, desc, amt, card: "My card", cat: "Other" });
-      for (let b = 1; b <= 3; b++) { add(at(b, 3), "Netflix", 50); add(at(b, 28), "Gym", 200); add(at(b, 5), "Shufersal", 300); add(at(b, 9), "Shufersal", 280) }
-      add(at(0, 1), "Netflix", 50); add(ymd(), "Shufersal", 100); S.budget = { total: 3000, cats: {} }; save(); render();
-    });
+    // The main screen carries no per-day, pace, fixed-charge or income/left-over lines (removed 2026-11-18, brainstorm pending).
+    await p.evaluate(() => { S.tx.push({ id: "x1", date: ymd(), desc: "Shufersal", amt: 100, card: "My card", cat: "Other" }, { id: "x2", date: ymd(), desc: "Salary", amt: 5000, inc: 1, card: "", cat: "" }); S.budget = { total: 3000, cats: {} }; save(); render() });
     await p.selectOption("#month", await p.evaluate(() => pk(ymd())));
-    await text(p, "#fixedline", "Fixed ₪ 50 · everything else ₪ 100");
-    await text(p, "#pace", "by the end of the month at this pace");
-    if (await p.evaluate(() => +ymd().slice(8, 10)) <= 27) await text(p, ".soon summary", "₪ 200 of fixed charges still to come");
-    eq(await p.evaluate(() => Object.keys(fixedSet()).sort().join()), "gym,netflix", "which charges count as fixed");
-    eq(await p.evaluate(() => fkey({ desc: "Disney+ 3/12 *77 Studios" })), "disney studios", "digits and signs dropped, letters kept");
+    await text(p, "#budline", "₪ 2,900 left of ₪ 3,000");
+    for (const id of ["pace", "fixedline", "sin", "sleft"]) eq(await p.locator("#" + id).count(), 0, id + " is not on the main screen");
+    eq(await p.locator(".soon").count(), 0, "no fixed charges still to come");
+    eq(await p.locator("#cur").isVisible(), false, "currency is out of the way (Account panel)");
     // Month start day from the Budgets panel: saved, and months are named by their dates.
     await p.click('[data-p="bud"]'); await setField(p.locator("#mstart"), "15");
     eq(await p.evaluate(() => S.mstart), 15, "saved start day");

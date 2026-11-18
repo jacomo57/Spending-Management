@@ -233,3 +233,9 @@ The user confirmed on 2026-11-16 that the live site signs in and saves under the
 - Decisions: a pick is explicit (hiding rent leaves 3 until another is starred, so the list never changes by itself); editing moved out of the main screen to keep the quick look clean; `calc()`/`v()` untouched.
 - Checked: 52 tests (1 new; 4 older tests now open the edit view first), browser at desktop and 375px. Not checked: sync of the pick between two real devices (it rides in the settings JSON like `catSort`), dark mode of the new rows (they use the theme variables), a real phone.
 - Code review (low): no findings.
+
+## 2026-11-18: main screen trimmed (user request, before part 3)
+
+- Removed from the main screen: "X a day left", "by the end of the month at this pace", "Ahead of pace", "Fixed X · everything else Y", "fixed charges still to come", In and Left over, the currency box, and the help paragraph under Expenses. Dead code removed with them (`fixedSet`, `toCome`, `fkey`, `mnum`, `.soon`, `.set`); it stays in git history at commit edc2d55.
+- Moved: the currency symbol box is now at the top of the Account (Backup in local mode) panel. Income and left over stay in the Report (already there).
+- Tests: 52, `failures: 0`; the old fixed/pace test now checks those lines are gone, and income checks read the Report. Open design questions (main screen content, multi-currency, How-to page, report with income) are written in `docs/handoff.md`.

@@ -12,7 +12,7 @@ Payslip (תלוש שכר): pick the PDF in Import, or paste its text. Only the n
 Cards: S.cards[name] = percent that counts (full 100, half 50, custom, not counted 0). Rename a card in the Cards panel. A joint card is a card set to half.
 Summary: spent, In and Left over (when the view has income), a figure per card (when more than one), currency.
 Income: a row with inc:1 and a positive amount ("+ Add income", recurring income, positive rows of a bank file). No category = income, counts toward In. With a category = a payback, lowers that category and Spent in full. Card rules never apply to income. calc(rows) in app.js is the single definition of spent / in / per category / per card.
-Budgets (Budget panel): S.budget = {total, cats:{name:amount}}, monthly, saved with the settings. Shown with one month picked and no card filter: "X left of Y" under Spent, a pace note in the current month, category bars fill against their budget (amber from 80%, red when over). Budgets follow a renamed category.
+Budgets (Budget panel): S.budget = {total, cats:{name:amount}}, monthly, saved with the settings. Shown with one month picked and no card filter: "X left of Y" under Spent, category bars fill against their budget (amber from 80%, red when over). Budgets follow a renamed category.
 Report button (types: Monthly, Selected expenses = what the filters and search show, Trend = last 6 or 12 months): a print-ready monthly (or yearly, or all-time) report with totals, against budget and last month, income and left over, categories, cards, top 10 merchants, 5 largest, recurring bills and the full list (options: list on/off, ignored rows on/off); Print / Save as PDF uses the browser, Export to Excel saves the rows. Merchants panel (learned merchant to category, change or forget), All of YEAR entries in the month picker (budgets hidden), a Note on each purchase (searchable). Categories: Compare button (two months side by side per category with the change, a total row, an In row when there is income, and a 12-month trend strip; tap a month to pick it; neutral colours, not saved). Editable, add, bars (click to filter), sort by size or own order (drag grip), colors stay per category. Other = catch-all. New accounts start with 9 default categories. Accounts that already saved their categories keep them. Utility and home-shop keywords are extra keyword groups of Rent & payments and Shopping in CATS (app.js), checked in their old place in the order.
 Expenses: inline edit, add, month + card filters, Search box (every word must appear in description, category, card or amount; shows "N found, ₪X"; summary and bars keep showing the month; not saved), column sort, Ignore checkbox. A negative amount is a refund and lowers the totals. An added purchase left empty is dropped on the next start.
 Categorizing: learned merchant first, then EN + HE keywords, then the issuer's own category column if the file has one (Max); anything else stays in Other for manual sorting.
@@ -32,6 +32,7 @@ Tags (2026-11-16): a #word in a purchase's note is a tag (nothing extra is saved
 Icons (2026-11-16): each category has an emoji icon. The starting categories have one (ICON/ic() in app.js); pressing the icon in the category list opens a picker (a grid, none, or type your own); the choice is saved in S.icon[category] ("" = none), follows a rename, and shows in the category list (also on phones), the category boxes and the filter chip. Cursor: plain text and numbers show the normal arrow (body{cursor:default}); only things you can click or type in show the hand or text cursor. Tested (local mode): starting icon, pick, type, none, reload, rename.
 Month start day, fixed charges, pace (2026-11-16): Budgets panel "Month starts on day" (S.mstart, 1 to 28, default 1) makes every month run from that day to the day before the next, named by its dates (pk(date) gives a period key, mrange(m) its first and last day; cloud.js still stores calendar months, nothing there changed). Fixed charges are worked out, not saved (fixedSet()): same words, one row a month, about the same amount (within 15%) in 3 or more months, or a recurring item. The top shows "Fixed X · everything else Y". For the current month with all cards: a day allowance ("X a day for N days left", after the fixed charges still to come, shown when a budget is set), a forecast ("Z by the end of the month at this pace" = spent + fixed still to come + the other spending's daily pace), "Ahead of pace" for categories whose free part (budget minus their fixed charges) is used faster than the month passes, and a "still to come" list of fixed charges seen last month and not yet due. No alert when a fixed charge changes price (asked not to). Tested (local mode).
 Opening (2026-11-16): the page opens on the current month (or the latest month with data) instead of All time, so budgets and pace show without picking a month. Quick add (a button and an app-icon shortcut) was removed 2026-11-18: the MacroDroid popup and Google Wallet macros do its job on the phone, and "+ Add purchase" does it in the app.
+Main screen trimmed (2026-11-18): the per-day, end-of-month pace, "Fixed X / everything else Y" and fixed-charges-to-come lines, the In and Left over numbers, the currency box and the help text under Expenses were removed (the code is in git commit edc2d55 if wanted back). Income and left over live in the Report. The currency symbol is now in the Account (Backup) panel. What the main screen should show, multi-currency, a How-to page and an income/left-over report are open design questions: see docs/handoff.md.
 Main-screen categories (2026-11-18): the main screen lists only the picked categories (S.catPick, saved and synced; Undo) or, with none picked, the 4 biggest of the period, in the chosen order (By size / My order). "All categories · Edit" opens every row with rename, icon, drag, delete and a ☆ to pick; "Back to the 4 biggest" clears the pick. A rename keeps the pick.
 Bars (2026-11-16): the "Bars: amount / budget" button above the categories (S.barMode, saved) picks what the category bars show: every bar against the largest category, or a bar with a budget filling toward it (one without a budget stays empty). The "of ₪X" note next to the amount is always shown; the warning colour (rose, --warn) starts at 80% of a budget and red (--bad) when over, in both modes.
 Cards panel has "Add card" (2026-11-17). Card of a purchase (2026-11-17): a dropdown of saved cards plus "＋ New card…" (asks for a name).
@@ -64,7 +65,7 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
 <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=9b6427c841">
+<link rel="stylesheet" href="style.css?v=98bebbaa3e">
 </head>
 <body>
 <main>
@@ -99,6 +100,7 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
 </nav>
 
 <div class="panel" id="p-acc" hidden><div class="grid">
+  <label class="row"><b style="width:150px">Currency symbol</b><input id="cur" size="3" style="width:72px" aria-label="Currency symbol"></label>
   <div class="cl">Signed in as <b id="who"></b></div>
   <div class="row cl"><button id="signout">Sign out</button><span class="msg" id="outmsg"></span></div>
   <div class="row"><button id="dl">Download my data</button><button id="rsbtn">Restore from file</button><input type="file" id="rsfile" accept=".json,application/json" hidden><span class="msg" id="rsmsg"></span></div>
@@ -143,7 +145,6 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
 
 <div class="sum">
   <div class="big" id="big"></div>
-  <div class="set"><label>Currency <input id="cur" size="3" style="width:52px" aria-label="Currency symbol"></label></div>
 </div>
 
 <section>
@@ -167,14 +168,13 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
   <div class="tags" id="tags" hidden></div>
   <div class="tw"><table><thead><tr id="head"></tr></thead><tbody id="rows"></tbody></table></div>
   <div class="row allrow" id="allrow" hidden><button id="showall"></button></div>
-  <p class="sub">Changing a category teaches the app that merchant. A refund is a minus amount. Income with a category is a payback and lowers that category. Choose Split… in a category box to put part of a purchase in another category. A #word in a note is a tag.</p>
 </section>
 </div>
 </main>
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="toast top" id="bnote" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=9b6427c841"></script>
-<script src="cloud.js?v=9b6427c841"></script>
+<script src="app.js?v=98bebbaa3e"></script>
+<script src="cloud.js?v=98bebbaa3e"></script>
 </body>
 </html>
