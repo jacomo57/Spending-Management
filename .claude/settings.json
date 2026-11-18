@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git fetch -q && git checkout -q dev && git pull -q --ff-only && echo \"On dev, up to date.\" || echo \"Could not switch to dev and pull: check git status before editing.\""
+          }
+        ]
+      }
+    ]
+  }
+}
