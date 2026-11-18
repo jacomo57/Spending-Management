@@ -22,7 +22,7 @@ button.danger{color:var(--bad);background:none;border-color:transparent}
 .grid{display:grid;gap:10px}
 textarea{width:100%;min-height:90px;font-family:ui-monospace,Menlo,monospace;font-size:12px}
 .sum{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-top:16px;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:0 6px 20px var(--shadow)}
-.hbar{height:10px;margin:10px 0 4px;min-width:min(320px,70vw)}.hbar i{background:var(--ok)}.hbar.mid i{background:var(--warn)}.hbar.over i{background:var(--bad)}
+.sum>.big{flex:1 1 100%}.big>div:first-child{flex:1 1 100%}.hbar{height:12px;margin:12px 0 6px}.hbar i{background:var(--ok)}.hbar.mid i{background:var(--warn)}.hbar.over i{background:var(--bad)}
 #budline{font-size:17px;font-weight:600;color:var(--ink)}#budline.over{color:var(--bad)}
 .big{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-end}
 .big .n{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1}
@@ -32,8 +32,8 @@ tr.inc td.amt input{color:var(--acc);font-weight:600}
 .bw small.c{padding:0}
 .big .l,.sub{color:var(--mute);font-size:13px}
 .cats{display:grid;gap:2px;margin-top:10px}
-.cat{display:grid;grid-template-columns:20px 22px minmax(110px,180px) 1fr 28px 28px;gap:8px;align-items:center;border:1px solid transparent;border-radius:8px;padding:2px 4px}
-.cat.short{grid-template-columns:22px minmax(110px,180px) 1fr;width:100%;background:none;color:inherit;font:inherit;text-align:start;cursor:pointer;min-height:0}
+.cat{display:grid;grid-template-columns:20px 34px minmax(110px,180px) 1fr 28px 28px;gap:8px;align-items:center;border:1px solid transparent;border-radius:8px;padding:2px 4px}
+.cat.short{grid-template-columns:34px minmax(110px,180px) 1fr;width:100%;background:none;color:inherit;font:inherit;text-align:start;cursor:pointer;min-height:0}
 .cat.short:hover{background:var(--card)}.cat.short .cn{padding:6px 8px}
 .pin{border:0;background:none;color:var(--mute);font-size:17px;padding:0;min-height:28px;cursor:pointer}button.pin.on{color:var(--acc);background:none}
 .cat.sel{border-color:var(--ink)}
@@ -80,10 +80,10 @@ input[type=checkbox]{min-height:0}
 #auth{padding:14px}
 .panel .row>input,.panel .row>select{flex:1 1 140px;min-width:0;width:auto!important}
 .panel .row>input[type=number]{flex:1 1 80px}
-.cat{grid-template-columns:28px 26px 1fr 44px;gap:0 4px}
+.cat{grid-template-columns:28px 38px 1fr 44px;gap:0 4px}
 .cat .ci{grid-column:2;grid-row:1/3}.cat .pick{grid-row:3}
 .cat .cn{grid-column:3;grid-row:1}.cat .bw{grid-column:3;grid-row:2;min-height:36px}.cat .grip{grid-row:1/3}.cat .x{grid-column:4;grid-row:2}.cat .pin{grid-column:4;grid-row:1}
-.cat.short{grid-template-columns:26px 1fr}.cat.short .ci{grid-column:1}.cat.short .cn,.cat.short .bw{grid-column:2}
+.cat.short{grid-template-columns:38px 1fr}.cat.short .ci{grid-column:1}.cat.short .cn,.cat.short .bw{grid-column:2}
 .grip{min-height:44px;display:flex;align-items:center;justify-content:center}
 .bw{grid-template-columns:1fr 76px;min-height:44px}
 .x{min-width:44px}
@@ -117,8 +117,8 @@ td.empty{grid-column:1/-1}
 .toast button{min-height:44px}
 }
 @media (max-width:640px){
-.flt,thead tr{scrollbar-width:none}.flt{flex-wrap:nowrap;overflow-x:auto}.flt>*{flex:none}
-thead tr{flex-wrap:nowrap;overflow-x:auto;gap:6px}thead th{flex:none}
+.flt,thead tr{scrollbar-width:none}.flt{flex-wrap:wrap}.flt #q{flex:1 1 120px;width:auto!important}
+thead tr{flex-wrap:wrap;gap:4px}thead th{flex:none}thead th button{padding:3px 9px;font-size:13px;min-height:32px}
 }
 
 .cmpt{margin-top:8px;font-size:14px}
@@ -156,8 +156,9 @@ small.sr{text-align:left;padding:0 6px 3px}
 .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.tags button{font-size:13px;padding:3px 10px}
 /* Phone: a split purchase gets a full-width category row of its own, under the date and card. */
 @media (max-width:640px){.sp{min-width:0;gap:4px;margin-top:4px}.sp input{width:96px}tr:has(.sp) td.ct{grid-column:1/-1;grid-row:3}tr:has(.sp) td.d{grid-column:1/3}tr:has(.sp) td.k{grid-row:4}}
-.ci{text-align:center;font-size:16px;line-height:1;cursor:default}
-button.ci{cursor:pointer;border:1px solid transparent;background:none;padding:2px;border-radius:6px;min-height:28px}button.ci:hover{border-color:var(--line);background:var(--card)}button.ci.none{color:var(--mute);opacity:.6}
+.ci{text-align:center;font-size:16px;line-height:1;cursor:default;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;padding:0;background:color-mix(in srgb,var(--ic,var(--mute)) 20%,var(--card))}
+.cathead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px}.cathead .row{gap:4px}.cathead button{padding:4px 9px;font-size:13px;min-height:34px;white-space:nowrap}
+button.ci{cursor:pointer;border:1px solid transparent;min-height:32px}button.ci:hover{border-color:var(--ic,var(--line))}button.ci.none{color:var(--mute);opacity:.6}
 .cat .pick{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px;padding:6px 0}.pick button{border:1px solid var(--line);background:var(--card);border-radius:6px;padding:2px 6px;font-size:16px;min-width:32px;min-height:32px}.pick button[data-pick='']{font-size:12px}.pick input{width:84px;min-height:32px}
 span.cn:hover{border-color:transparent;background:none}
 

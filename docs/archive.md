@@ -239,3 +239,9 @@ The user confirmed on 2026-11-16 that the live site signs in and saves under the
 - Removed from the main screen: "X a day left", "by the end of the month at this pace", "Ahead of pace", "Fixed X · everything else Y", "fixed charges still to come", In and Left over, the currency box, and the help paragraph under Expenses. Dead code removed with them (`fixedSet`, `toCome`, `fkey`, `mnum`, `.soon`, `.set`); it stays in git history at commit edc2d55.
 - Moved: the currency symbol box is now at the top of the Account (Backup in local mode) panel. Income and left over stay in the Report (already there).
 - Tests: 52, `failures: 0`; the old fixed/pace test now checks those lines are gone, and income checks read the Report. Open design questions (main screen content, multi-currency, How-to page, report with income) are written in `docs/handoff.md`.
+
+## 2026-11-18: redesign part 3 (Sonnet), polish
+
+- Hero card: the budget bar now fills the card width. Categories: the header buttons are compact and stay on one line on a phone; category icons are round and tinted in the category colour (main list and Edit view). Expenses: the filter row and the sort chips wrap instead of scrolling sideways. Report: text cells keep the page direction (Hebrew wrapped in `<bdi>`), so they line up with their headers.
+- Checked in the browser at 375px and desktop, light and dark: main screen, Budget and Recurring panels, Edit view, report. 52 tests, `failures: 0`; code review (low) no findings. Not checked: a real phone, real print/PDF, the other panels at phone size (listed in the handoff).
+- `docs/app.md` and the spec comment in `index.html` updated for the new main screen.

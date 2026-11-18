@@ -13,6 +13,11 @@ Moved out of `CLAUDE.md` on 2026-11-18 so that file stays short. Read this befor
 - Cloud (localhost against the emulators; the live site against the real project): sign-in required, data in Firestore, Account panel shown (with Download my data / Restore from file), Backup hidden, localStorage unused.
 - No bank connection. In local-only mode the page contacts no other sites except fonts (and a preconnect hint to Google's sign-in and database hosts that opens a connection but sends nothing); in cloud mode it also talks to Firebase (the SDK is served from `vendor/firebase/`). A Content Security Policy in `index.html` lists everything the page may load or contact: a new outside address must be added there or the browser blocks it (the tests fail on any blocked request).
 
+## Main screen and look (redesign, 2026-11-18)
+- Copilot-blue theme (variables in `style.css`), Auto/Light/Dark in the More menu (`spend-theme` in localStorage, per device). The main screen: **+ Add purchase** and **More** (Import, Cards, Recurring, Budget, Report, Merchants, Account/Backup, Theme, Delete all data); a hero card with Spent, the budget bar and line, budget alerts; Categories; Expenses (latest 5, Show all). Income, left over, per-day, pace and fixed-charge lines are not on the main screen (income and left over are in the Report; the removed code is in git commit `edc2d55`).
+- Categories: only the picked ones (`S.catPick`, saved and synced, Undo) or the 4 biggest of the period, in By size / My order. **All categories · Edit** opens every row (rename, round icon, drag, delete, ☆ to pick, + Add category). Round icons take the category colour.
+- The currency symbol (`S.cur`) is a box at the top of the Account (Backup in local mode) panel.
+
 ## Import
 Tested on real Isracard and Max files (totals matched the statements). Uses the charged amount column, keeps identical rows, skips only already-saved copies on re-import, refunds are negative amounts, a bank-style file's positive rows become income, an edited purchase is not added again on re-import (`src`), an installment payment is dated in its own month and labelled like `3/5`. Pasted prose (email text) is read by `loose()`; a line with "refund", "reversal" or "זיכוי" is a refund.
 
@@ -28,4 +33,4 @@ A PDF, a picture (text recognition in the browser, `imgItems()`) or pasted text 
 - Browser pane: launch config `spend` (`.claude/serve.ps1`, http://localhost:8765 and http://127.0.0.1:8765; `PORT` env changes it). The two addresses have separate browser storage, so one acts as a "second device".
 - Cloud mode in the browser pane needs the emulators (`npm run emulators`) and a seeded invite code (see `docs/backend.md`).
 - After any change to `firestore.rules`: run `.claude/rules-test.ps1` (71 checks, `failures: 0`), then `npm run deploy:rules`.
-- Checking by script: a Playwright script run from the scratchpad can fake the date (`page.clock.install`), print a report to PDF (`page.pdf`) and read the PDF's text with `vendor/pdf.min.mjs`; this is how printing, the 160-row month and pace on other days were checked.
+- Checking by script: a Playwright script run from the scratchpad can fake the date (`page.clock.install`), print a report to PDF (`page.pdf`) and read the PDF's text with `vendor/pdf.min.mjs`; this is how printing and the 160-row month were checked.
