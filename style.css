@@ -34,7 +34,10 @@ tr.inc td.amt input{color:var(--acc);font-weight:600}
 .set{display:grid;gap:6px;font-size:13px;color:var(--mute)}
 .set label{display:flex;gap:8px;align-items:center}
 .cats{display:grid;gap:2px;margin-top:10px}
-.cat{display:grid;grid-template-columns:20px 22px minmax(110px,180px) 1fr 28px;gap:8px;align-items:center;border:1px solid transparent;border-radius:8px;padding:2px 4px}
+.cat{display:grid;grid-template-columns:20px 22px minmax(110px,180px) 1fr 28px 28px;gap:8px;align-items:center;border:1px solid transparent;border-radius:8px;padding:2px 4px}
+.cat.short{grid-template-columns:22px minmax(110px,180px) 1fr;width:100%;background:none;color:inherit;font:inherit;text-align:start;cursor:pointer;min-height:0}
+.cat.short:hover{background:var(--card)}.cat.short .cn{padding:6px 8px}
+.pin{border:0;background:none;color:var(--mute);font-size:17px;padding:0;min-height:28px;cursor:pointer}button.pin.on{color:var(--acc);background:none}
 .cat.sel{border-color:var(--ink)}
 .grip{cursor:grab;color:var(--mute);touch-action:none;user-select:none;text-align:center;font-size:15px;line-height:1;letter-spacing:-2px}
 .cat{transition:transform .18s ease}
@@ -81,7 +84,8 @@ input[type=checkbox]{min-height:0}
 .panel .row>input[type=number]{flex:1 1 80px}
 .cat{grid-template-columns:28px 26px 1fr 44px;gap:0 4px}
 .cat .ci{grid-column:2;grid-row:1/3}.cat .pick{grid-row:3}
-.cat .cn{grid-column:3;grid-row:1}.cat .bw{grid-column:3;grid-row:2;min-height:36px}.cat .grip{grid-row:1/3}.cat .x{grid-column:4;grid-row:1/3}
+.cat .cn{grid-column:3;grid-row:1}.cat .bw{grid-column:3;grid-row:2;min-height:36px}.cat .grip{grid-row:1/3}.cat .x{grid-column:4;grid-row:2}.cat .pin{grid-column:4;grid-row:1}
+.cat.short{grid-template-columns:26px 1fr}.cat.short .ci{grid-column:1}.cat.short .cn,.cat.short .bw{grid-column:2}
 .grip{min-height:44px;display:flex;align-items:center;justify-content:center}
 .bw{grid-template-columns:1fr 76px;min-height:44px}
 .x{min-width:44px}

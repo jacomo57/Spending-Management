@@ -39,7 +39,7 @@ const own=o=>{if(o&&typeof o=="object")delete o["__proto__"];return o};
 function fixMaps(){for(const k of["rules","cards","recDone","hue","alias","icon"])if(!S[k]||typeof S[k]!="object"||Object.getPrototypeOf(S[k]))S[k]=bare(S[k]);
  const b=S.budget;if(b&&typeof b=="object"&&b.cats&&Object.getPrototypeOf(b.cats))b.cats=bare(b.cats)}
 let S={tx:[],rules:{},cur:"₪"};
-let rpT="month",rpN=12,FOUND=[],rp=false,rpM=null,rpL=true,rpS=false,cmp=false,cmA=null,cmB=null,q="",cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null,showAll=false;
+let rpT="month",rpN=12,FOUND=[],rp=false,rpM=null,rpL=true,rpS=false,cmp=false,cmA=null,cmB=null,q="",cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null,showAll=false,catAll=false,catTop=[];
 // Accounts + cloud sync (Firebase): see docs/backend.md. The cloud code is in cloud.js.
 // FB_REAL = the real project's firebaseConfig (public by design; firestore.rules is the protection).
 // If it is set to null the site falls back to local-only mode (localStorage, no sign-in).
@@ -304,6 +304,7 @@ function clean(o){const id=x=>String(x||"").replace(/[^\w:.-]/g,"")||uid();
  if(o.mstart!=null){const n=Math.min(28,Math.max(1,parseInt(o.mstart)||1));if(n>1)o.mstart=n;else delete o.mstart}
  for(const k of["hue","cards"])if(o[k]&&typeof o[k]=="object")for(const c in o[k])o[k][c]=+o[k][c]||0;else delete o[k];
  if(!Array.isArray(o.cats)||o.cats.some(c=>typeof c!="string"))delete o.cats;
+ if(!Array.isArray(o.catPick)||o.catPick.some(c=>typeof c!="string"))delete o.catPick;
  for(const k of["rules","alias","icon"])if(o[k]&&typeof o[k]=="object")for(const c in o[k])o[k][c]=String(o[k][c]).slice(0,k=="icon"?8:1e4);else delete o[k];
  return Object.assign({tx:[],rules:{},cur:"₪"},own(o))}
 function fmt(n){return esc(S.cur)+" "+n.toLocaleString(undefined,{maximumFractionDigits:0})}
@@ -422,7 +423,15 @@ function render(){
  const bm=S.barMode=="budget";$("bmb").textContent=bm?"Bars: budget":"Bars: amount";
  const bw=(c,x)=>{const b=bc[c]>0?bc[c]:0,r=b?x/b:0;return `<span class="bw${r>1?" over":""}" data-c="${esc(c)}"><span class="bar"><i style="width:${Math.max(0,Math.min(1,bm?r:x/mx))*100}%;background:${r>1?"var(--bad)":r>=.8?"var(--warn)":COL[c]||"var(--mute)"}"></i></span><span class="amt">${fmt(x)}${b?`<small class="c">of ${fmt(b)}</small>`:""}</span></span>`};
  const ord=S.cats.map((_,i)=>i);if(S.catSort!="manual")ord.sort((a,b)=>(by[S.cats[b]]||0)-(by[S.cats[a]]||0));
- $("cats").innerHTML=ord.map(i=>{const c=S.cats[i];return `<div class="cat${cat==c?" sel":""}" data-row="${i}"><span class="grip" title="Drag to reorder" aria-label="Drag to reorder">⋮⋮</span><button class="ci${ic(c)?"":" none"}" data-ic="${i}" title="Change icon" aria-label="Change icon">${ic(c).trim()||"＋"}</button><input dir="auto" class="cn" data-ren="${i}" value="${esc(c)}" aria-label="Category name">${bw(c,by[c]||0)}<button class="x" data-delcat="${i}" aria-label="Delete category">✕</button>${icOpen==i?`<div class="pick">${PICK.map(e=>`<button data-pick="${e}">${e}</button>`).join("")}<button data-pick="" aria-label="No icon">none</button><input data-icin="${i}" maxlength="8" placeholder="or type" aria-label="Type your own icon"></div>`:""}</div>`}).join("")+(by.Other?`<div class="cat${cat=="Other"?" sel":""}"><span></span><span class="ci" aria-hidden="true">${ic("Other").trim()}</span><span class="cn" style="padding:6px 8px">Other</span>${bw("Other",by.Other)}<span></span></div>`:"");
+ // Main screen: only the picked categories (S.catPick, saved and synced), or the 4 biggest of the period when none were picked,
+ // in the order above (by size or the user's own). "All categories · Edit" opens every row with its editing controls and the ☆ to pick.
+ const pick0=Array.isArray(S.catPick)?S.catPick:null,pin=c=>pick0?pick0.includes(c):catTop.includes(c);
+ catTop=[...S.cats,"Other"].filter(c=>(by[c]||0)>0).sort((a,b)=>by[b]-by[a]).slice(0,4);
+ const star=(c,k)=>`<button class="pin${pin(c)?" on":""}" data-pin="${k}" aria-pressed="${pin(c)}" title="Show on the main screen" aria-label="Show ${esc(c)} on the main screen">${pin(c)?"★":"☆"}</button>`;
+ if(!catAll){const sh=ord.map(i=>S.cats[i]).filter(pin).concat(pin("Other")?["Other"]:[]);
+  $("cats").innerHTML=sh.map(c=>`<button class="cat short${cat==c?" sel":""}" data-c="${esc(c)}"><span class="ci" aria-hidden="true">${ic(c).trim()}</span><span class="cn" dir="auto">${esc(c)}</span>${bw(c,by[c]||0)}</button>`).join("")||`<span class="msg">${pick0?"No categories picked. Open All categories and tap ☆ to pick some.":"No spending in this period yet."}</span>`}
+ else $("cats").innerHTML=ord.map(i=>{const c=S.cats[i];return `<div class="cat${cat==c?" sel":""}" data-row="${i}"><span class="grip" title="Drag to reorder" aria-label="Drag to reorder">⋮⋮</span><button class="ci${ic(c)?"":" none"}" data-ic="${i}" title="Change icon" aria-label="Change icon">${ic(c).trim()||"＋"}</button><input dir="auto" class="cn" data-ren="${i}" value="${esc(c)}" aria-label="Category name">${bw(c,by[c]||0)}${star(c,i)}<button class="x" data-delcat="${i}" aria-label="Delete category">✕</button>${icOpen==i?`<div class="pick">${PICK.map(e=>`<button data-pick="${e}">${e}</button>`).join("")}<button data-pick="" aria-label="No icon">none</button><input data-icin="${i}" maxlength="8" placeholder="or type" aria-label="Type your own icon"></div>`:""}</div>`}).join("")+(by.Other||pin("Other")?`<div class="cat${cat=="Other"?" sel":""}"><span></span><span class="ci" aria-hidden="true">${ic("Other").trim()}</span><span class="cn" style="padding:6px 8px">Other</span>${bw("Other",by.Other||0)}${star("Other","o")}<span></span></div>`:"");
+ $("catall").textContent=catAll?"Done":"All categories ("+S.cats.length+") · Edit";$("catreset").hidden=!(catAll&&pick0);$("addrow").hidden=!catAll;
  $("catmsg").textContent=catMsg;
  document.querySelectorAll("[data-cs]").forEach(b=>b.classList.toggle("on",b.dataset.cs==(S.catSort=="manual"?"manual":"size")));
  $("chip").innerHTML=cat?`<button id="clearcat">${ic(cat)}${esc(cat)} ✕</button>`:"";
@@ -557,11 +566,12 @@ function renameCat(i,nv){nv=nv.trim();const old=S.cats[i];catMsg="";
  {const b=bud().cats;if(b[old]!=null){b[nv]=b[old];delete b[old]}}
  for(const k in S.rules)if(S.rules[k]==old)S.rules[k]=nv;
  for(const b of BASE)if((S.alias[b]||b)==old)S.alias[b]=nv;
+ if(Array.isArray(S.catPick))S.catPick=S.catPick.map(x=>x==old?nv:x);
  if(cat==old)cat=nv;save();render()}
 // A merchant's category was chosen: remember it and re-sort every purchase from that merchant.
 function learn(k,c){S.rules[k]=c;S.tx.forEach(y=>{if(!y.inc&&key(y.desc)==k)y.cat=c})}
 function addCat(){let n="New category",i=2;while(S.cats.includes(n))n="New category "+i++;
- S.cats.push(n);focusCat=S.cats.length-1;catMsg="";save();render()}
+ S.cats.push(n);focusCat=S.cats.length-1;catMsg="";catAll=true;save();render()}
 function delCat(i){const old=S.cats[i],oAlias=bare(S.alias),oRules=bare(),oTx=S.tx.filter(t=>t.cat==old).map(t=>t.id),oSp=[];S.tx.forEach(t=>sp(t).forEach((p,i)=>{if(p.cat==old){oSp.push([t.id,i]);p.cat="Other"}}));for(const k in S.rules)if(S.rules[k]==old)oRules[k]=old;S.cats.splice(i,1);const oBud=bud().cats[old];delete S.budget.cats[old];
  S.tx.forEach(t=>{if(t.cat==old)t.cat="Other"});
  for(const k in S.rules)if(S.rules[k]==old)delete S.rules[k];
@@ -607,6 +617,11 @@ document.addEventListener("click",e=>{const t=e.target;
 if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cname").focus();if(CL.some(c=>sameCard(c,n))){crdMsg="That card already exists.";return render()}S.cards[n]=100;crdMsg="";$("cname").value="";save();render();return}
  if(t.dataset.def!==undefined){const c=CL[+t.dataset.def];if(c){if(S.defCard==c)delete S.defCard;else S.defCard=c;save();render()}return}
  if(t.dataset.cs){S.catSort=t.dataset.cs;save();render()}
+ if(t.id=="catall"){catAll=!catAll;icOpen=null;render();return}
+ if(t.dataset.pin!==undefined){const c=t.dataset.pin=="o"?"Other":S.cats[+t.dataset.pin];if(c==null)return;
+  const was=Array.isArray(S.catPick)?S.catPick.slice():null,now=was||catTop.slice();S.catPick=now.includes(c)?now.filter(x=>x!=c):now.concat(c);
+  pushUndo((S.catPick.includes(c)?"Showing “":"Hid “")+c+"” on the main screen",()=>{if(was)S.catPick=was;else delete S.catPick});save();render();return}
+ if(t.id=="catreset"){const was=S.catPick;delete S.catPick;pushUndo("Back to the 4 biggest categories",()=>{S.catPick=was});save();render();return}
  if(t.id=="bmb"){if(S.barMode=="budget")delete S.barMode;else S.barMode="budget";save();render()}
  if(t.dataset.p){panel=panel==t.dataset.p?null:t.dataset.p;render();return}
  const b=t.closest&&t.closest("[data-c]");if(b){cat=cat==b.dataset.c?null:b.dataset.c;render()}

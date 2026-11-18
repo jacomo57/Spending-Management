@@ -314,6 +314,24 @@ async function local() {
     await p.click("#showall"); eq(await p.locator("#rows tr:has([data-del])").count(), 5, "back to 5");
     await p.fill("#q", "a"); await total(p, "₪ 28"); eq(await p.locator("#allrow").isHidden(), true, "no limit while searching");
   });
+  await test("main screen shows the 4 biggest categories; ☆ picks which show (saved, Undo); order follows My order", async () => {
+    const p = await open("?local=1"), names = () => p.locator("#cats .cat.short .cn").allTextContents().then(a => a.join("|"));
+    await paste(p, "Visa", `date,description,amount\n${today},Rent payment,4000\n${today},Shufersal,500\n${today},Zara,300\n${today},Wolt,200\n${today},Gett,100\n${today},Netflix,50`);
+    eq(await names(), "Rent & payments|Groceries|Shopping|Eating out", "top 4 by size");
+    eq(await p.locator("#cats [data-ren]").count(), 0, "no editing controls on the short list");
+    await p.click("#catall"); eq(await p.locator("#cats [data-ren]").count(), 9, "all categories with editing"); eq(await p.locator("#addcat").isVisible(), true, "add category shown");
+    await p.locator('#cats .cat:has([value="Rent & payments"]) .pin').click();
+    await p.locator('#cats .cat:has([value="Transport"]) .pin').click();
+    await p.click("#catall"); eq(await names(), "Groceries|Shopping|Eating out|Transport", "rent hidden, transport added");
+    await p.reload(); eq(await names(), "Groceries|Shopping|Eating out|Transport", "kept after reload");
+    await p.click("#catall"); await p.locator('#cats .cat:has([value="Shopping"]) .pin').click();
+    await p.click("#undo"); await p.click("#catall"); eq(await names(), "Groceries|Shopping|Eating out|Transport", "undo");
+    await p.click('[data-cs="manual"]'); eq(await names(), "Groceries|Eating out|Transport|Shopping", "My order");
+    await p.locator('#cats .cat.short[data-c="Transport"]').click(); await text(p, "#chip", "Transport");
+    await p.click("#catall"); await setField(p.locator('#cats [value="Transport"]'), "Travel"); await p.click("#catall");
+    eq(await names(), "Groceries|Eating out|Travel|Shopping", "rename keeps the pick");
+    await p.click("#catall"); await p.click("#catreset"); await p.click("#catall"); eq(await names(), "Groceries|Eating out|Rent & payments|Shopping", "back to the 4 biggest (My order)");
+  });
   await test("Recurring: the add form opens from a button; an app left open adds the new month's bill when it returns to the front", async () => {
     const c = await browser.newContext({ locale: "en-US", timezoneId: "Asia/Jerusalem" }); ctxs.push(c);
     const p = await c.newPage(); watch(p); menuClicks(p);
@@ -448,7 +466,7 @@ async function local() {
     await text(p, "#budline", "₪ 450 left of ₪ 1,000");
     await text(p, '.bw[data-c="Groceries"] small', "of ₪ 500");
     eq(await p.locator('.bw[data-c="Groceries"] .bar i').getAttribute("style").then(s => /--warn/.test(s)), true, "amber at 90%");
-    await setField(p.locator('[data-ren="0"]'), "Food");
+    await p.click("#catall"); await setField(p.locator('[data-ren="0"]'), "Food");
     await text(p, '.bw[data-c="Food"] small', "of ₪ 500");
     await paste(p, "Visa", `date,description,amount\n${today},Shufersal Deal,600`);
     await p.selectOption("#month", mo);
@@ -596,7 +614,7 @@ async function local() {
     await p.fill("#paste", "date,description,amount\n2026-11-05,constructor,30\n2026-11-05,Kiosk,20"); await p.click("#go");
     await total(p, "₪ 175");
     eq(await catOf("constructor").first().inputValue(), "Transport", "learned category");
-    await setField(p.locator('.cn[value="Transport"]'), "constructor");
+    await p.click("#catall"); await setField(p.locator('.cn[value="Transport"]'), "constructor");
     await text(p, '.cat:has(.cn[value="constructor"]) .amt', "₪ 115");
     await p.click('[data-p="bud"]'); await setField(p.locator('#budlist label:has-text("constructor") input'), "200");
     await p.reload(); await total(p, "₪ 175");
@@ -613,14 +631,14 @@ async function local() {
   await test("category icons: starting icons, pick one, type one, none; kept after reload and rename", async () => {
     const p = await open("?local=1");
     const ci = c => p.locator('.cat:has(.cn[value="' + c + '"]) .ci');
-    eq((await ci("Groceries").innerText()).trim(), "🛒", "starting icon");
+    await p.click("#catall"); eq((await ci("Groceries").innerText()).trim(), "🛒", "starting icon");
     await ci("Groceries").click(); await p.locator('[data-pick="🍔"]').click();
     eq((await ci("Groceries").innerText()).trim(), "🍔", "picked icon");
     await ci("Health").click(); await setField(p.locator("[data-icin]"), "🌟");
     eq((await ci("Health").innerText()).trim(), "🌟", "typed icon");
     await ci("Transport").click(); await p.locator('[data-pick=""]').click();
     eq((await ci("Transport").innerText()).trim(), "＋", "no icon");
-    await p.reload();
+    await p.reload(); await p.click("#catall");
     eq((await ci("Groceries").innerText()).trim(), "🍔", "picked icon after reload");
     eq((await ci("Transport").innerText()).trim(), "＋", "no icon after reload");
     await setField(p.locator('.cn[value="Groceries"]'), "Food");
@@ -799,7 +817,7 @@ async function local() {
     const p = await open("?local=1");
     await paste(p, "Visa", "date,description,amount\n2026-11-03,Shufersal,400\n2026-11-04,Zara,100");
     await total(p, "₪ 500");
-    const row = 'tr:has([data-f="desc"][value="Shufersal"])', bar = c => `.cat:has(.cn[value="${c}"]) .amt`;
+    const row = 'tr:has([data-f="desc"][value="Shufersal"])', bar = c => `.bw[data-c="${c}"] .amt`;
     await p.locator(row + " select[data-id]").selectOption({ label: "Split…" });
     await p.locator(row + ' [data-sp][data-f="cat"]').selectOption("Health");
     await setField(p.locator(row + ' [data-sp][data-f="amt"]'), "150");
@@ -810,7 +828,7 @@ async function local() {
     await text(p, bar("Health"), "₪ 400");
     await setField(p.locator(row + ' [data-sp][data-f="amt"]'), "150");
     await text(p, bar("Health"), "₪ 150");
-    await p.click('.cat:has(.cn[value="Health"]) .bw'); eq(await rows(p), 1, "rows under Health"); await p.click("#clearcat");
+    await p.click('.bw[data-c="Health"]'); eq(await rows(p), 1, "rows under Health"); await p.click("#clearcat");
     await p.reload(); await text(p, bar("Health"), "₪ 150"); await text(p, bar("Groceries"), "₪ 250"); await total(p, "₪ 500");
     // Half of the card counts: every part is halved, the total is the same as without a split.
     await p.click('[data-p="crd"]'); await p.selectOption('#cardrules select[data-f="rule"]', "50");
