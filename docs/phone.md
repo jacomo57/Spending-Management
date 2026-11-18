@@ -65,9 +65,10 @@ The app reads the amount (₪60.00), uses the title as the purchase name, and pi
 
 Add Macro, name `Wallet payment`.
 - **Trigger**: Device Events, **Notification Received**. Application: Google Wallet only. Text content: leave empty or choose "Contains" `with` (so only payment notifications match). MacroDroid asks for Notification Access: allow it (this is the sensitive permission; it lets MacroDroid read notifications).
-- **Action**: **HTTP Request**, the same as the Quick expense macro, with this body (put the two notification values in with the magic-text button: "Notification title" and "Notification text"):
+- **Action**: **HTTP Request**, the same as the Quick expense macro, with this body. **Do not type TITLE-HERE and TEXT-HERE: delete each one and put the real value in with the magic-text button** ("..." or "{ }" next to the field), choosing the notification's title for the first and the notification's text for the second (the list shows what this trigger offers; the names are MacroDroid's own, so they cannot be copied from here). The date part works the same way (year, month, day of month):
   ```
-  {"fields":{"key":{"stringValue":"PASTE-KEY-HERE"},"title":{"stringValue":"{notification_title}"},"text":{"stringValue":"{notification_text}"},"date":{"stringValue":"{year}-{month_digit}-{dayofmonth}"}}}
+  {"fields":{"key":{"stringValue":"PASTE-KEY-HERE"},"title":{"stringValue":"TITLE-HERE"},"text":{"stringValue":"TEXT-HERE"},"date":{"stringValue":"{year}-{month_digit}-{dayofmonth}"}}}
   ```
+- **If a row shows the name `{...}` in curly braces and 0**: the value was typed instead of inserted with the button, so MacroDroid sent the words as they are. Delete that row in the app, fix the body, and test again (an earlier version of this guide had made-up names, which caused this on 2026-11-18).
 - Test: pay with the phone, or press "Test macro" with a sample. A row appears (marked "not on a statement yet"), and the statement import later merges with it.
 - If the card is wrong: the digits in Wallet (••5315) can differ from the physical card's. Rename the app card to include the issuer word (for example `Max 1234`), or set it as the Default.
