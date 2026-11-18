@@ -162,3 +162,4 @@ button.ci{cursor:pointer;border:1px solid transparent;background:none;padding:2p
 span.cn:hover{border-color:transparent;background:none}
 
 .soon{margin-top:4px;font-size:13px;color:var(--mute)}.soon summary{cursor:pointer}.soon .row{gap:10px;margin:2px 0}.soon .row span:last-child{margin-left:auto}
+#bnote{top:calc(64px + env(safe-area-inset-top,0px))}

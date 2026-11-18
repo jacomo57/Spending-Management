@@ -22,9 +22,9 @@ Tested automatically on the emulator (npm test): sign up/in, wrong invite, two-d
 Names: a merchant, card or category may be called anything, including "constructor" or "__proto__" (the lookup maps have no prototype, fixMaps() in app.js; tested).
 Dates are the device's local date everywhere (ymd() in app.js), tested with the clock set to 00:30 Israel time.
 The user signed in on the live site under the policy on 2026-11-16 and it loaded and saved.
-UNTESTED: a split syncing between two devices (it is part of the row, so it travels with it), removing one split part and Undo, the Content Security Policy in Safari/Firefox, the browser's own print dialog (the PDF made by script was checked: 5 pages for 160 rows, table header on every page, Hebrew present), phone layout on a real phone (only checked in the browser pane at 375 and 768px), installing on a real phone, the 4s slow-network fallback, password reset email, a real bank export (only a made-up one), a real payslip PDF (only one made by the test; a real payslip screenshot was read correctly by hand on 2026-11-16), a phone photo of a paper payslip (tilted or shadowed pictures will likely fail), a password-locked PDF.
-Checked 2026-11-18 (script in a real browser, partly now in npm test): split on a refund, split parts after renaming or deleting their category and Undo, category drag (kept after reload), recurring bill add/delete/Undo/no duplicate after reload, .xls file, pasted text with a refund word (refund, reversal, זיכוי read as negative), pace on the 1st, mid-month, last day and 31 Dec.
-Budget alerts (2026-11-18): under the budget line, "Over budget: …" (red) and "Near the limit (80%+): …" list the categories past 100% and between 80% and 100% of their budget; shown wherever budgets show (one month, all cards). No pop-up: the line is always there while it applies.
+UNTESTED: the Content Security Policy in Safari/Firefox, the browser's own print dialog (the PDF made by script was checked: 5 pages for 160 rows, table header on every page, Hebrew present), phone layout on a real phone (only checked in the browser pane at 375 and 768px), installing on a real phone, the 4s slow-network fallback, password reset email, a real bank export (only a made-up one), a real payslip PDF (only one made by the test; a real payslip screenshot was read correctly by hand on 2026-11-16), a phone photo of a paper payslip (tilted or shadowed pictures will likely fail), a real password-locked payslip (a made-up locked PDF gets the message).
+Checked 2026-11-18 (script in a real browser, partly now in npm test): a split and removing a part (with Undo) reaching a second device, the report and alert in dark and light at 420px, a made-up password-locked PDF, split on a refund, split parts after renaming or deleting their category and Undo, category drag (kept after reload), recurring bill add/delete/Undo/no duplicate after reload, .xls file, pasted text with a refund word (refund, reversal, זיכוי read as negative), pace on the 1st, mid-month, last day and 31 Dec.
+Budget alerts (2026-11-18): under the budget line, "Over budget: …" (red) and "Near the limit (80%+): …" list the categories past 100% and between 80% and 100% of their budget; shown wherever budgets show (one month, all cards). The line is always there while it applies. Also a notice at the top for 8 seconds (#bnote, budNote() in app.js) when a category, or the whole budget, rises to 80% or over 100% compared with the last time that month was drawn with the same purchases (an edit, import, Quick add or a phone item arriving); not on the first draw of a month. The whole budget near the limit (80%+) is on the alert line too (#totalalert). Pasted text: a minus sign or brackets in front of an amount (-80, (80.00)) is a refund, except in a file of 3+ rows where most are negative (bank-style: negatives are spending).
 Phone layout (under 640px): each expense is a card (description and amount on top, date, category and card below, Ignore and delete at the bottom), sort buttons wrap above, tools row scrolls sideways, 44px touch targets, 16px inputs, safe-area padding; text fields use dir=auto for Hebrew. 640-900px keeps the desktop table, which scrolls inside its box.
 Split (2026-11-16): choosing "Split…" at the bottom of a purchase's category box adds a part (category + amount) under it; saved as t.split = [{cat,amt}] on the row, amounts before the card rule. The rest of the amount stays in the row's own category ("₪X stays in ..."). A part can take at most what is left of the amount; editing the amount below the parts, or flipping its sign, drops the split. Only the per-category numbers change (bars, budgets, Compare, reports): Spent and the per-card figures are the same as without a split. The category filter shows a split purchase under each of its categories; reports and the Excel export show "A + B". Income and paybacks cannot be split. Renaming or deleting a category follows into the parts. Tested (local mode): split, the limit, half-counted card, reload, amount lowered.
 Tags (2026-11-16): a #word in a purchase's note is a tag (nothing extra is saved; letters, digits, _ and -, any language, case ignored). A row of tag buttons above the list shows each tag in the month with its spent total (by v(), ignored rows left out); pressing one filters the list (it puts #tag in Search, which matches the whole tag). The monthly report has a "By tag" section. Tested.
@@ -54,7 +54,7 @@ IDEAS: see ROADMAP.md.
 <meta name="apple-mobile-web-app-title" content="Spend">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=ec54d73389">
+<link rel="stylesheet" href="style.css?v=4ac8f535f1">
 </head>
 <body>
 <main>
@@ -160,8 +160,9 @@ IDEAS: see ROADMAP.md.
   <div class="row"><button class="pri" id="qsave">Save</button><button type="button" id="qx">Cancel</button></div>
 </form></div>
 <div class="toast" id="toast" hidden role="status"></div>
+<div class="toast top" id="bnote" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=ec54d73389"></script>
-<script src="cloud.js?v=ec54d73389"></script>
+<script src="app.js?v=4ac8f535f1"></script>
+<script src="cloud.js?v=4ac8f535f1"></script>
 </body>
 </html>

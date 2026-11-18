@@ -177,6 +177,22 @@ async function smoke() {
     await d2.selectOption("#month", "2026-11"); await text(d2, "#budline", "₪ 5,000");
     await d2.selectOption("#month", "all");
   });
+  await test("a split reaches the second device; removing a part and Undo reach it too", async () => {
+    await d1.selectOption("#month", "all"); await d2.selectOption("#month", "all");
+    const desc = await d1.locator('#rows tr:not(.inc):has([data-del]) [data-f="desc"]').first().inputValue();
+    const row = p => p.locator(`#rows tr:has([data-f="desc"][value="${desc}"])`).first();
+    await row(d1).locator("select[data-id]").selectOption({ label: "Split…" });
+    await row(d1).locator('[data-sp][data-f="cat"]').selectOption("Health");
+    await setField(row(d1).locator('[data-sp][data-f="amt"]'), "1");
+    await saved(d1);
+    await d2.waitForFunction(d => [...document.querySelectorAll("#rows tr")].some(r => r.querySelector(`[data-f="desc"][value="${d}"]`) && r.querySelector(".sp")), desc, { timeout: 15000 });
+    await row(d1).locator("[data-spdel]").click(); await saved(d1);
+    await d2.waitForFunction(d => [...document.querySelectorAll("#rows tr")].some(r => r.querySelector(`[data-f="desc"][value="${d}"]`) && !r.querySelector(".sp")), desc, { timeout: 15000 });
+    await d1.click("#undo"); await saved(d1);
+    await d2.waitForFunction(d => [...document.querySelectorAll("#rows tr")].some(r => r.querySelector(`[data-f="desc"][value="${d}"]`) && r.querySelector(".sp")), desc, { timeout: 15000 });
+    await row(d1).locator("[data-spdel]").click(); await saved(d1);
+    await d2.waitForFunction(d => [...document.querySelectorAll("#rows tr")].some(r => r.querySelector(`[data-f="desc"][value="${d}"]`) && !r.querySelector(".sp")), desc, { timeout: 15000 });
+  });
   await test("delete all data survives a reload and reaches the other device", async () => {
     await d1.click("#wipe"); await d1.click("#wipe");
     await total(d1, "₪ 0"); await saved(d1);
@@ -618,6 +634,44 @@ async function local() {
     await text(p, "#budalert", "Over budget: Groceries");
     await p.evaluate(() => { S.tx[0].amt = 100; S.tx[1].amt = 10; save(); render(); });
     eq(await p.locator("#budalert").count(), 0, "no line under 80%");
+  });
+  await test("budget notice at the top when a category or the whole budget rises past 80% or 100%; total-only warning; a minus in pasted text is a refund", async () => {
+    const p = await open("?local=1");
+    await p.evaluate(() => { S.tx = [{ id: "a", date: ymd(), desc: "x", amt: 50, card: "My card", cat: "Groceries" }]; S.budget = { total: 1000, cats: { Groceries: 100 } }; save(); render(); document.getElementById("month").value = pk(ymd()); render() });
+    eq(await p.locator("#bnote").isHidden(), true, "no notice on first draw");
+    await p.evaluate(() => { S.tx[0].amt = 85; save(); render() });
+    await text(p, "#bnote", "Groceries passed 80% of its budget");
+    await p.evaluate(() => { document.getElementById("bnote").hidden = true; render() });
+    eq(await p.locator("#bnote").isHidden(), true, "no repeat when nothing changed");
+    await p.evaluate(() => { S.tx[0].amt = 120; save(); render() });
+    await text(p, "#bnote", "Groceries is over budget");
+    await p.evaluate(() => { S.tx[0].amt = 850; save(); render() });
+    await text(p, "#totalalert", "the whole budget"); await text(p, "#bnote", "The whole budget passed 80%");
+    await p.evaluate(() => { S.tx[0].amt = 1100; save(); render() });
+    await text(p, "#bnote", "Over the whole budget");
+    // Another month and back, and a category named "total": no false notice.
+    await p.evaluate(() => { document.getElementById("bnote").hidden = true; document.getElementById("month").value = "all"; render(); document.getElementById("month").value = pk(ymd()); render() });
+    eq(await p.locator("#bnote").isHidden(), true, "no notice after switching months");
+    await p.evaluate(() => { S.cats.push("total"); S.budget.cats.total = 100; S.tx.push({ id: "t1", date: ymd(), desc: "y", amt: 90, card: "My card", cat: "total" }); save(); render() });
+    await text(p, "#bnote", "total passed 80% of its budget");
+    await paste(p, "Visa", "Zara 05/11/2026 -80.00\nGift 06/11/2026 (15.00)\nShop 3-5 07/11/2026 20.00\nCafe 08/11/2026 30.00\nBar 09/11/2026 40.00");
+    await text(p, "#msg", "Added 5");
+    eq(await p.evaluate(() => S.tx.filter(t => t.card == "Visa").map(t => t.amt).join()), "-80,-15,20,30,40", "a minus or brackets is a refund, a hyphen inside the text is not");
+  });
+  await test("a password-locked PDF gets a clear message and adds nothing", async () => {
+    const hex = n => Array.from({ length: n }, (_, i) => ((i * 37 + 11) & 255).toString(16).padStart(2, "0")).join("");
+    const objs = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R >>", "<< /Length 0 >>\nstream\n\nendstream",
+      `<< /Filter /Standard /V 1 /R 2 /O <${hex(32)}> /U <${hex(32).split("").reverse().join("")}> /P -4 >>`];
+    let pdf = "%PDF-1.4\n"; const offs = [];
+    objs.forEach((o, i) => { offs.push(pdf.length); pdf += `${i + 1} 0 obj\n${o}\nendobj\n` });
+    const x = pdf.length;
+    pdf += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n` + offs.map(o => String(o).padStart(10, "0") + " 00000 n \n").join("") + `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R /Encrypt 5 0 R /ID [<${hex(16)}> <${hex(16)}>] >>\nstartxref\n${x}\n%%EOF\n`;
+    const f = path.join(TMP, "locked.pdf"); fs.writeFileSync(f, pdf, "latin1");
+    const p = await open("?local=1"); await p.click('[data-p="imp"]').catch(() => { });
+    if (!(await p.locator("#p-imp").isVisible())) await p.click('[data-p="imp"]');
+    await p.setInputFiles("#file", f);
+    await text(p, "#msg", "locked with a password");
+    eq(await p.evaluate(() => S.tx.length), 0, "rows added");
   });
   await test("edge cases: refund in pasted text, old .xls file, split parts follow a renamed or deleted category and come back with Undo", async () => {
     const p = await open("?local=1");

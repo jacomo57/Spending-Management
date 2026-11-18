@@ -112,7 +112,7 @@ function loose(text){const out=[];
   const toks=[...rest.matchAll(/\(?-?\d[\d,]*(?:\.\d+)?\)?/g)].filter(t=>!isNaN(num(t[0])));
   if(!toks.length)return;const t=toks[toks.length-1];const a=Math.abs(num(t[0]));
   const desc=(rest.slice(0,t.index)+" "+rest.slice(t.index+t[0].length)).replace(/[₪$€]|ILS|[|\t]+/g," ").replace(/\s+/g," ").trim();
-  if(dt&&a&&/\D{3}/.test(desc))out.push({date:dt,desc,amt:/refund|reversal|זיכוי/i.test(l)?-a:a})});
+  if(dt&&a&&/\D{3}/.test(desc))out.push({date:dt,desc,amt:/refund|reversal|זיכוי/i.test(l)||/^(\(.*\)|-.*)$/.test(t[0].trim())?-a:a})});
  return out}
 // Import. A statement is read as a table of cells. table() finds every header row (an Excel file can hold several sheets)
 // and from it the purchase date, merchant and charged amount columns: "סכום חיוב" (what was charged, in shekels) wins over
@@ -316,6 +316,16 @@ const later=f=>setTimeout(f,0);
 function dropEmpty(){const d=ymd();S.tx=S.tx.filter(t=>t.amt||t.desc||t.date>=d)}
 const undo=[];let toastT=null;
 function pushUndo(label,fn){undo.push({label,fn});if(undo.length>20)undo.shift();showToast()}
+// Budget levels: 0 under 80%, 1 from 80% up to the budget, 2 over it. One definition for the alert line and the notice.
+const bLvl=(x,b)=>b>0?(x>b?2:x>=b*.8?1:0):0;
+// Budget notice: when a category (or the whole budget) rises to a higher level than the last time the same month was drawn
+// (same list of purchases; a new month, a restore, a wipe or another account starts fresh), a short message shows at the top.
+let bLast=null,bnT=null;
+function budNote(bOn,m,B,by,tot){if(!bOn)return;const L={t:bLvl(tot,B.total),c:bare()};S.cats.forEach(c=>{if(B.cats[c]>0)L.c[c]=bLvl(by[c]||0,B.cats[c])});
+ const was=bLast&&bLast.m==m&&bLast.tx===S.tx?bLast:null;bLast={m,tx:S.tx,L};if(!was)return;
+ const msg=[];if(L.t>was.L.t)msg.push(L.t==2?"Over the whole budget":"The whole budget passed 80%");
+ S.cats.forEach(c=>{if((L.c[c]||0)>(was.L.c[c]||0))msg.push(c+(L.c[c]==2?" is over budget":" passed 80% of its budget"))});
+ if(!msg.length)return;const el=$("bnote");el.textContent=msg.join(" · ");el.hidden=false;clearTimeout(bnT);bnT=setTimeout(()=>{el.hidden=true},8000)}
 function showToast(){const el=$("toast");clearTimeout(toastT);if(!undo.length){el.hidden=true;return}
  const u=undo[undo.length-1];el.innerHTML=`<span>${esc(u.label)}</span><button id="undo">Undo</button>`;el.hidden=false;toastT=setTimeout(()=>{el.hidden=true},8000)}
 // Quick add (button or the app icon's "Add purchase" shortcut, ?add=1): amount, optional merchant, card; today's date, category guessed.
@@ -393,8 +403,10 @@ function render(){
    if(ah.length)pace+="<br>Ahead of pace: "+ah.join(" · ")}
   if(tc.length)soon=`<details class="soon"><summary>${fmt(tcSum)} of fixed charges still to come (${tc.length})</summary>${tc.map(o=>`<div class="row"><span class="sub">${esc(new Date(o.dt+"T00:00").toLocaleString(undefined,{day:"numeric",month:"short"}))}</span><span dir="auto">${esc(o.k)}</span><span>${fmt(o.amt)}</span></div>`).join("")}</details>`}
  if(bOn&&B.total>0){const left=B.total-tot;bl=`<div class="l${left<0?" over":""}" id="budline">${left<0?fmt(-left)+" over the "+fmt(B.total)+" budget":fmt(left)+" left of "+fmt(B.total)}</div>`}
- if(bOn){const lv=S.cats.filter(c=>B.cats[c]>0&&(by[c]||0)>0).map(c=>[c,(by[c]||0)/B.cats[c]]),ov=lv.filter(x=>x[1]>1).map(x=>x[0]),nr=lv.filter(x=>x[1]>=.8&&x[1]<=1).map(x=>x[0]);
+ if(bOn){const ov=S.cats.filter(c=>bLvl(by[c]||0,B.cats[c])==2),nr=S.cats.filter(c=>bLvl(by[c]||0,B.cats[c])==1);
   if(ov.length||nr.length)bl+=`<div class="l" id="budalert">${ov.length?`<span class="over">Over budget: ${ov.map(esc).join(", ")}</span>`:""}${ov.length&&nr.length?" · ":""}${nr.length?"Near the limit (80%+): "+nr.map(esc).join(", "):""}</div>`}
+ if(bOn&&bLvl(tot,B.total)==1)bl+=`<div class="l" id="totalalert">Near the limit (80%+): the whole budget</div>`;
+ budNote(bOn,m,B,by,tot);
  if(pace)bl+=`<div class="l" id="pace">${pace}</div>`;
  if(fx.spent>0)bl+=`<div class="l" id="fixedline">Fixed ${fmt(fx.spent)} · everything else ${fmt(tot-fx.spent)}</div>`;
  bl+=soon;
