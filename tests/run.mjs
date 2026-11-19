@@ -356,7 +356,12 @@ async function local() {
     const p = await open("?local=1");
     await paste(p, "Visa", "date,description,amount\n2026-11-03,Zara,300\n2026-10-04,Zara,100\n2026-10-05,Wolt,50");
     eq(await p.locator("#cmp").isHidden(), true, "hidden at first");
+    eq(await p.locator("#bmb").isHidden(), true, "no Bars button without a category budget");
+    await p.locator(".cat.short").first().click(); eq(await p.locator("#clearcat").count(), 1, "category filter on");
     await p.click("#cmpb");
+    eq(await p.locator("#cats").isHidden(), true, "compare replaces the category list"); eq(await p.locator("#catall").isHidden(), true, "no Edit while comparing");
+    eq(await p.locator('[data-cs="size"]').isHidden(), true, "no sort buttons while comparing"); eq(await p.textContent("#cmpb"), "Done", "Compare becomes Done");
+    eq(await p.locator("#clearcat").count(), 0, "opening compare clears the category filter");
     const first = await p.locator(".cmpt .cr").nth(1).innerText();
     eq(/₪ 300/.test(first) && /₪ 100/.test(first) && /↑ ₪ 200 \(200%\)/.test(first), true, "first row: " + first);
     const tot = await p.locator(".cmpt .cr.tot").innerText();
@@ -365,7 +370,10 @@ async function local() {
     await p.locator('.trend button[data-tm="2026-10"]').click();
     eq(await p.inputValue("#month"), "2026-10", "tap picks month");
     await total(p, "₪ 150");
-    await p.click("#cmpb"); eq(await p.locator("#cmp").isHidden(), true, "hidden again");
+    await p.click("#cmpb"); eq(await p.locator("#cmp").isHidden(), true, "hidden again"); eq(await p.locator("#cats").isVisible(), true, "list back");
+    await p.click("#catall"); eq(await p.locator("#cmpb").isHidden(), true, "no Compare while editing"); await p.click("#catall");
+    await p.evaluate(() => { S.tx = S.tx.filter(t => t.date >= "2026-11-01"); save(); render() });
+    eq(await p.locator("#cmpb").isHidden(), true, "no Compare with only one month");
   });
   await test("merchants panel re-sorts a merchant, the year entry sums a year, a note is searchable", async () => {
     const p = await open("?local=1");

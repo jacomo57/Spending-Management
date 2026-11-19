@@ -265,7 +265,7 @@ html.themeswap,html.themeswap *{transition:background-color .35s,color .35s,bord
 /* Add sheet: slides up from the bottom over a dimmed page. */
 #addsheet{position:fixed;inset:0;z-index:30}
 .shbg{position:absolute;inset:0;background:rgba(10,18,32,.45);animation:mFade .25s ease}
-.sheet{position:absolute;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;background:var(--card);border-radius:22px 22px 0 0;box-shadow:0 -10px 40px var(--shadow);display:grid;gap:12px;
+.sheet{position:absolute;left:0;right:0;bottom:var(--kb,0px);max-height:calc(var(--vh,100vh) - 16px);overflow-y:auto;overscroll-behavior:contain;transition:bottom .2s ease;max-width:560px;margin:0 auto;background:var(--card);border-radius:22px 22px 0 0;box-shadow:0 -10px 40px var(--shadow);display:grid;gap:12px;
  padding:10px max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));animation:shUp .32s cubic-bezier(.2,.8,.2,1)}
 @keyframes shUp{from{transform:translateY(100%)}}
 #addsheet.out .shbg{transition:opacity .25s;opacity:0}#addsheet.out .sheet{transition:transform .25s ease;transform:translateY(100%)}

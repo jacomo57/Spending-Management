@@ -428,7 +428,7 @@ function sheetOpen(){syncCats();const el=$("addsheet"),cards=CL.filter(c=>c!="Re
  $("shcur").textContent=CCY[buyC()];$("shamt").value="";$("shdesc").value="";$("shdate").value=ymd();$("shmsg").textContent="";
  $("shcat").innerHTML=`<option value="">✨ Auto category</option>`+ORDER.map(c=>`<option value="${esc(c)}">${ic(c)}${esc(c)}</option>`).join("");$("shcat").value=cat&&ORDER.includes(cat)?cat:"";
  $("shcard").innerHTML=[...new Set([...cards,def])].map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");$("shcard").value=def;
- sheetKind("exp");el.classList.remove("out");el.hidden=false;document.body.classList.add("shopen");$("shamt").focus({preventScroll:true})}
+ sheetKind("exp");el.classList.remove("out");el.hidden=false;document.body.classList.add("shopen");$("shamt").focus({preventScroll:true});sheetFit()}
 function sheetClose(){const el=$("addsheet");if(el.hidden)return;document.body.classList.remove("shopen");if(el.contains(document.activeElement))document.activeElement.blur();
  if(!MOTION()){el.hidden=true;return}el.classList.add("out");setTimeout(()=>{if(el.classList.contains("out")){el.hidden=true;el.classList.remove("out")}},260)}
 function sheetSave(){const a=parseFloat(String($("shamt").value).replace(",","."));if(!(a>0)){$("shmsg").textContent="Enter an amount.";$("shamt").focus();return}
@@ -440,6 +440,11 @@ function sheetSave(){const a=parseFloat(String($("shamt").value).replace(",","."
  if(MOTION())mGlow.set(id,performance.now());sheetClose();save();render();
  const b=document.querySelector(`#rows [data-del="${CSS.escape(id)}"]`);if(b)b.closest("tr").scrollIntoView({behavior:MOTION()?"smooth":"auto",block:"center"})}
 $("shform").addEventListener("submit",e=>{e.preventDefault();sheetSave()});
+// The on-screen keyboard shrinks the visible area (visualViewport) without moving the page's bottom edge, so the sheet would sit
+// under it: lift the sheet by the keyboard's height (--kb) and keep it no taller than what is visible (--vh). Closing the keyboard lowers it.
+function sheetFit(){const el=$("addsheet"),vv=window.visualViewport;if(!vv||el.hidden){el.style.removeProperty("--kb");el.style.removeProperty("--vh");return}
+ el.style.setProperty("--kb",Math.max(0,Math.round(innerHeight-vv.height-vv.offsetTop))+"px");el.style.setProperty("--vh",Math.round(vv.height)+"px")}
+if(window.visualViewport){visualViewport.addEventListener("resize",sheetFit);visualViewport.addEventListener("scroll",sheetFit)}
 document.addEventListener("keydown",e=>{if(e.key=="Escape"&&!$("addsheet").hidden)sheetClose()});
 // Delete a purchase (the ✕ button or a swipe): it slides away first, then goes, with Undo.
 function delTx(id,tr){const go=()=>{const i=S.tx.findIndex(x=>x.id==id);if(i>=0){const it=S.tx[i];S.tx.splice(i,1);pushUndo("Deleted “"+(it.desc||"purchase").slice(0,28)+"”",()=>{S.tx.splice(Math.min(i,S.tx.length),0,it)})}save();render()};
@@ -482,7 +487,8 @@ function render(){
  $("month").value=months.includes(cm)||yrs.includes(cm)||cm=="all"?cm:"all";
  const m=$("month").value;
  // Compare (view only, not saved): two months per category, change, and a strip of the last 12 months.
- {const el=$("cmp");el.hidden=!cmp;$("cmpb").classList.toggle("on",cmp);
+ // Compare needs two months; while it is open it replaces the category list and its buttons (and Edit hides it).
+ {const el=$("cmp");if(months.length<2)cmp=false;el.hidden=!cmp;$("cmpb").classList.toggle("on",cmp);$("cmpb").textContent=cmp?"Done":"Compare";$("cmpb").hidden=months.length<2||catAll;
   if(cmp){const sm=x=>{const[y,mo]=x.split("-");return new Date(y,mo-1,1).toLocaleString(undefined,{month:"short"})+" "+y.slice(2)},mr=repRows,
    A=months.includes(cmA)?cmA:months.includes(m)?m:months[0],B=months.includes(cmB)?cmB:months[months.indexOf(A)+1]||A;
    const ka=calc(mr(A)),kb=calc(mr(B)),names=[...new Set([...Object.keys(ka.by),...Object.keys(kb.by)])],
@@ -518,7 +524,9 @@ function render(){
  const mx=Math.max(1,...Object.values(by));
  // Bars (S.barMode): by amount (every bar against the largest category) or by budget (a bar with a budget fills toward it, one without stays empty).
  // Either way the colour warns from 80% of a budget and turns red when over, and "of ₪X" stays next to the amount.
- const bm=S.barMode=="budget";$("bmb").textContent=bm?"Bars: budget":"Bars: amount";
+ // "Bars: budget" only means something when a category has a budget, so the button shows only then (and not in Compare or Edit).
+ const hasCB=S.cats.some(c=>bc[c]>0),bm=S.barMode=="budget"&&hasCB;$("bmb").textContent=bm?"Bars: budget":"Bars: amount";$("bmb").hidden=!hasCB||cmp||catAll;
+ $("cats").hidden=cmp;document.querySelectorAll("[data-cs]").forEach(b=>b.hidden=cmp);$("catall").hidden=cmp;
  const bw=(c,x)=>{const b=bc[c]>0?bc[c]:0,r=b?x/b:0;return `<span class="bw${r>1?" over":""}" data-c="${esc(c)}"><span class="bar"><i style="width:${Math.max(0,Math.min(1,bm?r:x/mx))*100}%;background:${r>1?"var(--bad)":r>=.8?"var(--warn)":COL[c]||"var(--mute)"}"></i></span><span class="amt">${fmt(x)}${b?`<small class="c">of ${fmt(b)}</small>`:""}</span></span>`};
  const ord=S.cats.map((_,i)=>i);if(S.catSort!="manual")ord.sort((a,b)=>(by[S.cats[b]]||0)-(by[S.cats[a]]||0));
  // Main screen: only the picked categories (S.catPick, saved and synced), or the 4 biggest of the period when none were picked,
@@ -529,7 +537,7 @@ function render(){
  if(!catAll){const sh=ord.map(i=>S.cats[i]).filter(pin).concat(pin("Other")?["Other"]:[]);
   $("cats").innerHTML=sh.map(c=>`<button class="cat short${cat==c?" sel":""}" data-c="${esc(c)}"><span class="ci" style="--ic:${COL[c]||"var(--mute)"}" aria-hidden="true">${ic(c).trim()}</span><span class="cn" dir="auto">${esc(c)}</span>${bw(c,by[c]||0)}</button>`).join("")||`<span class="msg">${pick0?"No categories picked. Open All categories and tap ☆ to pick some.":"No spending in this period yet."}</span>`}
  else $("cats").innerHTML=ord.map(i=>{const c=S.cats[i];return `<div class="cat${cat==c?" sel":""}" data-row="${i}"><span class="grip" title="Drag to reorder" aria-label="Drag to reorder">⋮⋮</span><button class="ci${ic(c)?"":" none"}" style="--ic:${COL[c]||"var(--mute)"}" data-ic="${i}" title="Change icon" aria-label="Change icon">${ic(c).trim()||"＋"}</button><input dir="auto" class="cn" data-ren="${i}" value="${esc(c)}" aria-label="Category name">${bw(c,by[c]||0)}${star(c,i)}<button class="x" data-delcat="${i}" aria-label="Delete category">✕</button>${icOpen==i?`<div class="pick">${PICK.map(e=>`<button data-pick="${e}">${e}</button>`).join("")}<button data-pick="" aria-label="No icon">none</button><input data-icin="${i}" maxlength="8" placeholder="or type" aria-label="Type your own icon"></div>`:""}</div>`}).join("")+(by.Other||pin("Other")?`<div class="cat${cat=="Other"?" sel":""}"><span></span><span class="ci" aria-hidden="true">${ic("Other").trim()}</span><span class="cn" style="padding:6px 8px">Other</span>${bw("Other",by.Other||0)}${star("Other","o")}<span></span></div>`:"");
- $("catall").textContent=catAll?"Done":"All categories ("+S.cats.length+") · Edit";$("catreset").hidden=!(catAll&&pick0);$("addrow").hidden=!catAll;
+ $("catall").textContent=catAll?"Done":"All categories ("+S.cats.length+") · Edit";$("catreset").hidden=!(catAll&&pick0)||cmp;$("addrow").hidden=!catAll||cmp;
  $("catmsg").textContent=catMsg;
  document.querySelectorAll("[data-cs]").forEach(b=>b.classList.toggle("on",b.dataset.cs==(S.catSort=="manual"?"manual":"size")));
  $("chip").innerHTML=cat?`<button id="clearcat">${ic(cat)}${esc(cat)} ✕</button>`:"";
@@ -703,7 +711,7 @@ document.addEventListener("click",e=>{const t=e.target;
 if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cname").focus();if(CL.some(c=>sameCard(c,n))){crdMsg="That card already exists.";return render()}S.cards[n]=100;crdMsg="";$("cname").value="";save();render();return}
  if(t.dataset.def!==undefined){const c=CL[+t.dataset.def];if(c){if(S.defCard==c)delete S.defCard;else S.defCard=c;save();render()}return}
  if(t.dataset.cs){S.catSort=t.dataset.cs;save();render()}
- if(t.id=="catall"){catAll=!catAll;icOpen=null;render();return}
+ if(t.id=="catall"){catAll=!catAll;icOpen=null;if(catAll){cmp=false;cat=null}render();return}
  if(t.dataset.pin!==undefined){const c=t.dataset.pin=="o"?"Other":S.cats[+t.dataset.pin];if(c==null)return;
   const was=Array.isArray(S.catPick)?S.catPick.slice():null,now=was||catTop.slice();S.catPick=now.includes(c)?now.filter(x=>x!=c):now.concat(c);
   pushUndo((S.catPick.includes(c)?"Showing “":"Hid “")+c+"” on the main screen",()=>{if(was)S.catPick=was;else delete S.catPick});save();render();return}
@@ -728,7 +736,7 @@ if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cn
  if(t.dataset.rclose!==undefined){rp=false;render();return}
  if(t.dataset.rpr!==undefined){window.print();return}
  if(t.dataset.rx!==undefined){exportXlsx().catch(()=>{});return}
- if(t.id=="cmpb"){cmp=!cmp;render();return}
+ if(t.id=="cmpb"){cmp=!cmp;if(cmp){catAll=false;cat=null}render();return}
  const tb=t.closest&&t.closest("[data-tm]");if(tb){$("month").value=tb.dataset.tm;cmA=null;render();return}
  if(t.id=="clearcat"){cat=null;render()}
  if(t.id=="addcat")addCat();
