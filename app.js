@@ -190,9 +190,18 @@ function inboxRow(id,d){const s=k=>typeof d[k]=="string"?d[k].replace(/[\u200e\u
   card=cards.find(c=>want&&c.toLowerCase()==want.toLowerCase())||(l4&&cards.find(c=>c.includes(l4)))||(want&&!/^\D*\d{4}$/.test(want)?want:"")||(iw&&cards.find(c=>c.toLowerCase().includes(iw.toLowerCase())))||(cards.includes(S.defCard)?S.defCard:"")||cards[0]||"My card",
   t={id,date:/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date)?date:ymd(),desc,amt,card:canon(card),cat:desc?guess(desc):"Other",auto:1};
  // Read from a notification without a shekel amount (foreign money, or nothing found): keep the original words in the note.
- if(!s("amt")&&!cur&&all)t.note=all.slice(0,500);
+ // Currency (2026-11-19): a plain amount from the quick-add button is in the "Buying in" currency (or the item's own "cur" code);
+ // a notification that names another currency (€50, USD 12.5) is saved in that currency, the shekel value looked up by inboxAdd.
+ let fc=null,fa=amt;
+ if(s("amt")){const c=s("cur").toUpperCase();fc=CCY[c]?c:buyC()}
+ else if(!cur&&all){const SY={"€":"EUR","$":"USD","£":"GBP","¥":"JPY","₺":"TRY","฿":"THB","₹":"INR"},W="(€|\\$|£|¥|₺|฿|₹|"+Object.keys(CCY).join("|")+")",
+  a=all.match(new RegExp("(?<![A-Za-z])"+W+"\\s*"+N+"(?!\\d)")),b=!a&&all.match(new RegExp(N+"\\s*"+W+"(?![A-Za-z])")),sym=a?a[1]:b&&b[2];
+  if(sym){fc=SY[sym]||sym;fa=num((a?a[2]:b[1]).replace(/^(\d+),(\d{1,2})$/,"$1.$2"))}}
+ if(fc&&fc!=homeC()&&fa){t.fx={c:fc,a:fa,r:0};t.amt=0}
+ else if(!s("amt")&&!cur&&all)t.note=all.slice(0,500);
  return t}
-function inboxAdd(list){const ids=[];list.forEach(([id,d])=>{const k="in-"+String(id).replace(/[^\w:.-]/g,"");if(!d||S.tx.some(t=>t.id==k))return;S.tx.push(inboxRow(k,d));ids.push(k)});return ids}
+function inboxAdd(list){const ids=[];list.forEach(([id,d])=>{const k="in-"+String(id).replace(/[^\w:.-]/g,"");if(!d||S.tx.some(t=>t.id==k))return;const t=inboxRow(k,d);S.tx.push(t);ids.push(k);
+ if(t.fx)getRate(t.fx.c,homeC(),t.date).then(r=>{if(r&&t.fx&&!t.fx.r&&S.tx.includes(t)){t.fx.r=r;t.amt=r2(t.fx.a*r);save();render()}})});return ids}
 // Excel: every sheet becomes tab-separated text in the paste box (dates as yyyy-mm-dd, numbers unformatted). The library loads on first use.
 function loadXlsx(){return window.XLSX?Promise.resolve():new Promise((ok,no)=>{const s=document.createElement("script");s.src="vendor/xlsx.full.min.js";s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
 function sheetText(ws){if(!ws["!ref"])return "";const R=XLSX.utils.decode_range(ws["!ref"]),out=[];

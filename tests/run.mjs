@@ -808,7 +808,9 @@ async function local() {
       inboxRow("d", { text: "hello" }),
       inboxRow("e", { amt: 5, desc: { x: 1 }, date: "9999-99-99x", card: "Brand new" }),
     ].map(t => [t.amt, t.date == ymd() ? "today" : t.date, t.card, t.note ? "note" : "", t.auto].join("|")).join(" ; ")),
-      "45|today|Max 5678||1 ; 1234.5|2026-11-05|Max 5678||1 ; 12|today|Visa|note|1 ; 0|today|Visa|note|1 ; 0|today|Brand new||1", "phone items");
+      "45|today|Max 5678||1 ; 1234.5|2026-11-05|Max 5678||1 ; 0|today|Visa||1 ; 0|today|Visa|note|1 ; 0|today|Brand new||1", "phone items");
+    // Currency of phone items: a notification naming euro is saved as euro; the quick-add amount uses "Buying in"; a shekel amount stays shekels.
+    eq(await p.evaluate(() => { S.buy = "EUR"; const r = [inboxRow("c1", { title: "Bar", text: "€50.00 with Visa" }), inboxRow("c2", { title: "Taxi", text: "EUR 12,5 with Visa" }), inboxRow("c3", { amt: "30", desc: "Gelato" }), inboxRow("c4", { title: "Shop", text: "₪60.00 with Visa" }), inboxRow("c5", { amt: "7", cur: "USD", desc: "x" })].map(t => t.fx ? t.fx.c + t.fx.a : "ILS" + t.amt).join(" "); S.buy = "ILS"; return r }), "EUR50 EUR12.5 EUR30 ILS60 USD7", "phone items in euro");
     eq(await p.evaluate(() => [inboxAdd([["x1", { amt: "9" }], ["x1", { amt: "9" }]]).join(), inboxAdd([["x1", { amt: "9" }]]).length].join("|")), "in-x1|0", "an item is added once");
     // Google Wallet notification (title = merchant, text = "₪60.00 with max Total ••5315"): the amount, the merchant, the card by its name.
     eq(await p.evaluate(() => { S.tx.push({ id: "mx", date: "2026-01-01", desc: "q", amt: 1, card: "Max 9999", cat: "Other" }); const t = inboxRow("w", { title: "SLOMI", text: "₪60.00 with max Total ••5315" }); return [t.amt, t.desc, t.card, t.cat].join("|") }), "60|SLOMI|Max 5678|Other", "wallet notification");
