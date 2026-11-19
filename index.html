@@ -68,7 +68,7 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
 <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=42aeebe199">
+<link rel="stylesheet" href="style.css?v=179b91ec1f">
 </head>
 <body>
 <main>
@@ -118,78 +118,64 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
     <button data-how="exp">Expenses</button><button data-how="inc">Income</button><button data-how="cat">Categories</button><button data-how="crd">Cards</button><button data-how="bud">Budget</button><button data-how="rec">Recurring</button><button data-how="imp">Import</button><button data-how="cur">Currencies</button><button data-how="rep">Report</button><button data-how="mer">Merchants</button><button data-how="acc">Account and phone</button>
   </div>
   <div class="how" data-h="exp" hidden>
-   <h3>Expenses</h3>
-   <ul><li>Press <b>+ Add expense</b> above the list. Fill in the description, amount, category and card. Add a note if you like.</li>
-   <li>Changing a category teaches the app that merchant: the next purchase there is sorted the same way, and other purchases from it can be re-sorted in Merchants.</li>
-   <li>A refund is a minus amount.</li>
-   <li>Choose <b>Split…</b> at the bottom of a category box to put part of a purchase in another category. The total stays the same.</li>
-   <li>A #word in a note is a tag. Tag buttons appear above the list; press one to see only those purchases.</li>
-   <li><b>Ignore</b> keeps a row but leaves it out of every total. ✕ deletes it (an Undo button appears for a few seconds).</li>
-   <li>The list shows the latest 5; press Show all for the rest. Use the month, card and Search boxes to narrow it.</li></ul>
+   <h4>Add an expense</h4><p>Press “+ Add expense” above the list and fill in the row.</p>
+   <h4>Changing a category</h4><p>The app learns it: that merchant is sorted the same way next time.</p>
+   <h4>Refunds</h4><p>Enter a minus amount.</p>
+   <h4>Split</h4><p>Choose “Split…” in the category box to put part of a purchase in another category.</p>
+   <h4>Tags</h4><p>Write a #word in a note. Tag buttons appear above the list; press one to see only those.</p>
+   <h4>Ignore and delete</h4><p>Ignore keeps a row but leaves it out of the totals. ✕ deletes it, and Undo appears for a few seconds.</p>
+   <h4>Finding things</h4><p>The list shows the latest 5. Press Show all, or use the month, card and Search boxes.</p>
   </div>
   <div class="how" data-h="inc" hidden>
-   <h3>Income</h3>
-   <ul><li>Add it like an expense, then choose <b>Income</b> in the category box. The amount counts as money in, never as spending.</li>
-   <li>Income with a category (choose a category on an income row; it shows as “Back: …”) is a <b>payback</b>: it lowers that category, for example your partner returning part of a purchase.</li>
-   <li>Monthly income (salary) can be added automatically in Recurring. A payslip (PDF or picture) can be imported in Import.</li>
-   <li>The Report shows Spent, Income and Left over.</li></ul>
+   <h4>Add income</h4><p>Add a row, then choose “Income” in its category box. It counts as money in, not spending.</p>
+   <h4>Paybacks</h4><p>Choose a category on an income row (“Back: …”) and it lowers that category, like a partner paying you back.</p>
+   <h4>Salary</h4><p>Add it every month in Recurring, or import a payslip in Import.</p>
   </div>
   <div class="how" data-h="cat" hidden>
-   <h3>Categories</h3>
-   <ul><li>The main screen shows the 4 biggest categories, or the ones you pick with ☆.</li>
-   <li><b>All categories · Edit</b> holds all the editing: rename, change the icon (tap it, pick one or type your own), drag to reorder, ☆ to show on the main screen, delete, add a new one, and “Back to the 4 biggest”.</li>
-   <li>Press a category to filter the expenses to it.</li></ul>
+   <h4>On the main screen</h4><p>The 4 biggest categories, or the ones you pick with ☆.</p>
+   <h4>Editing</h4><p>“All categories · Edit” lets you rename, change the icon, drag to reorder, ☆, delete, add, or go back to the 4 biggest.</p>
+   <h4>Filtering</h4><p>Press a category to see only its expenses.</p>
   </div>
   <div class="how" data-h="crd" hidden>
-   <h3>Cards</h3>
-   <ul><li>Choose how much of each card counts toward your totals: in full, half (a joint card with a partner), a custom percentage, or not counted.</li>
-   <li>The ★ makes a card the default for purchases that arrive from the phone without a card.</li>
-   <li>Renaming a card renames it everywhere. Card names ignore upper and lower case.</li></ul>
+   <h4>How a card counts</h4><p>In full, half (a joint card), a custom percentage, or not counted.</p>
+   <h4>Default card</h4><p>The ★ sets the card used for phone purchases that name no card.</p>
+   <h4>Renaming</h4><p>Renaming a card changes it everywhere.</p>
   </div>
   <div class="how" data-h="bud" hidden>
-   <h3>Budget</h3>
-   <ul><li>Monthly budgets. Leave a box empty for no budget.</li>
-   <li>On the main screen the total shows under the big number and each category's bar fills toward its budget (amber from 80%, red when over). Pick one month, not All time, and All cards.</li>
-   <li><b>Month starts on day:</b> 1 = the calendar month. Use your payday or card billing day.</li></ul>
+   <h4>Budgets</h4><p>Set a monthly budget per category and a total. Leave a box empty for none.</p>
+   <h4>On the main screen</h4><p>Pick one month and All cards. Each bar fills toward its budget: amber from 80%, red when over.</p>
+   <h4>Month starts on day</h4><p>1 is the calendar month. Use your payday or card billing day.</p>
   </div>
   <div class="how" data-h="rec" hidden>
-   <h3>Recurring</h3>
-   <ul><li>Bills or income that are added automatically every month on the day you set. Press <b>+ Add recurring</b>.</li>
-   <li>They are added when the app opens (and when it returns to the front on a new day), starting in the month you add them.</li>
-   <li>A generated row you delete is not added again.</li></ul>
+   <h4>Recurring items</h4><p>Press “+ Add recurring”. A bill or income is added every month on the day you set.</p>
+   <h4>When they appear</h4><p>When the app opens or returns to the front, starting the month you add them.</p>
+   <h4>Deleting one</h4><p>Delete a generated row and it is not added again.</p>
   </div>
   <div class="how" data-h="imp" hidden>
-   <h3>Import</h3>
-   <ul><li>Type the card name, choose how it counts, then upload a card statement (Excel or CSV) or paste the rows. Press Import and sort.</li>
-   <li>Importing the same file again skips rows you already have.</li>
-   <li>If the statement is in another currency, pick it in the box next to the card rule. Each row is converted at its own date's rate.</li>
-   <li>A payslip (PDF or picture) is read for the net pay and added as income. Check the amount first.</li>
-   <li>A purchase that came from the phone is matched with its statement row when the amount and date agree.</li></ul>
+   <h4>Statements</h4><p>Type the card name, upload an Excel or CSV file or paste the rows, and press Import and sort. Rows you already have are skipped.</p>
+   <h4>Foreign statements</h4><p>Pick the currency next to the card rule. Each row is converted at its date's rate.</p>
+   <h4>Payslips</h4><p>Upload a PDF or picture; the net pay is added as income. Check the amount.</p>
+   <h4>Phone purchases</h4><p>They merge with their statement row when the amount and date match.</p>
   </div>
   <div class="how" data-h="cur" hidden>
-   <h3>Currencies</h3>
-   <ul><li>In <b>Account</b>: <b>Home currency</b> is what everything is shown in. <b>Buying in</b> is the currency new purchases are entered in (set it to euro for a trip, back afterwards).</li>
-   <li>A purchase in another currency shows <b>Paid</b> (the original amount and currency) and <b>rate</b> (home currency per 1 unit). Change the currency box if it was entered wrong.</li>
-   <li>Rates are the European Central Bank's, for the purchase date, fetched when you add it. Offline: the last known rate is used, or type the rate yourself.</li>
-   <li>Editing the amount at the top of a row (in your home currency) changes its rate: use this to match your card's real charge. Such a rate is no longer replaced when you change the date.</li>
-   <li>Changing the Home currency offers to convert all saved amounts at today's rate. You can undo it.</li>
-   <li>From the phone: a plain amount uses Buying in; a notification that names a currency (€50) is saved in that currency.</li></ul>
+   <h4>Home currency</h4><p>In Account: what everything is shown in. Changing it offers to convert your saved amounts (you can undo).</p>
+   <h4>Buying in</h4><p>In Account: the currency new purchases are entered in. Set it to euro for a trip.</p>
+   <h4>Paid and rate</h4><p>A foreign purchase shows what you paid and the rate (home currency per 1 unit). Change the currency box if it was entered wrong.</p>
+   <h4>Where rates come from</h4><p>The European Central Bank, for the purchase date. Offline, the last known rate is used, or type your own.</p>
+   <h4>Matching your card</h4><p>Edit the amount at the top of the row to your card's real charge; the rate adjusts.</p>
+   <h4>From the phone</h4><p>A plain amount uses “Buying in”. A notification that names a currency (€50) is saved in it.</p>
   </div>
   <div class="how" data-h="rep" hidden>
-   <h3>Report</h3>
-   <ul><li>More → Report: Spent, Income and Left over for the period, then by category, card, tag, top merchants, the largest purchases, income and recurring bills.</li>
-   <li>Compare puts two months side by side; the trend shows the months over time.</li>
-   <li>Ignored rows are left out unless you choose to include them.</li></ul>
+   <h4>The report</h4><p>More → Report shows Spent, Income and Left over, then breakdowns by category, card, tag and merchant.</p>
+   <h4>Compare and trend</h4><p>Compare puts two months side by side; the trend shows months over time.</p>
   </div>
   <div class="how" data-h="mer" hidden>
-   <h3>Merchants</h3>
-   <ul><li>The merchants the app has learned. Change a category there to re-sort every purchase from that merchant.</li></ul>
+   <h4>Learned merchants</h4><p>Change a category here to re-sort every purchase from that merchant.</p>
   </div>
   <div class="how" data-h="acc" hidden>
-   <h3>Account and phone</h3>
-   <ul><li>Account: home currency, buying currency, download or restore your data, sign out.</li>
-   <li>The phone can add purchases without opening the app (a MacroDroid shortcut or a Google Wallet notification); they sync to the app and are marked until a statement row confirms them.</li>
-   <li>Theme (Auto, Light, Dark) is in the More menu and is remembered per device.</li></ul>
+   <h4>Account</h4><p>Currencies, download or restore your data, sign out.</p>
+   <h4>Phone</h4><p>A MacroDroid shortcut or a Wallet notification adds purchases without opening the app. They are marked until a statement row confirms them.</p>
+   <h4>Theme</h4><p>Auto, Light or Dark, in the More menu. Remembered per device.</p>
   </div>
 </div></div>
 
@@ -258,7 +244,7 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="toast top" id="bnote" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=42aeebe199"></script>
-<script src="cloud.js?v=42aeebe199"></script>
+<script src="app.js?v=179b91ec1f"></script>
+<script src="cloud.js?v=179b91ec1f"></script>
 </body>
 </html>

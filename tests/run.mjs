@@ -694,8 +694,8 @@ async function local() {
     await p.click("#more"); await p.click('[data-p="how"]');
     eq(await p.locator(".how:visible").count(), 1, "one topic visible");
     await p.click('[data-how="cur"]');
-    eq(await p.locator(".how:visible h3").textContent(), "Currencies", "picked topic");
-    await p.click('[data-how="exp"]'); eq(await p.locator(".how:visible h3").textContent(), "Expenses", "another topic");
+    eq((await p.locator(".how:visible h4").first().textContent()), "Home currency", "picked topic");
+    await p.click('[data-how="exp"]'); eq((await p.locator(".how:visible h4").first().textContent()), "Add an expense", "another topic");
     await p.route("https://api.frankfurter.dev/**", r => r.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify({ rates: { ILS: /2026-10-01/.test(r.request().url()) ? 5 : 4, EUR: 0.25 } }) }));
     // a row's date changes: the rate is fetched again (unless the rate was typed or the shekel amount edited)
     await p.evaluate(() => { S.tx = [{ id: "f1", date: "2026-11-03", desc: "Bar", amt: 200, card: "My card", cat: "Other", fx: { c: "EUR", a: 50, r: 4 } }, { id: "f2", date: "2026-11-03", desc: "Pub", amt: 190, card: "My card", cat: "Other", fx: { c: "EUR", a: 50, r: 3.8, m: 1 } }]; save(); render() });
