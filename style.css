@@ -56,6 +56,9 @@ td input,td select{width:100%;border-color:transparent;background:transparent;pa
 td input:hover,td input:focus,td select:hover{border-color:var(--line);background:var(--card)}
 td.amt input{text-align:right;width:100px}
 small.c{display:block;color:var(--mute);font-size:11px;padding-right:8px}
+.fx{display:flex;gap:4px;justify-content:flex-end;margin-top:2px}
+.fx select,.fx input{font-size:12px;color:var(--mute);width:auto;min-width:0}
+td.amt .fx input{width:64px}
 .empty{text-align:center;padding:30px 16px;color:var(--mute)}
 .msg{color:var(--acc);font-size:13px}
 th button{border:0;background:none;padding:0;font:inherit;font-weight:600;color:inherit;cursor:pointer;border-radius:4px}

@@ -665,6 +665,29 @@ async function local() {
     await p.waitForFunction(() => [...document.querySelectorAll("#month option")].slice(-1)[0].textContent.includes("–"), null, { timeout: 15000 });
     await p.reload(); eq(await p.evaluate(() => S.mstart), 15, "start day after reload");
   });
+  await test("multi-currency: buying in euro, shown in shekels with the original, switchable, rate editable", async () => {
+    const p = await open("?local=1");
+    await p.route("https://api.frankfurter.dev/**", r => r.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify({ rates: { ILS: 4 } }) }));
+    await p.evaluate(() => { S.tx = S.tx.filter(t => !t.id.startsWith("fx")); delete S.budget; S.buy = "EUR"; save(); render() });
+    eq(await p.evaluate(() => [homeC(), buyC()].join()), "ILS,EUR", "home and buying currency");
+    await p.click("#addp");
+    await p.waitForFunction(() => S.tx.some(t => t.fx && t.fx.r == 4), null, { timeout: 5000 });
+    const id = await p.evaluate(() => S.tx.find(t => t.fx && t.fx.r == 4).id);
+    await setField(p.locator(`[data-tid="${id}"][data-f="fxa"]`), "50");
+    eq(await p.evaluate(i => { const t = S.tx.find(x => x.id == i); return [t.amt, t.fx.a, t.fx.c].join() }, id), "200,50,EUR", "50 EUR at 4 = 200 shekels");
+    // wrong currency: switch to USD keeps the typed number, new rate
+    await p.selectOption(`[data-tid="${id}"][data-f="ccy"]`, "USD");
+    await p.waitForFunction(i => S.tx.find(x => x.id == i).fx.c == "USD", id, { timeout: 5000 });
+    // back to the home currency: plain purchase, amount stays
+    await p.selectOption(`[data-tid="${id}"][data-f="ccy"]`, "ILS");
+    await p.waitForFunction(i => !S.tx.find(x => x.id == i).fx, id, { timeout: 5000 });
+    eq(await p.evaluate(i => S.tx.find(x => x.id == i).amt, id), 200, "amount kept in shekels");
+    await p.selectOption(`[data-tid="${id}"][data-f="ccy"]`, "EUR");
+    await p.waitForFunction(i => S.tx.find(x => x.id == i).fx, id, { timeout: 5000 });
+    await setField(p.locator(`[data-tid="${id}"][data-f="amt"]`), "210");
+    eq(await p.evaluate(i => S.tx.find(x => x.id == i).fx.r, id), 210 / 200, "editing the shekel amount changes the rate");
+    await p.evaluate(() => { S.buy = "ILS"; S.tx = S.tx.filter(t => !t.fx); save(); render() });
+  });
   await test("the page opens on this month with its budget", async () => {
     const p = await open("?local=1");
     await p.evaluate(() => { S.budget = { total: 1000, cats: {} }; S.tx.push({ id: "n1", date: ymd(), desc: "Shufersal", amt: 45, card: "My card", cat: "Groceries" }); save(); });

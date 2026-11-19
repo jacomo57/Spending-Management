@@ -296,10 +296,12 @@ function clean(o){const id=x=>String(x||"").replace(/[^\w:.-]/g,"")||uid();
  o.tx.forEach(t=>{t.id=id(t.id);t.desc=String(t.desc||"");if(t.src!=null)t.src=String(t.src);if(t.note!=null)t.note=String(t.note).slice(0,500);
   if(t.inc){t.inc=1;t.amt=Math.abs(t.amt);t.card=String(t.card||"");t.cat=String(t.cat||"")}else{delete t.inc;t.card=String(t.card||"My card");t.cat=String(t.cat||"Other")}
   if(t.auto&&!t.inc)t.auto=1;else delete t.auto;
+  if(t.fx&&typeof t.fx=="object"&&CCY[t.fx.c]&&isFinite(t.fx.a)&&isFinite(t.fx.r)&&t.fx.r>=0)t.fx={c:t.fx.c,a:+t.fx.a,r:+t.fx.r};else delete t.fx;
   if(Array.isArray(t.split))t.split=t.split.filter(p=>p&&typeof p.amt=="number"&&isFinite(p.amt)).map(p=>({cat:String(p.cat||"Other"),amt:p.amt}));fitSplit(t)});
  if(!Array.isArray(o.recur))o.recur=[];o.recur.forEach(r=>{r.id=id(r.id);r.amt=+r.amt||0;r.day=Math.min(28,Math.max(1,parseInt(r.day)||1));r.desc=String(r.desc||"");if(r.inc)r.inc=1;else delete r.inc});
  if(o.budget&&typeof o.budget=="object"){const c=bare(),s=o.budget.cats;if(s&&typeof s=="object")for(const k in s)if(+s[k]>0)c[k]=+s[k];o.budget={total:Math.max(0,+o.budget.total||0),cats:c}}else delete o.budget;
  if(o.barMode!="budget")delete o.barMode;
+ for(const k of["home","buy"])if(!CCY[o[k]])delete o[k];
  if(typeof o.defCard=="string"&&o.defCard)o.defCard=o.defCard.slice(0,200);else delete o.defCard;
  if(o.mstart!=null){const n=Math.min(28,Math.max(1,parseInt(o.mstart)||1));if(n>1)o.mstart=n;else delete o.mstart}
  for(const k of["hue","cards"])if(o[k]&&typeof o[k]=="object")for(const c in o[k])o[k][c]=+o[k][c]||0;else delete o[k];
@@ -308,6 +310,23 @@ function clean(o){const id=x=>String(x||"").replace(/[^\w:.-]/g,"")||uid();
  for(const k of["rules","alias","icon"])if(o[k]&&typeof o[k]=="object")for(const c in o[k])o[k][c]=String(o[k][c]).slice(0,k=="icon"?8:1e4);else delete o[k];
  return Object.assign({tx:[],rules:{},cur:"₪"},own(o))}
 function fmt(n){return esc(S.cur)+" "+n.toLocaleString(undefined,{maximumFractionDigits:0})}
+// Multi-currency (asked 2026-11-19). Every stored amount (t.amt) is in the HOME currency (S.home, shown everywhere), so v(), calc() and
+// every total stay as they were. A purchase made in another currency also carries t.fx = {c: code, a: original amount, r: rate}
+// with amt = a*r; the row shows the original next to it. S.buy = the currency new purchases are entered in (a trip). Both are set in
+// Account; each row can be switched. Rates come from frankfurter.dev (European Central Bank, free, no key), looked up for the
+// purchase date and cached on this device (localStorage "spend-fx", not synced); if offline the last known rate is used, else the
+// rate box on the row is typed by hand. Editing the home amount of a foreign row changes its rate (the card statement's real charge).
+const CCY={ILS:"₪",USD:"$",EUR:"€",GBP:"£",CHF:"CHF",JPY:"¥",CAD:"CA$",AUD:"A$",TRY:"₺",CZK:"Kč",PLN:"zł",HUF:"Ft",SEK:"kr",NOK:"kr",DKK:"kr",THB:"฿",CNY:"CN¥",INR:"₹",MXN:"MX$",ZAR:"R"};
+const homeC=()=>CCY[S.home]?S.home:Object.keys(CCY).find(k=>CCY[k]==S.cur)||"ILS",buyC=()=>CCY[S.buy]?S.buy:homeC();
+const fmtc=(n,c)=>esc(CCY[c]||c)+" "+n.toLocaleString(undefined,{maximumFractionDigits:2}),r2=n=>Math.round(n*100)/100;
+let FX={};try{FX=JSON.parse(localStorage.getItem("spend-fx"))||{}}catch(e){}
+async function getRate(from,to,d){if(from==to)return 1;const today=ymd(),dd=d&&d<today?d:today,k=from+">"+to+"|"+dd;if(FX[k]>0)return FX[k];
+ try{const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),6000),r=await fetch("https://api.frankfurter.dev/v1/"+(dd==today?"latest":dd)+"?base="+from+"&symbols="+to,{signal:ac.signal});clearTimeout(tm);
+  const j=await r.json(),x=j&&j.rates?+j.rates[to]:0;if(x>0){FX[k]=FX[from+">"+to]=x;try{localStorage.setItem("spend-fx",JSON.stringify(FX))}catch(e){}return x}}catch(e){}
+ return FX[from+">"+to]||0}
+// Put purchase x in currency c with original amount a (the rate is looked up for its date). Home currency = plain purchase.
+async function setFx(x,c,a){if(c==homeC()){delete x.fx;return}const r=await getRate(c,homeC(),x.date);x.fx={c,a,r};if(r&&a)x.amt=r2(x.inc?Math.abs(a*r):a*r)}
+const fxLine=t=>t.fx?` <small>(${fmtc(t.fx.a,t.fx.c)})</small>`:"";
 // A "month" can start on any day (S.mstart, 1 to 28, default 1): the period from that day to the day before the next one is named
 // after the calendar month it starts in. pk(date) -> "YYYY-MM" key of the period a date is in; mrange(m) -> [first day, last day].
 const MS=()=>Math.min(28,Math.max(1,parseInt(S.mstart)||1)),p2=n=>String(n).padStart(2,"0"),dstr=d=>d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate());
@@ -347,12 +366,14 @@ let pendingMonth=null,focusTid=null,focusSp=null;
 function addPurchase(inc){const id=uid(),d=ymd();
  dropEmpty();q="";$("q").value="";
  if(inc){S.tx.push({id,date:d,desc:"",amt:0,inc:1,card:"",cat:""});cardF="all";cat=null}
- else S.tx.push({id,date:d,desc:"",amt:0,card:cardF!="all"?cardF:CL.find(c=>c!="Recurring")||"My card",cat:cat||"Other"});
+ else{const x={id,date:d,desc:"",amt:0,card:cardF!="all"?cardF:CL.find(c=>c!="Recurring")||"My card",cat:cat||"Other"};S.tx.push(x);
+  if(buyC()!=homeC()){x.fx={c:buyC(),a:0,r:0};getRate(buyC(),homeC(),d).then(r=>{if(x.fx&&!x.fx.r){x.fx.r=r;if(S.tx.includes(x)){save();render()}}})}}
  pendingMonth=pk(d);focusTid=id;if((S.sk||"date")!="date"||S.sd=="asc")showAll=true;save();render()}
 function render(){
  const fs=fsel(document.activeElement);
  syncCats();if(!Array.isArray(S.recur))S.recur=[];
- $("cur").value=S.cur;
+ if(!$("cur").options.length)$("cur").innerHTML=$("buy").innerHTML=Object.keys(CCY).map(c=>`<option value="${c}">${c} ${CCY[c]==c?"":CCY[c]}</option>`).join("");
+ $("cur").value=homeC();$("buy").value=buyC();
  CL=[...new Set([...S.tx.filter(t=>!t.inc).map(t=>t.card),...S.recur.filter(r=>!r.inc).map(r=>r.card||"Recurring"),...Object.keys(S.cards)])].sort((a,b)=>a.localeCompare(b));
  if(cardF!="all"&&!CL.includes(cardF))cardF="all";
  const rc=[...new Set(["Recurring",...CL])],copt=s=>rc.map(c=>`<option${c==s?" selected":""}>${esc(c)}</option>`).join("");
@@ -435,7 +456,7 @@ function render(){
   <td class="ds"><input dir="auto" data-tid="${t.id}" data-f="desc" placeholder="Description" value="${esc(t.desc)}" style="min-width:190px"><input dir="auto" class="nt" data-tid="${t.id}" data-f="note" placeholder="+ note" value="${esc(t.note||"")}" aria-label="Note"></td>
   <td class="ct"><select data-id="${t.id}">${t.inc?`<option value="">Income</option>`:""}${os.map(c=>`<option value="${esc(c)}"${c==t.cat?" selected":""}>${t.inc?"Back: ":""}${ic(c)}${esc(c)}</option>`).join("")}${t.inc?"":`<option data-split="1" value="${esc(t.cat)}">Split…</option>`}</select>${spl}</td>
   <td class="cd"><select dir="auto" data-tid="${t.id}" data-f="card" style="width:115px" aria-label="Card">${[...new Set(["",...CL.filter(c=>c!="Recurring"),t.card||""])].filter(c=>c||t.inc).map(c=>`<option value="${esc(c)}"${c==(t.card||"")?" selected":""}>${esc(c||"—")}</option>`).join("")}<option value="__new">＋ New card…</option></select></td>
-  <td class="amt"><input type="number" step="0.01" data-tid="${t.id}" data-f="amt" value="${t.amt}">${note?`<small class="c amt">${note}</small>`:""}</td>
+  <td class="amt"><input type="number" step="0.01" data-tid="${t.id}" data-f="amt" value="${t.amt}">${t.inc?"":`<div class="fx">${t.fx?`<input type="number" step="0.01" data-tid="${t.id}" data-f="fxa" value="${t.fx.a||""}" placeholder="Amount" aria-label="Amount in ${t.fx.c}">`:""}<select data-tid="${t.id}" data-f="ccy" aria-label="Currency of this purchase">${Object.keys(CCY).map(c=>`<option${c==(t.fx?t.fx.c:homeC())?" selected":""}>${c}</option>`).join("")}</select>${t.fx?`<input type="number" step="any" min="0" data-tid="${t.id}" data-f="fxr" value="${t.fx.r||""}" placeholder="rate" aria-label="Exchange rate to ${homeC()}">`:""}</div>`}${note?`<small class="c amt">${note}</small>`:""}</td>
   <td class="k"><input type="checkbox" data-skip="${t.id}"${t.skip?" checked":""} aria-label="Ignore this purchase"></td><td class="k dl"><button class="x" data-del="${t.id}" aria-label="Delete">✕</button></td></tr>`}).join("")
   :`<tr><td colspan="7" class="empty" style="grid-column:1/-1">${S.tx.length?"Nothing matches these filters.":"No purchases yet. Press Import above, or load the sample data to try it out."}</td></tr>`;
  report();
@@ -447,7 +468,7 @@ function render(){
 // Report (view only, not saved). All numbers come from calc() and v(); ignored rows only appear in the list when asked for.
 function repRows(m){return S.tx.filter(t=>(m=="all"||pk(t.date).startsWith(m))&&(cardF=="all"||t.card==cardF))}
 const sec=(t,b)=>`<h3>${esc(t)}</h3>${b}`;
-const repList=lst=>sec("All entries ("+lst.length+")",repTable([["Date"],["Description"],["Category"],["Card"],["Amount",1]],lst.map(t=>repTr([[t.date],[esc(t.desc)+(t.note?" <small>"+esc(t.note)+"</small>":"")+(t.skip?" <small>(ignored)</small>":""),0,1],[esc(t.inc&&!t.cat?"Income":catLabel(t)),0,1],[esc(t.card||""),0,1],[t.inc?fmt(t.amt):fmt(t.skip?t.amt:v(t)),1]])).join("")));
+const repList=lst=>sec("All entries ("+lst.length+")",repTable([["Date"],["Description"],["Category"],["Card"],["Amount",1]],lst.map(t=>repTr([[t.date],[esc(t.desc)+fxLine(t)+(t.note?" <small>"+esc(t.note)+"</small>":"")+(t.skip?" <small>(ignored)</small>":""),0,1],[esc(t.inc&&!t.cat?"Income":catLabel(t)),0,1],[esc(t.card||""),0,1],[t.inc?fmt(t.amt):fmt(t.skip?t.amt:v(t)),1]])).join("")));
 function repTable(head,body){return "<table class=\"rt\"><thead><tr>"+head.map(([l,n])=>"<th"+(n?" class=\"n\"":"")+">"+esc(l)+"</th>").join("")+"</tr></thead><tbody>"+body+"</tbody></table>"}
 // Text cells keep the page direction (so they line up with their header) and wrap the text in <bdi>, so Hebrew still reads right.
 const repTr=cells=>"<tr>"+cells.map(([x,n,d])=>"<td"+(n?" class=\"n\"":"")+">"+(d?"<bdi>"+x+"</bdi>":x)+"</td>").join("")+"</tr>";
@@ -617,13 +638,16 @@ if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cn
 document.addEventListener("change",e=>{const t=e.target;
  if(t.dataset.skip){const x=S.tx.find(y=>y.id==t.dataset.skip);if(x){if(t.checked)x.skip=1;else delete x.skip;save();render()}}
  else if(t.dataset.tid){const x=S.tx.find(y=>y.id==t.dataset.tid),f=t.dataset.f;
+  if(x&&f=="ccy"){const c=t.value;return setFx(x,c,x.fx?x.fx.a:x.amt).then(()=>{save();render()})}
+  if(x&&x.fx&&(f=="fxa"||f=="fxr")){const n=parseFloat(t.value)||0;if(f=="fxa")x.fx.a=n;else x.fx.r=Math.max(0,n);
+   if(x.fx.a&&x.fx.r){x.amt=r2(x.inc?Math.abs(x.fx.a*x.fx.r):x.fx.a*x.fx.r);fitSplit(x)}return save(),later(render)}
   if(x){let val=t.value;
    if(f=="amt"){val=parseFloat(val);if(!val)return later(render);if(x.inc)val=Math.abs(val)}
    if(f=="date"&&!/^\d{4}-\d{2}-\d{2}$/.test(val))return later(render);
    if(f=="desc"&&!val.trim())return later(render);
    if(f=="card"&&val=="__new"){val=canon(prompt("New card name")||"");if(!val)return later(render)}
    if(f!="card"&&f!="note"&&!x.src&&x.amt&&x.desc)x.src=rid(x);
-   x[f]=(f=="desc"||f=="card"||f=="note")?val.trim().slice(0,f=="note"?500:1e4):val;if(f=="amt")fitSplit(x);if(f=="note"&&!x.note)delete x.note;if(f=="desc"&&x.cat=="Other"&&!x.inc)x.cat=guess(x.desc);save();later(render)}}
+   x[f]=(f=="desc"||f=="card"||f=="note")?val.trim().slice(0,f=="note"?500:1e4):val;if(f=="amt"){fitSplit(x);if(x.fx&&x.fx.a)x.fx.r=x.amt/x.fx.a}if(f=="note"&&!x.note)delete x.note;if(f=="desc"&&x.cat=="Other"&&!x.inc)x.cat=guess(x.desc);save();later(render)}}
  else if(t.dataset.rid){const r=S.recur.find(x=>x.id==t.dataset.rid),f=t.dataset.f;
   if(r){r[f]=f=="amt"?(parseFloat(t.value)||0):f=="day"?Math.min(28,Math.max(1,parseInt(t.value)||1)):t.value;recGen();save();later(render)}}
  else if(t.dataset.icin!==undefined){const c=S.cats[+t.dataset.icin];if(c){S.icon[c]=t.value.trim().slice(0,8);save()}icOpen=null;render()}
@@ -652,7 +676,8 @@ document.addEventListener("change",e=>{const t=e.target;
   if(f=="name"){const nv=t.value.trim();later(()=>renameCard(c,nv))}
   else{S.cards[c]=t.value=="c"?25:Math.min(100,Math.max(0,parseFloat(t.value)||0));save();later(render)}}
  else if(t.id=="cardf"){cardF=t.value;render()}
- else if(t.id=="cur"){S.cur=t.value||"₪";save();render()}
+ else if(t.id=="cur"&&CCY[t.value]){S.home=t.value;S.cur=CCY[t.value];if(!CCY[S.buy])S.buy=t.value;save();render()}
+ else if(t.id=="buy"&&CCY[t.value]){S.buy=t.value;save();render()}
  else if(t.id=="file"&&t.files[0])readFile(t.files[0])});
 // Installable app: sw.js keeps a copy of the app's files so it opens offline (rules at the top of sw.js).
 // APPV is the version this page was loaded as (stamped by tools/stamp.mjs). A newer sw.js that finishes installing is told
