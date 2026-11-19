@@ -245,3 +245,7 @@ The user confirmed on 2026-11-16 that the live site signs in and saves under the
 - Hero card: the budget bar now fills the card width. Categories: the header buttons are compact and stay on one line on a phone; category icons are round and tinted in the category colour (main list and Edit view). Expenses: the filter row and the sort chips wrap instead of scrolling sideways. Report: text cells keep the page direction (Hebrew wrapped in `<bdi>`), so they line up with their headers.
 - Checked in the browser at 375px and desktop, light and dark: main screen, Budget and Recurring panels, Edit view, report. 52 tests, `failures: 0`; code review (low) no findings. Not checked: a real phone, real print/PDF, the other panels at phone size (listed in the handoff).
 - `docs/app.md` and the spec comment in `index.html` updated for the new main screen.
+
+## 2026-11-19: Budget panel text removed
+
+- The two help texts in the Budget panel were removed at the user's request (less writing); their wording is kept in `docs/handoff.md` for the planned How-to page. 52 tests, `failures: 0`.
