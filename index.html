@@ -12,6 +12,7 @@ Payslip (תלוש שכר): pick the PDF in Import, or paste its text. Only the n
 Cards: S.cards[name] = percent that counts (full 100, half 50, custom, not counted 0). Rename a card in the Cards panel. A joint card is a card set to half.
 Summary: spent, In and Left over (when the view has income), a figure per card (when more than one), currency.
 Add expense and income (2026-11-19): "+ Add expense" sits above the expense list (the top "+ Add purchase" and "+ Add income" buttons are gone). Choosing "Income" in a row's category box turns it into plain income (amount positive, no card, no split, no currency); a category on an income row still makes it a payback. The report always shows Spent, Income and Left over.
+How to page (2026-11-19): More, How to; topic buttons (#p-how, data-how / data-h), one topic at a time; keep the text in step with the features. Multi-currency fixes (2026-11-19): a row's date change fetches the rate again unless fx.m (hand-set); a statement can be imported in another currency (box next to the card rule); changing Home currency asks to convert all amounts (undo); fillRates() fills rows saved without a rate.
 Multi-currency (2026-11-19): Account has Home currency (everything is shown in it) and Buying in (the currency new purchases are entered in, e.g. EUR on a trip). A row in another currency keeps t.fx={c,a,r} (original amount, rate) with amt=a*r in the home currency, so calc()/v() are unchanged; the row shows the original amount, a currency box (switch it if the input was wrong) and the rate. Rates: api.frankfurter.dev (ECB), for the purchase date, cached on the device; offline = last known rate, else type it. Editing the home amount changes the rate. Changing the home currency later does not convert old rows. Tested with a mocked rate service. Phone items: a quick-add amount is in "Buying in" (or the item's own "cur" code); a notification naming another currency (€50, USD 12,5) is saved in it and the shekel value is looked up on arrival; a shekel amount stays shekels.
 Income: a row with inc:1 and a positive amount ("Income (a category-box choice)", recurring income, positive rows of a bank file). No category = income, counts toward In. With a category = a payback, lowers that category and Spent in full. Card rules never apply to income. calc(rows) in app.js is the single definition of spent / in / per category / per card.
 Budgets (Budget panel): S.budget = {total, cats:{name:amount}}, monthly, saved with the settings. Shown with one month picked and no card filter: "X left of Y" under Spent, category bars fill against their budget (amber from 80%, red when over). Budgets follow a renamed category.
@@ -67,7 +68,7 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
 <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=190462a8c7">
+<link rel="stylesheet" href="style.css?v=42aeebe199">
 </head>
 <body>
 <main>
@@ -94,6 +95,7 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
     <button id="repb">Report</button>
     <button data-p="mer">Merchants</button>
     <button data-p="acc" id="accbtn">Account</button>
+    <button data-p="how">How to</button>
     <hr>
     <button id="themeb">Theme: Auto</button>
     <button id="wipe" class="danger">Delete all data</button>
@@ -111,10 +113,90 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
   <div class="row cl"><input id="delpass" type="password" placeholder="Your password" autocomplete="current-password" aria-label="Your password" style="width:170px"><button class="danger" id="delacc">Delete my account</button><span class="msg" id="accmsg"></span></div>
 </div></div>
 
+<div class="panel" id="p-how" hidden><div class="grid">
+  <div class="how-tabs" role="group" aria-label="Help topics">
+    <button data-how="exp">Expenses</button><button data-how="inc">Income</button><button data-how="cat">Categories</button><button data-how="crd">Cards</button><button data-how="bud">Budget</button><button data-how="rec">Recurring</button><button data-how="imp">Import</button><button data-how="cur">Currencies</button><button data-how="rep">Report</button><button data-how="mer">Merchants</button><button data-how="acc">Account and phone</button>
+  </div>
+  <div class="how" data-h="exp" hidden>
+   <h3>Expenses</h3>
+   <ul><li>Press <b>+ Add expense</b> above the list. Fill in the description, amount, category and card. Add a note if you like.</li>
+   <li>Changing a category teaches the app that merchant: the next purchase there is sorted the same way, and other purchases from it can be re-sorted in Merchants.</li>
+   <li>A refund is a minus amount.</li>
+   <li>Choose <b>Split…</b> at the bottom of a category box to put part of a purchase in another category. The total stays the same.</li>
+   <li>A #word in a note is a tag. Tag buttons appear above the list; press one to see only those purchases.</li>
+   <li><b>Ignore</b> keeps a row but leaves it out of every total. ✕ deletes it (an Undo button appears for a few seconds).</li>
+   <li>The list shows the latest 5; press Show all for the rest. Use the month, card and Search boxes to narrow it.</li></ul>
+  </div>
+  <div class="how" data-h="inc" hidden>
+   <h3>Income</h3>
+   <ul><li>Add it like an expense, then choose <b>Income</b> in the category box. The amount counts as money in, never as spending.</li>
+   <li>Income with a category (choose a category on an income row; it shows as “Back: …”) is a <b>payback</b>: it lowers that category, for example your partner returning part of a purchase.</li>
+   <li>Monthly income (salary) can be added automatically in Recurring. A payslip (PDF or picture) can be imported in Import.</li>
+   <li>The Report shows Spent, Income and Left over.</li></ul>
+  </div>
+  <div class="how" data-h="cat" hidden>
+   <h3>Categories</h3>
+   <ul><li>The main screen shows the 4 biggest categories, or the ones you pick with ☆.</li>
+   <li><b>All categories · Edit</b> holds all the editing: rename, change the icon (tap it, pick one or type your own), drag to reorder, ☆ to show on the main screen, delete, add a new one, and “Back to the 4 biggest”.</li>
+   <li>Press a category to filter the expenses to it.</li></ul>
+  </div>
+  <div class="how" data-h="crd" hidden>
+   <h3>Cards</h3>
+   <ul><li>Choose how much of each card counts toward your totals: in full, half (a joint card with a partner), a custom percentage, or not counted.</li>
+   <li>The ★ makes a card the default for purchases that arrive from the phone without a card.</li>
+   <li>Renaming a card renames it everywhere. Card names ignore upper and lower case.</li></ul>
+  </div>
+  <div class="how" data-h="bud" hidden>
+   <h3>Budget</h3>
+   <ul><li>Monthly budgets. Leave a box empty for no budget.</li>
+   <li>On the main screen the total shows under the big number and each category's bar fills toward its budget (amber from 80%, red when over). Pick one month, not All time, and All cards.</li>
+   <li><b>Month starts on day:</b> 1 = the calendar month. Use your payday or card billing day.</li></ul>
+  </div>
+  <div class="how" data-h="rec" hidden>
+   <h3>Recurring</h3>
+   <ul><li>Bills or income that are added automatically every month on the day you set. Press <b>+ Add recurring</b>.</li>
+   <li>They are added when the app opens (and when it returns to the front on a new day), starting in the month you add them.</li>
+   <li>A generated row you delete is not added again.</li></ul>
+  </div>
+  <div class="how" data-h="imp" hidden>
+   <h3>Import</h3>
+   <ul><li>Type the card name, choose how it counts, then upload a card statement (Excel or CSV) or paste the rows. Press Import and sort.</li>
+   <li>Importing the same file again skips rows you already have.</li>
+   <li>If the statement is in another currency, pick it in the box next to the card rule. Each row is converted at its own date's rate.</li>
+   <li>A payslip (PDF or picture) is read for the net pay and added as income. Check the amount first.</li>
+   <li>A purchase that came from the phone is matched with its statement row when the amount and date agree.</li></ul>
+  </div>
+  <div class="how" data-h="cur" hidden>
+   <h3>Currencies</h3>
+   <ul><li>In <b>Account</b>: <b>Home currency</b> is what everything is shown in. <b>Buying in</b> is the currency new purchases are entered in (set it to euro for a trip, back afterwards).</li>
+   <li>A purchase in another currency shows <b>Paid</b> (the original amount and currency) and <b>rate</b> (home currency per 1 unit). Change the currency box if it was entered wrong.</li>
+   <li>Rates are the European Central Bank's, for the purchase date, fetched when you add it. Offline: the last known rate is used, or type the rate yourself.</li>
+   <li>Editing the amount at the top of a row (in your home currency) changes its rate: use this to match your card's real charge. Such a rate is no longer replaced when you change the date.</li>
+   <li>Changing the Home currency offers to convert all saved amounts at today's rate. You can undo it.</li>
+   <li>From the phone: a plain amount uses Buying in; a notification that names a currency (€50) is saved in that currency.</li></ul>
+  </div>
+  <div class="how" data-h="rep" hidden>
+   <h3>Report</h3>
+   <ul><li>More → Report: Spent, Income and Left over for the period, then by category, card, tag, top merchants, the largest purchases, income and recurring bills.</li>
+   <li>Compare puts two months side by side; the trend shows the months over time.</li>
+   <li>Ignored rows are left out unless you choose to include them.</li></ul>
+  </div>
+  <div class="how" data-h="mer" hidden>
+   <h3>Merchants</h3>
+   <ul><li>The merchants the app has learned. Change a category there to re-sort every purchase from that merchant.</li></ul>
+  </div>
+  <div class="how" data-h="acc" hidden>
+   <h3>Account and phone</h3>
+   <ul><li>Account: home currency, buying currency, download or restore your data, sign out.</li>
+   <li>The phone can add purchases without opening the app (a MacroDroid shortcut or a Google Wallet notification); they sync to the app and are marked until a statement row confirms them.</li>
+   <li>Theme (Auto, Light, Dark) is in the More menu and is remembered per device.</li></ul>
+  </div>
+</div></div>
+
 <section id="report" hidden></section>
 
 <div class="panel" id="p-imp" hidden><div class="grid">
-  <div class="row"><input id="card" dir="auto" placeholder="Card name, e.g. Visa 1234" list="cardlist"><datalist id="cardlist"></datalist><select id="irule" aria-label="How this card counts"></select></div>
+  <div class="row"><input id="card" dir="auto" placeholder="Card name, e.g. Visa 1234" list="cardlist"><datalist id="cardlist"></datalist><select id="irule" aria-label="How this card counts"></select><select id="icur" aria-label="Currency of this statement"></select></div>
   <div>Upload a card statement (Excel or CSV) or a payslip (PDF or picture), or paste the rows below.</div>
   <input type="file" id="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.pdf,image/*">
   <div class="row" id="slip" hidden><span id="sliptxt"></span><input type="date" id="slipdate" aria-label="Date the money arrived"><button class="pri" id="slipgo">Add as income</button></div>
@@ -176,7 +258,7 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="toast top" id="bnote" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=190462a8c7"></script>
-<script src="cloud.js?v=190462a8c7"></script>
+<script src="app.js?v=42aeebe199"></script>
+<script src="cloud.js?v=42aeebe199"></script>
 </body>
 </html>

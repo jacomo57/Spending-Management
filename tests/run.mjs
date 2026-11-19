@@ -689,6 +689,37 @@ async function local() {
     eq(await p.evaluate(i => S.tx.find(x => x.id == i).fx.r, id), 210 / 200, "editing the shekel amount changes the rate");
     await p.evaluate(() => { S.buy = "ILS"; S.tx = S.tx.filter(t => !t.fx); save(); render() });
   });
+  await test("how-to page shows one topic at a time; multi-currency: date refetches the rate, a statement in euro, changing home converts", async () => {
+    const p = await open("?local=1");
+    await p.click("#more"); await p.click('[data-p="how"]');
+    eq(await p.locator(".how:visible").count(), 1, "one topic visible");
+    await p.click('[data-how="cur"]');
+    eq(await p.locator(".how:visible h3").textContent(), "Currencies", "picked topic");
+    await p.click('[data-how="exp"]'); eq(await p.locator(".how:visible h3").textContent(), "Expenses", "another topic");
+    await p.route("https://api.frankfurter.dev/**", r => r.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify({ rates: { ILS: /2026-10-01/.test(r.request().url()) ? 5 : 4, EUR: 0.25 } }) }));
+    // a row's date changes: the rate is fetched again (unless the rate was typed or the shekel amount edited)
+    await p.evaluate(() => { S.tx = [{ id: "f1", date: "2026-11-03", desc: "Bar", amt: 200, card: "My card", cat: "Other", fx: { c: "EUR", a: 50, r: 4 } }, { id: "f2", date: "2026-11-03", desc: "Pub", amt: 190, card: "My card", cat: "Other", fx: { c: "EUR", a: 50, r: 3.8, m: 1 } }]; save(); render() });
+    await setField(p.locator('[data-tid="f1"][data-f="date"]'), "2026-10-01");
+    await p.waitForFunction(() => S.tx[0].fx.r == 5 && S.tx[0].amt == 250, null, { timeout: 5000 });
+    await setField(p.locator('[data-tid="f2"][data-f="date"]'), "2026-10-01");
+    await p.waitForTimeout(400);
+    eq(await p.evaluate(() => [S.tx[1].fx.r, S.tx[1].amt].join()), "3.8,190", "a hand-set rate is kept");
+    // a statement in euro: rows are converted at their date
+    await p.evaluate(() => { S.tx = []; save(); render() });
+    await p.click("#more"); await p.click('[data-p="imp"]');
+    await p.fill("#card", "Euro card"); await p.selectOption("#icur", "EUR");
+    await p.fill("#paste", "date,description,amount\n2026-10-01,Cafe Roma,10"); await p.click("#go");
+    await p.waitForFunction(() => S.tx[0] && S.tx[0].fx && S.tx[0].amt == 50, null, { timeout: 5000 });
+    // importing it again adds nothing
+    await p.selectOption("#icur", "EUR"); await p.fill("#paste", "date,description,amount\n2026-10-01,Cafe Roma,10"); await p.click("#go");
+    await p.waitForTimeout(400); eq(await p.evaluate(() => S.tx.length), 1, "same euro statement is skipped");
+    // changing the home currency converts the saved amounts (the app asks first)
+    p.on("dialog", d => d.accept());
+    await p.evaluate(() => { S.tx = [{ id: "h1", date: "2026-11-03", desc: "Rent", amt: 400, card: "My card", cat: "Other" }, { id: "h2", date: "2026-11-03", desc: "Bar", amt: 200, card: "My card", cat: "Other", fx: { c: "EUR", a: 50, r: 4 } }]; S.budget = { total: 1000, cats: {} }; save(); render() });
+    await p.click("#more"); await p.click('[data-p="acc"]'); await p.selectOption("#cur", "EUR");
+    await p.waitForFunction(() => S.home == "EUR" && S.tx[0].amt == 100, null, { timeout: 5000 });
+    eq(await p.evaluate(() => [S.tx[1].amt, !!S.tx[1].fx, S.budget.total].join()), "50,false,250", "euro rows become plain, budget converted");
+  });
   await test("the page opens on this month with its budget", async () => {
     const p = await open("?local=1");
     await p.evaluate(() => { S.budget = { total: 1000, cats: {} }; S.tx.push({ id: "n1", date: ymd(), desc: "Shufersal", amt: 45, card: "My card", cat: "Groceries" }); save(); });

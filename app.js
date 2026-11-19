@@ -39,7 +39,7 @@ const own=o=>{if(o&&typeof o=="object")delete o["__proto__"];return o};
 function fixMaps(){for(const k of["rules","cards","recDone","hue","alias","icon"])if(!S[k]||typeof S[k]!="object"||Object.getPrototypeOf(S[k]))S[k]=bare(S[k]);
  const b=S.budget;if(b&&typeof b=="object"&&b.cats&&Object.getPrototypeOf(b.cats))b.cats=bare(b.cats)}
 let S={tx:[],rules:{},cur:"₪"};
-let rpT="month",rpN=12,FOUND=[],rp=false,rpM=null,rpL=true,rpS=false,cmp=false,cmA=null,cmB=null,q="",cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null,showAll=false,catAll=false,catTop=[];
+let HOW="exp",rpT="month",rpN=12,FOUND=[],rp=false,rpM=null,rpL=true,rpS=false,cmp=false,cmA=null,cmB=null,q="",cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null,showAll=false,catAll=false,catTop=[];
 // Accounts + cloud sync (Firebase): see docs/backend.md. The cloud code is in cloud.js.
 // FB_REAL = the real project's firebaseConfig (public by design; firestore.rules is the protection).
 // If it is set to null the site falls back to local-only mode (localStorage, no sign-in).
@@ -166,14 +166,14 @@ function parse(text){const lines=text.split(/\r?\n/).filter(l=>l.trim());if(!lin
 // A purchase added from the phone inbox is marked t.auto=1 ("not on a statement yet"). When a statement row with the
 // same amount arrives within 2 days of it (same card first, then any card), the two are one purchase: the saved row takes the
 // statement's date, description and card, keeps its category, note and split, and loses the mark. Third number returned = rows matched.
-function add(list,card){const id=rid,have=bare(),alt=bare(),pend=S.tx.filter(t=>t.auto&&!t.inc),far=(a,b)=>Math.abs(new Date(a)-new Date(b))/864e5;let n=0,ni=0,nm=0;
+function add(list,card,ccy){const id=rid,have=bare(),alt=bare(),pend=S.tx.filter(t=>t.auto&&!t.inc),far=(a,b)=>Math.abs(new Date(a)-new Date(b))/864e5;let n=0,ni=0,nm=0;
  S.tx.forEach(t=>{if(t.card==card&&!t.auto){const k=t.src||id(t);have[k]=(have[k]||0)+1;if(t.src){const c=id(t);alt[c]=(alt[c]||0)+1}}});
  list.forEach(x=>{const k=id(x);if(have[k]>0){have[k]--;return}if(alt[k]>0){alt[k]--;return}
   if(!x.inc){const ok=pend.filter(t=>Math.abs(t.amt-x.amt)<.005&&far(t.date,x.date)<=2).sort((a,b)=>(b.card==card)-(a.card==card)||far(a.date,x.date)-far(b.date,x.date)),t=ok[0];
    if(t){pend.splice(pend.indexOf(t),1);if(t.desc&&t.desc!=x.desc&&!t.note)t.note=t.desc.slice(0,500);if(t.cat=="Other")t.cat=guess(x.desc,x.hint);
     t.date=x.date;t.desc=x.desc;t.amt=x.amt;t.card=card;delete t.auto;nm++;return}}
   const t={id:uid(),date:x.date,desc:x.desc,amt:x.amt,card,cat:x.inc?"":guess(x.desc,x.hint)};
-  if(x.inc){t.inc=1;ni++}else n++;S.tx.push(t)});
+  if(x.inc){t.inc=1;ni++}else{n++;if(ccy&&ccy!=homeC()){t.fx={c:ccy,a:x.amt,r:0};t.src=id(x);t.amt=0}}S.tx.push(t)});
  save();return[n,ni,nm]}
 // Phone inbox (cloud.js listens; docs/backend.md): an item is short texts sent by a phone automation: amt, desc, card, date, or the
 // raw title and text of a payment notification, which are read here. Nothing is dropped: an item without a readable amount
@@ -305,7 +305,7 @@ function clean(o){const id=x=>String(x||"").replace(/[^\w:.-]/g,"")||uid();
  o.tx.forEach(t=>{t.id=id(t.id);t.desc=String(t.desc||"");if(t.src!=null)t.src=String(t.src);if(t.note!=null)t.note=String(t.note).slice(0,500);
   if(t.inc){t.inc=1;t.amt=Math.abs(t.amt);t.card=String(t.card||"");t.cat=String(t.cat||"")}else{delete t.inc;t.card=String(t.card||"My card");t.cat=String(t.cat||"Other")}
   if(t.auto&&!t.inc)t.auto=1;else delete t.auto;
-  if(t.fx&&typeof t.fx=="object"&&CCY[t.fx.c]&&isFinite(t.fx.a)&&isFinite(t.fx.r)&&t.fx.r>=0)t.fx={c:t.fx.c,a:+t.fx.a,r:+t.fx.r};else delete t.fx;
+  if(t.fx&&typeof t.fx=="object"&&CCY[t.fx.c]&&isFinite(t.fx.a)&&isFinite(t.fx.r)&&t.fx.r>=0)t.fx=Object.assign({c:t.fx.c,a:+t.fx.a,r:+t.fx.r},t.fx.m?{m:1}:{});else delete t.fx;
   if(Array.isArray(t.split))t.split=t.split.filter(p=>p&&typeof p.amt=="number"&&isFinite(p.amt)).map(p=>({cat:String(p.cat||"Other"),amt:p.amt}));fitSplit(t)});
  if(!Array.isArray(o.recur))o.recur=[];o.recur.forEach(r=>{r.id=id(r.id);r.amt=+r.amt||0;r.day=Math.min(28,Math.max(1,parseInt(r.day)||1));r.desc=String(r.desc||"");if(r.inc)r.inc=1;else delete r.inc});
  if(o.budget&&typeof o.budget=="object"){const c=bare(),s=o.budget.cats;if(s&&typeof s=="object")for(const k in s)if(+s[k]>0)c[k]=+s[k];o.budget={total:Math.max(0,+o.budget.total||0),cats:c}}else delete o.budget;
@@ -318,6 +318,18 @@ function clean(o){const id=x=>String(x||"").replace(/[^\w:.-]/g,"")||uid();
  if(!Array.isArray(o.catPick)||o.catPick.some(c=>typeof c!="string"))delete o.catPick;
  for(const k of["rules","alias","icon"])if(o[k]&&typeof o[k]=="object")for(const c in o[k])o[k][c]=String(o[k][c]).slice(0,k=="icon"?8:1e4);else delete o[k];
  return Object.assign({tx:[],rules:{},cur:"₪"},own(o))}
+// Changing the home currency: offer to convert every saved amount (purchases, splits, recurring, budgets) at today's rate; undoable.
+async function changeHome(nw){const old=homeC();if(nw==old)return render();
+ if(S.tx.length||S.recur.length||(S.budget&&S.budget.total>0)){
+  if(confirm("Convert your saved amounts from "+old+" to "+nw+" at today's rate? OK = convert everything. Cancel = keep the numbers as they are (only the currency changes).")){
+   const r=await getRate(old,nw,ymd());if(!r){alert("Couldn't get today's "+old+" to "+nw+" rate (offline?). Nothing was changed.");return render()}
+   const snap=JSON.stringify({tx:S.tx,recur:S.recur,budget:S.budget,home:S.home,cur:S.cur,buy:S.buy});
+   S.tx.forEach(t=>{const sg=t.amt<0?-1:1;t.amt=r2(t.amt*r);if(t.split)t.split.forEach(p=>p.amt=r2(p.amt*r));
+    if(t.fx){if(t.fx.c==nw){t.amt=r2(sg*Math.abs(t.fx.a));delete t.fx}else if(t.fx.a)t.fx.r=t.amt/t.fx.a}fitSplit(t)});
+   S.recur.forEach(x=>x.amt=r2(x.amt*r));
+   if(S.budget){S.budget.total=r2(S.budget.total*r);for(const k in S.budget.cats)S.budget.cats[k]=r2(S.budget.cats[k]*r)}
+   pushUndo("Converted to "+nw,()=>{const o=JSON.parse(snap);S.tx=o.tx;S.recur=o.recur;if(o.budget)S.budget=o.budget;else delete S.budget;S.home=o.home;if(o.cur)S.cur=o.cur;S.buy=o.buy;fixMaps()})}}
+ if(buyC()==old)S.buy=nw;S.home=nw;S.cur=CCY[nw];save();render()}
 function fmt(n){return esc(S.cur)+" "+n.toLocaleString(undefined,{maximumFractionDigits:0})}
 // Multi-currency (asked 2026-11-19). Every stored amount (t.amt) is in the HOME currency (S.home, shown everywhere), so v(), calc() and
 // every total stay as they were. A purchase made in another currency also carries t.fx = {c: code, a: original amount, r: rate}
@@ -335,6 +347,12 @@ async function getRate(from,to,d){if(from==to)return 1;const today=ymd(),dd=d&&d
  return FX[from+">"+to]||0}
 // Put purchase x in currency c with original amount a (the rate is looked up for its date). Home currency = plain purchase.
 async function setFx(x,c,a){if(c==homeC()){delete x.fx;return}const r=await getRate(c,homeC(),x.date);x.fx={c,a,r};if(r&&a)x.amt=r2(x.inc?Math.abs(a*r):a*r)}
+// Rows saved without a rate (offline at the time, a statement in another currency, a changed date) get it here, once per row per visit.
+let fxTried=new Set(),fxBusy=false;
+async function fillRates(){if(fxBusy)return;fxBusy=true;let ch=false;
+ try{for(const t of S.tx.filter(t=>t.fx&&!t.fx.r&&t.fx.a&&!fxTried.has(t.id))){fxTried.add(t.id);const r=await getRate(t.fx.c,homeC(),t.date);if(r&&t.fx&&!t.fx.r&&S.tx.includes(t)){t.fx.r=r;t.amt=r2(t.inc?Math.abs(t.fx.a*r):t.fx.a*r);ch=true}}}finally{fxBusy=false}
+ if(ch){save();render()}}
+const needRates=()=>!fxBusy&&S.tx.some(t=>t.fx&&!t.fx.r&&t.fx.a&&!fxTried.has(t.id));
 const fxLine=t=>t.fx?` <small>(${fmtc(t.fx.a,t.fx.c)})</small>`:"";
 // A "month" can start on any day (S.mstart, 1 to 28, default 1): the period from that day to the day before the next one is named
 // after the calendar month it starts in. pk(date) -> "YYYY-MM" key of the period a date is in; mrange(m) -> [first day, last day].
@@ -382,12 +400,14 @@ function render(){
  const fs=fsel(document.activeElement);
  syncCats();if(!Array.isArray(S.recur))S.recur=[];
  if(!$("cur").options.length)$("cur").innerHTML=$("buy").innerHTML=Object.keys(CCY).map(c=>`<option value="${c}">${c} ${CCY[c]==c?"":CCY[c]}</option>`).join("");
- $("cur").value=homeC();$("buy").value=buyC();
+ if(!$("icur").options.length)$("icur").innerHTML=$("cur").innerHTML;
+ $("cur").value=homeC();$("buy").value=buyC();if(!$("icur").value||!$("icur").dataset.k)$("icur").value=homeC();
  CL=[...new Set([...S.tx.filter(t=>!t.inc).map(t=>t.card),...S.recur.filter(r=>!r.inc).map(r=>r.card||"Recurring"),...Object.keys(S.cards)])].sort((a,b)=>a.localeCompare(b));
  if(cardF!="all"&&!CL.includes(cardF))cardF="all";
  const rc=[...new Set(["Recurring",...CL])],copt=s=>rc.map(c=>`<option${c==s?" selected":""}>${esc(c)}</option>`).join("");
- ["imp","crd","rec","bud","mer","acc"].forEach(p=>{$("p-"+p).hidden=panel!=p});
+ ["imp","crd","rec","bud","mer","acc","how"].forEach(p=>{$("p-"+p).hidden=panel!=p});
  document.querySelectorAll("[data-p]").forEach(b=>b.classList.toggle("on",b.dataset.p==panel));
+ document.querySelectorAll("[data-h]").forEach(e=>e.hidden=e.dataset.h!=HOW);document.querySelectorAll("[data-how]").forEach(b=>b.classList.toggle("on",b.dataset.how==HOW));
  $("cardrules").innerHTML=CL.map((c,i)=>{const p=pct(c),n=S.tx.filter(t=>t.card==c).length;return `<div class="row"><input dir="auto" data-ci="${i}" data-f="name" value="${esc(c)}" style="width:170px" aria-label="Card name"><select data-ci="${i}" data-f="rule" aria-label="How this card counts">${ruleOpts(p,1)}</select>${[100,50,0].includes(p)?"":`<input data-ci="${i}" data-f="pct" type="number" min="0" max="100" value="${p}" style="width:70px" aria-label="Percent that counts"><span class="sub">%</span>`}<button data-def="${i}" class="${S.defCard==c?"pri":""}" title="Card the phone uses when no other is named" aria-pressed="${S.defCard==c}">${S.defCard==c?"★ Default":"☆ Default"}</button><span class="sub">${n} purchase${n==1?"":"s"}</span></div>`}).join("")||`<span class="msg">No cards yet. Import or add a purchase first.</span>`;
  $("crdmsg").textContent=crdMsg;
  if(!$("irule").options.length)impRule();
@@ -468,7 +488,7 @@ function render(){
   <td class="amt"><input type="number" step="0.01" data-tid="${t.id}" data-f="amt" value="${t.amt}">${t.inc?"":`<div class="fx"><div class="fxl"><span>${t.fx?"Paid":"Paid in"}</span>${t.fx?`<input type="number" step="0.01" data-tid="${t.id}" data-f="fxa" value="${t.fx.a||""}" placeholder="Amount" aria-label="Amount paid in ${t.fx.c}">`:""}<select data-tid="${t.id}" data-f="ccy" aria-label="Currency of this purchase">${Object.keys(CCY).map(c=>`<option${c==(t.fx?t.fx.c:homeC())?" selected":""}>${c}</option>`).join("")}</select>${t.fx?`<span>rate</span><input type="number" step="any" min="0" data-tid="${t.id}" data-f="fxr" value="${t.fx.r?+(t.fx.r>=1?t.fx.r.toFixed(2):t.fx.r.toPrecision(2)):""}" placeholder="rate" title="${homeC()} per 1 ${t.fx.c}" aria-label="Exchange rate: ${homeC()} per 1 ${t.fx.c}">`:""}</div></div>`}${note?`<small class="c amt">${note}</small>`:""}</td>
   <td class="k"><input type="checkbox" data-skip="${t.id}"${t.skip?" checked":""} aria-label="Ignore this purchase"></td><td class="k dl"><button class="x" data-del="${t.id}" aria-label="Delete">✕</button></td></tr>`}).join("")
   :`<tr><td colspan="7" class="empty" style="grid-column:1/-1">${S.tx.length?"Nothing matches these filters.":"No purchases yet. Press Import above, or load the sample data to try it out."}</td></tr>`;
- report();
+ report();if(needRates())fillRates();
  if(fs){const el=document.querySelector(fs);if(el&&el!==document.activeElement)el.focus()}
  if(focusCat!=null){const el=document.querySelector(`[data-ren="${focusCat}"]`);if(el){el.focus();el.select()}focusCat=null}
  if(focusSp){const el=document.querySelector(`[data-sp="${focusSp[0]}"][data-i="${focusSp[1]}"][data-f="amt"]`);if(el)el.focus();focusSp=null}
@@ -535,7 +555,7 @@ $("go").onclick=()=>{const m=$("msg"),sl=/נטו|וטנ/.test($("paste").value)&
  if(!p){m.textContent="Couldn’t find date, description and amount columns. Check the first row has headers like Date, Description, Amount.";return}
  if(!p.length){m.textContent="No purchases found in that text.";return}
  const card=canon($("card").value)||"My card";S.cards[card]=+$("irule").value;
- const[n,ni,nm]=add(p,card),sk=p.length-n-ni-nm;m.textContent=`Added ${n} purchase${n==1?"":"s"}${ni?` and ${ni} income`:""}${nm?`, matched ${nm} you had already added`:""}${sk?`, skipped ${sk} already saved`:""}.`;$("paste").value="";$("file").value="";render()};
+ const[n,ni,nm]=add(p,card,$("icur").value),sk=p.length-n-ni-nm;m.textContent=`Added ${n} purchase${n==1?"":"s"}${ni?` and ${ni} income`:""}${nm?`, matched ${nm} you had already added`:""}${sk?`, skipped ${sk} already saved`:""}.`;$("paste").value="";$("file").value="";$("icur").dataset.k="";render()};
 $("sample").onclick=()=>{const a=[["2026-11-02","Shufersal Deal Ramat Gan",312.4],["2026-11-03","Wolt Tel Aviv",89],["2026-11-04","Pango Parking",24],["2026-11-05","Netflix.com",54.9],["2026-11-06","Super-Pharm",67.5],["2026-11-08","Aroma Cafe",38],["2026-11-09","Zara",259],["2026-10-28","Rami Levy",420.1],["2026-10-30","Cinema City",96],["2026-10-21","Delek Fuel",250]];
  const b=[["2026-11-01","Arnona Tel Aviv",640],["2026-11-03","Rami Levy",488.3],["2026-11-07","Electric IEC",402],["2026-11-08","Wolt Dinner",142],["2026-11-10","Booking.com Hotel",1380],["2026-10-29","Yochananof",276.8],["2026-10-25","Partner Internet",99]];
  if(S.cards["Joint card"]==null)S.cards["Joint card"]=50;
@@ -619,6 +639,7 @@ if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cn
   pushUndo((S.catPick.includes(c)?"Showing “":"Hid “")+c+"” on the main screen",()=>{if(was)S.catPick=was;else delete S.catPick});save();render();return}
  if(t.id=="catreset"){const was=S.catPick;delete S.catPick;pushUndo("Back to the 4 biggest categories",()=>{S.catPick=was});save();render();return}
  if(t.id=="bmb"){if(S.barMode=="budget")delete S.barMode;else S.barMode="budget";save();render()}
+ if(t.dataset.how){HOW=t.dataset.how;render();return}
  if(t.dataset.p){panel=panel==t.dataset.p?null:t.dataset.p;render();return}
  const b=t.closest&&t.closest("[data-c]");if(b){cat=cat==b.dataset.c?null:b.dataset.c;render()}
  if(t.id=="repb"){rp=true;rpM=null;render();window.scrollTo(0,0);return}
@@ -648,6 +669,7 @@ document.addEventListener("change",e=>{const t=e.target;
  else if(t.dataset.tid){const x=S.tx.find(y=>y.id==t.dataset.tid),f=t.dataset.f;
   if(x&&f=="ccy"){const c=t.value;return setFx(x,c,x.fx?x.fx.a:x.amt).then(()=>{save();render()})}
   if(x&&x.fx&&(f=="fxa"||f=="fxr")){const n=parseFloat(t.value)||0;if(f=="fxa")x.fx.a=n;else x.fx.r=Math.max(0,n);
+   if(f=="fxr")x.fx.m=1;
    if(x.fx.a&&x.fx.r){x.amt=r2(x.inc?Math.abs(x.fx.a*x.fx.r):x.fx.a*x.fx.r);fitSplit(x)}return save(),later(render)}
   if(x){let val=t.value;
    if(f=="amt"){val=parseFloat(val);if(!val)return later(render);if(x.inc)val=Math.abs(val)}
@@ -655,7 +677,7 @@ document.addEventListener("change",e=>{const t=e.target;
    if(f=="desc"&&!val.trim())return later(render);
    if(f=="card"&&val=="__new"){val=canon(prompt("New card name")||"");if(!val)return later(render)}
    if(f!="card"&&f!="note"&&!x.src&&x.amt&&x.desc)x.src=rid(x);
-   x[f]=(f=="desc"||f=="card"||f=="note")?val.trim().slice(0,f=="note"?500:1e4):val;if(f=="amt"){fitSplit(x);if(x.fx&&x.fx.a)x.fx.r=x.amt/x.fx.a}if(f=="note"&&!x.note)delete x.note;if(f=="desc"&&x.cat=="Other"&&!x.inc)x.cat=guess(x.desc);save();later(render)}}
+   x[f]=(f=="desc"||f=="card"||f=="note")?val.trim().slice(0,f=="note"?500:1e4):val;if(f=="amt"){fitSplit(x);if(x.fx&&x.fx.a){x.fx.r=x.amt/x.fx.a;x.fx.m=1}}if(f=="date"&&x.fx&&!x.fx.m){x.fx.r=0;fxTried.delete(x.id)}if(f=="note"&&!x.note)delete x.note;if(f=="desc"&&x.cat=="Other"&&!x.inc)x.cat=guess(x.desc);save();later(render)}}
  else if(t.dataset.rid){const r=S.recur.find(x=>x.id==t.dataset.rid),f=t.dataset.f;
   if(r){r[f]=f=="amt"?(parseFloat(t.value)||0):f=="day"?Math.min(28,Math.max(1,parseInt(t.value)||1)):t.value;recGen();save();later(render)}}
  else if(t.dataset.icin!==undefined){const c=S.cats[+t.dataset.icin];if(c){S.icon[c]=t.value.trim().slice(0,8);save()}icOpen=null;render()}
@@ -686,7 +708,8 @@ document.addEventListener("change",e=>{const t=e.target;
   if(f=="name"){const nv=t.value.trim();later(()=>renameCard(c,nv))}
   else{S.cards[c]=t.value=="c"?25:Math.min(100,Math.max(0,parseFloat(t.value)||0));save();later(render)}}
  else if(t.id=="cardf"){cardF=t.value;render()}
- else if(t.id=="cur"&&CCY[t.value]){S.home=t.value;S.cur=CCY[t.value];if(!CCY[S.buy])S.buy=t.value;save();render()}
+ else if(t.id=="icur")t.dataset.k=1;
+ else if(t.id=="cur"&&CCY[t.value])changeHome(t.value);
  else if(t.id=="buy"&&CCY[t.value]){S.buy=t.value;save();render()}
  else if(t.id=="file"&&t.files[0])readFile(t.files[0])});
 // Installable app: sw.js keeps a copy of the app's files so it opens offline (rules at the top of sw.js).
@@ -711,6 +734,7 @@ const APPV=new URL(document.currentScript.src).searchParams.get("v")||"dev";
   // First visit: the fonts loaded before the worker existed. Hand over their addresses, again later for a slow line.
   if(first)sw.ready.then(x=>[3000,15000,45000].forEach(ms=>setTimeout(()=>x.active&&x.active.postMessage({type:"warm",urls:performance.getEntriesByType("resource").map(e=>e.name)}),ms)))}).catch(()=>{})})();
 // An app left open (an installed phone app often is) runs recGen only at start: when it returns to the front on a later day, add the new month's bills.
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){fxTried.clear();if($("app").hidden===false)fillRates()}});
 let recDay=ymd();document.addEventListener("visibilitychange",()=>{if(document.hidden||ymd()==recDay||$("app").hidden)return;recDay=ymd();recGen();render()});
 function start(){fixMaps();dropEmpty();recGen();S.tx.forEach(t=>{if(t.cat=="Other"&&!t.inc)t.cat=guess(t.desc)});save();
  panel=S.tx.some(t=>!String(t.id).startsWith("rec-"))?null:"imp";

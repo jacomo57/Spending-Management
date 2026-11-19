@@ -179,3 +179,6 @@ nav.row{margin-top:4px}.menuw{position:relative;margin-inline-start:auto}
 #wmsg{flex-basis:100%}#wmsg:empty{display:none}
 .allrow{margin-top:8px;justify-content:center}
 .fxl b{font-weight:600;color:var(--ink)}
+
+.how-tabs{display:flex;flex-wrap:wrap;gap:6px}.how-tabs button{font-size:14px;padding:5px 12px;border-radius:999px}.how-tabs button.on{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
+.how h3{margin:4px 0 6px;font-size:17px}.how ul{margin:0;padding-inline-start:20px;display:grid;gap:7px;line-height:1.45}
