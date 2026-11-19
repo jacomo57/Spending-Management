@@ -25,7 +25,9 @@ textarea{width:100%;min-height:90px;font-family:ui-monospace,Menlo,monospace;fon
 .sum>.big{flex:1 1 100%}.big>div:first-child{flex:1 1 100%}.hbar{height:12px;margin:12px 0 6px}.hbar i{background:var(--ok)}.hbar.mid i{background:var(--warn)}.hbar.over i{background:var(--bad)}
 #budline{font-size:17px;font-weight:600;color:var(--ink)}#budline.over{color:var(--bad)}
 .big{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-end}
-.big .n{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.big .n,.big .hn{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.big .n.sm{font-size:24px;font-weight:700}.big .hn.over{color:var(--bad)}
+.trip{margin:0 0 10px;padding:8px 12px;border-radius:10px;background:var(--card,rgba(127,127,127,.12));font-size:14px}
 .big .m{font-size:22px;font-weight:600}
 .over,.big .m.over{color:var(--bad)}
 tr.inc td.amt input{color:var(--acc);font-weight:600}
@@ -79,7 +81,7 @@ input[type=file]{width:100%;max-width:100%;min-height:0;padding:8px}
 select,input,textarea,button{font-size:16px;min-height:44px}
 textarea{font-size:16px}
 input[type=checkbox]{min-height:0}
-.big .n{font-size:36px}.big{gap:18px}
+.big .n,.big .hn{font-size:36px}.big .n.sm{font-size:22px}.big{gap:18px}
 #auth>.grid,.panel .grid[style]{max-width:none!important}
 #auth{padding:14px}
 .panel .row>input,.panel .row>select{flex:1 1 140px;min-width:0;width:auto!important}
