@@ -177,7 +177,7 @@ async function smoke() {
   await test("income and budgets reach the second device and survive signing out", async () => {
     await d1.click('[data-p="bud"]');
     await setField(d1.locator("#btotal"), "5000");
-    await d1.click("#addi");
+    await addInc(d1);
     await setField(d1.locator('tr.inc [data-f="desc"]'), "Salary");
     await setField(d1.locator('tr.inc [data-f="amt"]'), "9000");
     await saved(d1);
@@ -276,6 +276,7 @@ async function smoke() {
   });
 }
 
+async function addInc(p) { await p.click("#addp"); await p.selectOption('tr:has([data-f="desc"][value=""]) select[data-id]', "__inc"); await p.waitForSelector("tr.inc") }
 async function local() {
   await test("identical purchases in one file are kept; re-import skips only saved copies", async () => {
     const p = await open("?local=1"), two = "date,description,amount\n2026-11-03,Aroma Cafe,18\n2026-11-03,Aroma Cafe,18";
@@ -437,13 +438,13 @@ async function local() {
   await test("add income by hand; giving it a category turns it into a payback that lowers spending", async () => {
     const p = await open("?local=1");
     await paste(p, "Visa", `date,description,amount\n${today},Shufersal,400\n${today},Zara,100`);
-    await p.click("#addi");
+    await addInc(p);
     await setField(p.locator('tr.inc [data-f="desc"]'), "Partner");
     await setField(p.locator('tr.inc [data-f="amt"]'), "-150");
     await total(p, "₪ 500"); await repIn(p, "₪ 150", "₪ -350");
     eq(await p.locator('tr.inc [data-f="amt"]').inputValue(), "150", "income amount is kept positive");
     await p.locator("tr.inc select[data-id]").selectOption("Groceries");
-    await total(p, "₪ 350"); eq(await repBigCount(p), 1, "a payback is not income");
+    await total(p, "₪ 350"); await repIn(p, "₪ 0", "₪ -350"); /* a payback is not income */
     await text(p, '.bw[data-c="Groceries"] .amt', "₪ 250");
     eq(await p.locator('tr:has(input[value="Zara"]) select[data-id]').inputValue(), "Shopping", "payback did not re-sort purchases");
     await p.reload(); await total(p, "₪ 350");

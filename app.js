@@ -463,7 +463,7 @@ function render(){
    spl=sl.map((p,i)=>`<div class="sp"><select data-sp="${t.id}" data-i="${i}" data-f="cat" aria-label="Category of this part">${(ORDER.includes(p.cat)?ORDER:[...ORDER,p.cat]).map(c=>`<option value="${esc(c)}"${c==p.cat?" selected":""}>${ic(c)}${esc(c)}</option>`).join("")}</select><input type="number" step="0.01" min="0" data-sp="${t.id}" data-i="${i}" data-f="amt" value="${esc(Math.abs(p.amt)||"")}" placeholder="Amount" aria-label="Amount of this part"><button class="x" data-spdel="${t.id}" data-i="${i}" aria-label="Remove this part">✕</button></div>`).join("")+(sl.length?`<small class="c sr">${fmt(sg*parts(t)[0][1])} stays in ${esc(t.cat)}</small>`:""),note=t.inc?(t.cat?"paid back":"income"):[t.amt<0?"refund":"",pct(t.card)==100?"":pct(t.card)?"counts "+fmt(v(t)):"not counted",t.auto&&t.date>=soonest?"not on a statement yet":""].filter(Boolean).join(" · ");
   return `<tr class="${t.skip?"skip":""}${t.inc?" inc":""}"><td class="d"><input type="date" data-tid="${t.id}" data-f="date" value="${t.date}"></td>
   <td class="ds"><input dir="auto" data-tid="${t.id}" data-f="desc" placeholder="Description" value="${esc(t.desc)}" style="min-width:190px"><input dir="auto" class="nt" data-tid="${t.id}" data-f="note" placeholder="+ note" value="${esc(t.note||"")}" aria-label="Note"></td>
-  <td class="ct"><select data-id="${t.id}">${t.inc?`<option value="">Income</option>`:""}${os.map(c=>`<option value="${esc(c)}"${c==t.cat?" selected":""}>${t.inc?"Back: ":""}${ic(c)}${esc(c)}</option>`).join("")}${t.inc?"":`<option data-split="1" value="${esc(t.cat)}">Split…</option>`}</select>${spl}</td>
+  <td class="ct"><select data-id="${t.id}">${t.inc?`<option value="">Income</option>`:""}${os.map(c=>`<option value="${esc(c)}"${c==t.cat?" selected":""}>${t.inc?"Back: ":""}${ic(c)}${esc(c)}</option>`).join("")}${t.inc?"":`<option value="__inc">💰 Income</option><option data-split="1" value="${esc(t.cat)}">Split…</option>`}</select>${spl}</td>
   <td class="cd"><select dir="auto" data-tid="${t.id}" data-f="card" style="width:115px" aria-label="Card">${[...new Set(["",...CL.filter(c=>c!="Recurring"),t.card||""])].filter(c=>c||t.inc).map(c=>`<option value="${esc(c)}"${c==(t.card||"")?" selected":""}>${esc(c||"—")}</option>`).join("")}<option value="__new">＋ New card…</option></select></td>
   <td class="amt"><input type="number" step="0.01" data-tid="${t.id}" data-f="amt" value="${t.amt}">${t.inc?"":`<div class="fx"><div class="fxl"><span>${t.fx?"Paid":"Paid in"}</span>${t.fx?`<input type="number" step="0.01" data-tid="${t.id}" data-f="fxa" value="${t.fx.a||""}" placeholder="Amount" aria-label="Amount paid in ${t.fx.c}">`:""}<select data-tid="${t.id}" data-f="ccy" aria-label="Currency of this purchase">${Object.keys(CCY).map(c=>`<option${c==(t.fx?t.fx.c:homeC())?" selected":""}>${c}</option>`).join("")}</select>${t.fx?`<span>rate</span><input type="number" step="any" min="0" data-tid="${t.id}" data-f="fxr" value="${t.fx.r?+(t.fx.r>=1?t.fx.r.toFixed(2):t.fx.r.toPrecision(2)):""}" placeholder="rate" title="${homeC()} per 1 ${t.fx.c}" aria-label="Exchange rate: ${homeC()} per 1 ${t.fx.c}">`:""}</div></div>`}${note?`<small class="c amt">${note}</small>`:""}</td>
   <td class="k"><input type="checkbox" data-skip="${t.id}"${t.skip?" checked":""} aria-label="Ignore this purchase"></td><td class="k dl"><button class="x" data-del="${t.id}" aria-label="Delete">✕</button></td></tr>`}).join("")
@@ -495,7 +495,7 @@ function report(){
   rec=S.recur.filter(r=>!r.inc),lst=(rpS?rows:live).slice().sort((x,y)=>x.date.localeCompare(y.date));
  el.innerHTML=`<div class="rctl">${repType()}<label>Report for <select data-rm aria-label="Report period">${opts}</select></label><label><input type="checkbox" data-rl${rpL?" checked":""}> Full list</label><label><input type="checkbox" data-rs${rpS?" checked":""}> Show ignored in list</label><button class="pri" data-rpr>Print / Save as PDF</button><button data-rx>Export to Excel</button><button data-rclose>Close</button></div>
  <h2>Spending report: <span dir="auto">${esc(ttl)}</span></h2><div class="sub">${cardF=="all"?"All cards":"Card: "+esc(cardF)}</div>
- <div class="rbig"><div><b>${fmt(K.spent)}</b><span>spent${K.back?" · after "+fmt(K.back)+" paid back":""}</span></div>${K.inc?`<div><b>${fmt(K.inc)}</b><span>in</span></div><div><b>${fmt(K.inc-K.spent)}</b><span>left over</span></div>`:""}</div>
+ <div class="rbig"><div><b>${fmt(K.spent)}</b><span>spent${K.back?" · after "+fmt(K.back)+" paid back":""}</span></div><div><b>${fmt(K.inc)}</b><span>income</span></div><div><b class="${K.inc-K.spent<0?"neg":""}">${fmt(K.inc-K.spent)}</b><span>left over</span></div></div>
  ${bl||prev?`<div class="sub">${[bl,prev].filter(Boolean).join(" · ")}</div>`:""}
  ${cats.length?sec("By category",repTable([["Category"],["Amount",1],["Share",1]].concat(B?[["Budget",1]]:[]),cats.map(c=>repTr([[esc(c),0,1],[fmt(K.by[c]),1],[K.spent>0?Math.round(K.by[c]/K.spent*100)+"%":"",1]].concat(B?[[cb[c]?fmt(cb[c]):"",1]]:[]))).join(""))):""}
  ${Object.keys(K.per).length?sec("By card",repTable([["Card"],["Counts"],["Amount",1]],Object.keys(K.per).sort((x,y)=>K.per[y]-K.per[x]).map(c=>repTr([[esc(c),0,1],[esc(rl(pct(c))||"in full")],[fmt(K.per[c]),1]])).join(""))):""}
@@ -630,7 +630,6 @@ if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cn
  if(t.id=="clearcat"){cat=null;render()}
  if(t.id=="addcat")addCat();
  if(t.id=="addp")addPurchase();
- if(t.id=="addi")addPurchase(1);
  if(t.id=="slipgo")slipAdd();
  if(t.id=="radd")addRec();
  if(t.id=="recnew")recForm(true);
@@ -667,6 +666,8 @@ document.addEventListener("change",e=>{const t=e.target;
   else{const oth=x.split.reduce((a,o)=>a+(o==p?0:Math.abs(o.amt)),0),n=Math.max(0,Math.min(Math.abs(parseFloat(t.value)||0),Math.abs(x.amt)-oth));p.amt=Math.round(n*100)/100*(x.amt<0?-1:1)}
   save();later(render)}
  else if(t.dataset.id){const x=S.tx.find(y=>y.id==t.dataset.id);if(x){
+   // "Income" in an expense's category box turns the row into plain income (amount positive, no card rule, no split).
+   if(t.value=="__inc"&&!x.inc){x.inc=1;x.amt=Math.abs(x.amt);x.cat="";x.card="";delete x.split;delete x.fx;delete x.auto;save();return later(render)}
    if(t.selectedOptions[0]&&t.selectedOptions[0].dataset.split){x.split=sp(x);x.split.push({cat:ORDER.find(c=>c!=x.cat)||"Other",amt:0});focusSp=[x.id,x.split.length-1];save();return later(render)}
    x.cat=t.value;const k=key(x.desc);if(k&&!x.inc)learn(k,t.value);save();later(render)}}
  else if(t.dataset.mk){const k=t.dataset.mk;if(S.rules[k]==null)return;learn(k,t.value);save();later(render)}
