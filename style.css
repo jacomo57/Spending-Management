@@ -141,7 +141,9 @@ thead tr{flex-wrap:wrap;gap:4px}thead th{flex:none}thead th button{padding:3px 9
 .nt{display:block;width:100%;margin-top:2px;font-size:12px;color:var(--mute)}
 .nt:placeholder-shown:not(:focus){border-color:transparent;background:transparent;box-shadow:none;min-height:0;height:22px;padding-block:0}
 
-body.rep #app>*:not(#report):not(#tabbar){display:none!important}
+body.rep #app>*:not(#report):not(#tabbar):not(#pghead):not(nav){display:none!important}
+/* On a page or the report the top bar keeps only the More menu, so More opens from everywhere. */
+body.rep #app>nav:not(#tabbar)>*:not(.menuw){display:none!important}
 #report .rctl{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-bottom:12px}
 #report .rctl label{display:flex;gap:6px;align-items:center;font-size:14px}#report .rctl select{width:auto}
 #report h3{margin:18px 0 4px;font-size:15px}
@@ -262,6 +264,10 @@ html.themeswap,html.themeswap *{transition:background-color .35s,color .35s,bord
 @media (max-width:640px){#menu.out{transform:translateY(16px)}}
 /* Phone pages: a panel replaces the main screen and slides in from the side, under a Back bar. */
 .pghead{display:none}
+/* Every page (a panel on the phone, the report everywhere) closes the same way: "‹ Back" and its name, top left. */
+body.rep .pghead{display:flex;align-items:center;gap:10px;margin:6px 0 10px}
+.pghead button{border:0;background:none;color:var(--acc);font-weight:600;padding:6px 4px}
+.pghead b{font-size:20px;font-weight:800}
 /* Add sheet: slides up from the bottom over a dimmed page. */
 #addsheet{position:fixed;inset:0;z-index:30}
 .shbg{position:absolute;inset:0;background:rgba(10,18,32,.45);animation:mFade .25s ease}
@@ -280,11 +286,10 @@ html.themeswap,html.themeswap *{transition:background-color .35s,color .35s,bord
 .shbtn{justify-content:flex-end}.shbtn button{min-width:110px}
 body.shopen{overflow:hidden}
 @media (max-width:640px){
- body.pg #app>.sum,body.pg #app>section,body.pg #app>nav:not(#tabbar){display:none!important}
- body.pg .pghead{display:flex;align-items:center;gap:10px;position:sticky;top:env(safe-area-inset-top,0px);z-index:12;background:var(--bg);padding:6px 0}
- .pghead button{border:0;background:none;color:var(--acc);font-weight:600;padding:6px 4px}
- .pghead b{font-size:20px;font-weight:800}
- body.pg #app>.panel:not([hidden]){animation:pgIn .28s cubic-bezier(.2,.8,.2,1);margin-top:4px}
+ body.pg #app>.sum,body.pg #app>section,body.pg #app>nav:not(#tabbar)>*:not(.menuw){display:none!important}
+ body.pg .pghead,body.rep .pghead{display:flex;align-items:center;gap:10px;position:sticky;top:env(safe-area-inset-top,0px);z-index:12;background:var(--bg);padding:6px 0;margin:0}
+ /* A page is the screen itself, not a card on it: no frame around it. */
+ body.pg #app>.panel:not([hidden]){animation:pgIn .28s cubic-bezier(.2,.8,.2,1);margin-top:4px;border:0;background:none;padding:4px 0;border-radius:0}
  #accbtn{display:none}
 }
 @keyframes pgIn{from{opacity:0;transform:translateX(28px)}}

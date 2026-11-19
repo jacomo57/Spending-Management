@@ -428,9 +428,20 @@ function sheetOpen(){syncCats();const el=$("addsheet"),cards=CL.filter(c=>c!="Re
  $("shcur").textContent=CCY[buyC()];$("shamt").value="";$("shdesc").value="";$("shdate").value=ymd();$("shmsg").textContent="";
  $("shcat").innerHTML=`<option value="">✨ Auto category</option>`+ORDER.map(c=>`<option value="${esc(c)}">${ic(c)}${esc(c)}</option>`).join("");$("shcat").value=cat&&ORDER.includes(cat)?cat:"";
  $("shcard").innerHTML=[...new Set([...cards,def])].map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");$("shcard").value=def;
- sheetKind("exp");el.classList.remove("out");el.hidden=false;document.body.classList.add("shopen");$("shamt").focus({preventScroll:true});sheetFit()}
+ sheetKind("exp");el.classList.remove("out");el.hidden=false;document.body.classList.add("shopen");$("shamt").focus({preventScroll:true});sheetFit();navSync()}
 function sheetClose(){const el=$("addsheet");if(el.hidden)return;document.body.classList.remove("shopen");if(el.contains(document.activeElement))document.activeElement.blur();
- if(!MOTION()){el.hidden=true;return}el.classList.add("out");setTimeout(()=>{if(el.classList.contains("out")){el.hidden=true;el.classList.remove("out")}},260)}
+ if(!MOTION())el.hidden=true;else{el.classList.add("out");setTimeout(()=>{if(el.classList.contains("out")){el.hidden=true;el.classList.remove("out")}},260)}navSync()}
+// Phone back gesture / browser Back: while anything is open on top of the main screen (a page, the report, the add sheet, the More menu)
+// there is one extra history entry. Back removes it and closes everything (back to the main screen) instead of leaving the app;
+// closing things in the app removes the entry too, so the next Back leaves as usual.
+let navSkip=false;
+const innerOpen=()=>!!(panel||rp||(!$("addsheet").hidden&&!$("addsheet").classList.contains("out"))||(!$("menu").hidden&&!$("menu").classList.contains("out")));
+function navSync(){const st=history.state&&history.state.spendInner,o=innerOpen();
+ try{if(o&&!st)history.pushState({spendInner:1},"");else if(!o&&st){navSkip=true;history.back()}}catch(e){}}
+window.addEventListener("popstate",()=>{if(navSkip){navSkip=false;return}
+ const m=$("menu");m.hidden=true;m.classList.remove("out");["more","more2"].forEach(i=>$(i).setAttribute("aria-expanded","false"));
+ const sh=$("addsheet");if(!sh.hidden){document.body.classList.remove("shopen");sh.hidden=true;sh.classList.remove("out")}
+ if(panel||rp){panel=null;rp=false;render();window.scrollTo(0,0)}});
 function sheetSave(){const a=parseFloat(String($("shamt").value).replace(",","."));if(!(a>0)){$("shmsg").textContent="Enter an amount.";$("shamt").focus();return}
  const d=/^\d{4}-\d{2}-\d{2}$/.test($("shdate").value)?$("shdate").value:ymd(),desc=$("shdesc").value.trim().slice(0,1e4),id=uid(),inc=shKind=="inc",bc=buyC(),hc=homeC();
  const x=inc?{id,date:d,desc,amt:a,inc:1,card:"",cat:""}:{id,date:d,desc,amt:a,card:$("shcard").value||"My card",cat:$("shcat").value||guess(desc)};
@@ -565,7 +576,7 @@ function render(){
  motion(tot);
  // Phone: a panel is a page of its own (body.pg hides the main screen, a Back bar names it). The bottom bar marks where you are.
  {const tab=rp?"":panel=="wrk"||panel=="acc"?panel:panel?"":"home";document.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("on",b.dataset.tab==tab));$("fab").hidden=tab!="home";
-  document.body.classList.toggle("pg",!!panel&&!rp);$("pgtitle").textContent=panel?PTITLE[panel]||"":""}
+  document.body.classList.toggle("pg",!!panel&&!rp);$("pgtitle").textContent=rp?"Report":panel?PTITLE[panel]||"":"";navSync()}
  if(fs){const el=document.querySelector(fs);if(el&&el!==document.activeElement)el.focus()}
  if(focusCat!=null){const el=document.querySelector(`[data-ren="${focusCat}"]`);if(el){el.focus();el.select()}focusCat=null}
  if(focusSp){const el=document.querySelector(`[data-sp="${focusSp[0]}"][data-i="${focusSp[1]}"][data-f="amt"]`);if(el)el.focus();focusSp=null}
@@ -591,7 +602,7 @@ function report(){
   mer=Object.create(null);sp.forEach(t=>{const k=key(t.desc)||t.desc;(mer[k]=mer[k]||{n:t.desc,s:0,c:0});mer[k].s+=v(t);mer[k].c++});
  const top=Object.values(mer).filter(x=>x.s>0).sort((x,y)=>y.s-x.s).slice(0,10),big=sp.filter(t=>v(t)>0).sort((x,y)=>v(y)-v(x)).slice(0,5),inc=live.filter(t=>t.inc),
   rec=S.recur.filter(r=>!r.inc),lst=(rpS?rows:live).slice().sort((x,y)=>x.date.localeCompare(y.date));
- el.innerHTML=`<div class="rctl">${repType()}<label>Report for <select data-rm aria-label="Report period">${opts}</select></label><label><input type="checkbox" data-rl${rpL?" checked":""}> Full list</label><label><input type="checkbox" data-rs${rpS?" checked":""}> Show ignored in list</label><button class="pri" data-rpr>Print / Save as PDF</button><button data-rx>Export to Excel</button><button data-rclose>Close</button></div>
+ el.innerHTML=`<div class="rctl">${repType()}<label>Report for <select data-rm aria-label="Report period">${opts}</select></label><label><input type="checkbox" data-rl${rpL?" checked":""}> Full list</label><label><input type="checkbox" data-rs${rpS?" checked":""}> Show ignored in list</label><button class="pri" data-rpr>Print / Save as PDF</button><button data-rx>Export to Excel</button></div>
  <h2>Spending report: <span dir="auto">${esc(ttl)}</span></h2><div class="sub">${cardF=="all"?"All cards":"Card: "+esc(cardF)}</div>
  <div class="rbig"><div><b>${fmt(K.spent)}</b><span>spent${K.back?" · after "+fmt(K.back)+" paid back":""}</span></div><div><b>${fmt(K.inc)}</b><span>income</span></div><div><b class="${K.inc-K.spent<0?"neg":""}">${fmt(K.inc-K.spent)}</b><span>left over</span></div></div>
  ${bl||prev?`<div class="sub">${[bl,prev].filter(Boolean).join(" · ")}</div>`:""}
@@ -605,7 +616,7 @@ function report(){
  ${rpL?repList(lst):""}`;
  el.querySelector("[data-rm]").value=m}
 const repType=()=>`<label>Report <select data-rt aria-label="Report type"><option value="month"${rpT=="month"?" selected":""}>Monthly</option><option value="sel"${rpT=="sel"?" selected":""}>Selected expenses</option><option value="trend"${rpT=="trend"?" selected":""}>Trend</option></select></label>`,
- repBtns=`<button class="pri" data-rpr>Print / Save as PDF</button><button data-rx>Export to Excel</button><button data-rclose>Close</button>`;
+ repBtns=`<button class="pri" data-rpr>Print / Save as PDF</button><button data-rx>Export to Excel</button>`;
 function trendMonths(){return[...new Set(repRows("all").map(t=>pk(t.date)))].sort().reverse().slice(0,rpN).reverse()}
 function trendRows(){const ms=trendMonths();return repRows("all").filter(t=>ms.includes(pk(t.date)))}
 // Selected expenses (what the filters and search show) and Trend (last 6 or 12 months).
@@ -720,7 +731,7 @@ if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cn
  if(t.dataset.how){HOW=t.dataset.how;render();return}
  if(t.dataset.p){panel=panel==t.dataset.p?null:t.dataset.p;render();return}
  {const tb=t.closest&&t.closest("[data-tab]");if(tb){const k=tb.dataset.tab;rp=false;panel=k=="home"?null:k;render();window.scrollTo(0,0);return}}
- if(t.id=="pgback"){panel=null;render();window.scrollTo(0,0);return}
+ if(t.id=="pgback"){if(rp)rp=false;else panel=null;render();window.scrollTo(0,0);return}
  if(t.closest&&t.closest("#fab")){sheetOpen();return}
  if(t.closest&&t.closest("[data-shclose]")){sheetClose();return}
  {const kb=t.closest&&t.closest("[data-kind]");if(kb){sheetKind(kb.dataset.kind);return}}
@@ -926,7 +937,7 @@ setInterval(workTick,1000);
 
 // The More menu: opens on its button, closes on a click elsewhere, on Escape, or after choosing a panel or the report.
 {const mn=$("menu"),mbs=[$("more"),$("more2")],open=()=>!mn.hidden&&!mn.classList.contains("out"),aria=()=>mbs.forEach(b=>b.setAttribute("aria-expanded",String(open()))),
-  shut=()=>{if(!open())return;if(MOTION()){mn.classList.add("out");setTimeout(()=>{if(mn.classList.contains("out")){mn.hidden=true;mn.classList.remove("out")}},160)}else mn.hidden=true;aria()},mb={focus:()=>(mbs.find(b=>b.offsetParent)||mbs[0]).focus()};
- document.addEventListener("click",e=>{const t=e.target;if(t.closest&&t.closest("#more,#more2")){if(open())shut();else{mn.classList.remove("out");mn.hidden=false;aria()}return}
+  shut=()=>{if(!open())return;if(MOTION()){mn.classList.add("out");setTimeout(()=>{if(mn.classList.contains("out")){mn.hidden=true;mn.classList.remove("out")}},160)}else mn.hidden=true;aria();navSync()},mb={focus:()=>(mbs.find(b=>b.offsetParent)||mbs[0]).focus()};
+ document.addEventListener("click",e=>{const t=e.target;if(t.closest&&t.closest("#more,#more2")){if(open())shut();else{mn.classList.remove("out");mn.hidden=false;aria();navSync()}return}
   if(open()&&(!t.closest||!t.closest("#menu")||t.dataset.p||t.id=="repb"))shut()});
  document.addEventListener("keydown",e=>{if(e.key=="Escape"&&!mn.hidden){shut();mb.focus()}})}

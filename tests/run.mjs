@@ -95,8 +95,8 @@ const saved = p => p.waitForFunction(() => document.getElementById("sync").textC
 const recOpen = async p => { if (!(await p.locator("#rdesc").isVisible())) await p.click("#recnew") };
 const rows = async p => { const b = p.locator("#showall"); if (await b.isVisible() && /Show all/.test(await b.textContent())) await b.click(); return p.locator("#rows tr:has([data-del])").count() };
 // Income and left over are not on the main screen any more: they are the 2nd and 3rd big numbers of the report.
-const repIn = async (p, inc, left) => { await p.click("#repb"); await text(p, "#report .rbig div:nth-child(2) b", inc); if (left != null) await text(p, "#report .rbig div:nth-child(3) b", left); await p.click("[data-rclose]") };
-const repBigCount = async p => { await p.click("#repb"); await text(p, "#report .rbig b", "₪"); const n = await p.locator("#report .rbig div").count(); await p.click("[data-rclose]"); return n };
+const repIn = async (p, inc, left) => { await p.click("#repb"); await text(p, "#report .rbig div:nth-child(2) b", inc); if (left != null) await text(p, "#report .rbig div:nth-child(3) b", left); await p.click("#pgback") };
+const repBigCount = async p => { await p.click("#repb"); await text(p, "#report .rbig b", "₪"); const n = await p.locator("#report .rbig div").count(); await p.click("#pgback"); return n };
 const today = (d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"))(new Date());
 const text = async (p, sel, want) => {
   try { await p.waitForFunction(([s, w]) => { const e = document.querySelector(s); return e && e.textContent.includes(w) }, [sel, want], { timeout: 15000 }) }
@@ -403,7 +403,7 @@ async function local() {
     await p.uncheck("[data-rl]"); eq(await p.locator("#report h3", { hasText: "All entries" }).count(), 0, "list hidden");
     const [dl] = await Promise.all([p.waitForEvent("download"), p.click("[data-rx]")]);
     eq(/^spending-2026-11\.xlsx$/.test(dl.suggestedFilename()), true, "excel file " + dl.suggestedFilename());
-    await p.click("[data-rclose]"); eq(await p.locator("#report").isHidden(), true, "closed");
+    await p.click("#pgback"); eq(await p.locator("#report").isHidden(), true, "closed");
   });
   await test("selected-expenses and trend reports follow the filters and the months", async () => {
     const p = await open("?local=1");
@@ -523,6 +523,16 @@ async function local() {
     eq(await p.evaluate(() => S.tx.filter(t => t.inc && t.id.startsWith("work-")).map(t => t.amt).join()), "7992", "income row made from the 8h session added after the rate became 999");
     await p.evaluate(() => { wInc(null); wInc(null) });
     eq(await p.evaluate(() => S.tx.filter(t => t.id.startsWith("work-")).length), 2, "the 8h session is not added twice (only the short timer one is new)");
+  });
+  await test("Back (phone gesture or browser) closes a page, the report or the add sheet instead of leaving the app", async () => {
+    const p = await open("?local=1"), u = p.url();
+    await p.click('[data-p="bud"]'); eq(await p.locator("#p-bud").isVisible(), true, "budget open");
+    await p.goBack(); eq(await p.locator("#p-bud").isHidden(), true, "Back closed it"); eq(p.url(), u, "still in the app");
+    await p.click("#repb"); await p.goBack(); eq(await p.locator("#report").isHidden(), true, "Back closed the report");
+    await p.evaluate(() => sheetOpen()); await p.goBack(); eq(await p.locator("#addsheet").isHidden(), true, "Back closed the sheet");
+    await p.click('[data-p="bud"]'); await p.click("#repb"); await p.click("#pgback");
+    eq(await p.locator("#report").isHidden(), true, "Back on the report"); eq(await p.locator("#p-bud").isVisible(), true, "returns to the page it came from");
+    await p.click('[data-p="bud"]'); eq(await p.evaluate(() => !!(history.state && history.state.spendInner)), false, "closing in the app removes the extra Back step");
   });
   await test("add sheet: an expense with category from the description, an income, an empty amount refused", async () => {
     const p = await open("?local=1");
