@@ -248,6 +248,18 @@ button{transition:transform .08s ease,background-color .15s,color .15s}button:ac
  #rows tr.swipe.del::after{background:var(--bad);color:#fff}
  #rows tr.back{transition:transform .2s ease}
 }
+/* One entrance for everything that appears (panels, report, compare, forms, help topics, strips), one fade for lists that change,
+   and the matching exits for the More menu and a closing panel. */
+.vin,#report:not([hidden]),#cmp:not([hidden]),#recform:not([hidden]),#slip:not([hidden]),.how:not([hidden]),#wholw:not([hidden]),#wstrip:not([hidden]),#trip:not([hidden]),#upd:not([hidden]),#budsum:not([hidden]),details[open]>:not(summary),#app:not([hidden]),#auth:not([hidden]){animation:mIn .25s cubic-bezier(.2,.8,.2,1)}
+#app:not([hidden]){animation-name:mFade}
+.vfade{animation:mFade .25s ease}
+@keyframes mFade{from{opacity:0}}
+.panel.pout{animation:mOut .2s ease forwards}
+@keyframes mOut{to{opacity:0;transform:translateY(-6px)}}
+#menu.out{transition:opacity .15s,transform .15s;opacity:0;transform:scale(.95)}
+html.themeswap,html.themeswap *{transition:background-color .35s,color .35s,border-color .35s!important}
+.cat{transition:transform .18s ease,border-color .2s,background-color .2s}#wtime{transition:color .3s}
+@media (max-width:640px){#menu.out{transform:translateY(16px)}}
 @media print{#tabbar,#fab{display:none!important}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 

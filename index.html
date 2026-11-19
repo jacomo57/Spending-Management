@@ -24,7 +24,7 @@ Accounts + cloud sync (Firebase, see docs/backend.md): only active when FB_REAL 
 FB_REAL is set (project spending-management-608d5), so the live site requires sign-in.
 Tested automatically on the emulator (npm test): sign up/in, wrong invite, two-device sync, per-account privacy, delete all, download + restore, delete account, income and budgets on a second device and after signing out, import cases above, income by hand, paybacks, recurring income, budgets, payslip (a made-up PDF, a made-up JPEG and pasted text), re-import after an edit, installable files, update notice, opening offline and syncing an offline edit.
 Names: a merchant, card or category may be called anything, including "constructor" or "__proto__" (the lookup maps have no prototype, fixMaps() in app.js; tested).
-Motion and polish (2026-11-19): the big number counts to its new value and bars grow from where they were (motion() in app.js); new purchases glow in, deleted ones slide away; panels, the More menu and the Undo message ease in and out; buttons press in; "Saved" gets a tick; the work timer's colons blink and its strip has a breathing dot; loading shows shimmering shapes; category icons sit on rounded colour tiles; no blue tap flash or focus ring on tap (a keyboard still gets the ring). Phone (640px and under): a bottom bar (Home, Report, Work, More; More opens as a sheet above it), a round + button that adds an expense on Home, and swipe a purchase left past 90px to delete it (with Undo). All motion is off when the device asks for reduced motion, and under test automation (navigator.webdriver) so tests read final values. Not checked on a real phone; the browser pane runs at ~2 frames a second, so the smoothness itself was not seen.
+Motion and polish (2026-11-19): the big number counts to its new value and bars grow from where they were (motion() in app.js); new purchases glow in, deleted ones slide away; panels, the More menu and the Undo message ease in and out; buttons press in; "Saved" gets a tick; the work timer's colons blink and its strip has a breathing dot; loading shows shimmering shapes; category icons sit on rounded colour tiles; no blue tap flash or focus ring on tap (a keyboard still gets the ring). Phone (640px and under): a bottom bar (Home, Report, Work, More; More opens as a sheet above it), a round + button that adds an expense on Home, and swipe a purchase left past 90px to delete it (with Undo). One standard for every change of screen (2026-11-19, second pass): everything that appears eases in the same way (panels, report, compare, recurring form, help topics, strips, Rate and rules, the app after loading); the home screen eases back in after the report; a panel closed to Home fades away (switching panel to panel swaps at once); the More menu fades out when closed; a new filter, month, sort, Show all or the category Edit view fades the list in; + Add expense glides to the new row and it glows (the glow survives a re-draw); the theme switch cross-fades the colours. All motion is off when the device asks for reduced motion, and under test automation (navigator.webdriver) so tests read final values. Not checked on a real phone; the browser pane runs at ~2 frames a second, so the smoothness itself was not seen.
 Work log (2026-11-19): a Work button next to More opens a page with a big running timer (HH:MM:SS), Start/Stop, the amount earned so far, and a list of sessions (edit start/end, Holiday tick, delete with Undo, add by hand). While running, a strip on the main screen shows the time and opens the page. Stored in S.work (rate, rules, log) inside the settings document, so it syncs with no rules change. Pay (workDay() in app.js): sessions that start on one date are one work day, no midnight split; first 8h 100%, next 2h 125%, then 150%; hours inside the Shabbat window (Fri 18:00 to Sat 19:00, editable) or in a Holiday session 150%, their overtime 175% / 200%. Each session keeps the rate and rules it started with. Nothing reaches income by itself: "Add to income" per session or all (row id work-<session id>, so never twice). Not done: weekly 42h limit, unpaid breaks, a built-in holiday list, rate in another currency after the home currency changes. Not tested on a real phone.
 Dates are the device's local date everywhere (ymd() in app.js), tested with the clock set to 00:30 Israel time.
 The user signed in on the live site under the policy on 2026-11-16 and it loaded and saved.
@@ -70,7 +70,7 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
 <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=d0d4861b0c">
+<link rel="stylesheet" href="style.css?v=04265b2c90">
 </head>
 <body>
 <main>
@@ -267,7 +267,7 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="toast top" id="bnote" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=d0d4861b0c"></script>
-<script src="cloud.js?v=d0d4861b0c"></script>
+<script src="app.js?v=04265b2c90"></script>
+<script src="cloud.js?v=04265b2c90"></script>
 </body>
 </html>

@@ -393,8 +393,16 @@ const BOOT=$("boot").innerHTML;function bootLoading(){$("boot").innerHTML=BOOT}
 // A message slides out of view, then hides.
 function slideAway(el){if(!MOTION()){el.hidden=true;return}el.classList.add("out");setTimeout(()=>{if(el.classList.contains("out")){el.hidden=true;el.classList.remove("out")}},260)}
 // After each render: the big number counts to its new value, bars grow from where they were (from zero the first time), new rows glow.
-let mTot=null,mTok=0,mBars=new Map(),mIds=null;
+let mTot=null,mTok=0,mBars=new Map(),mIds=null,mView=null,mList=null,mCat=null;
+// Replays the shared entrance animation (class vin) on an element that stays in the page.
+function replay(el,cls){if(!el)return;cls=cls||"vin";el.classList.remove(cls);void el.offsetWidth;el.classList.add(cls)}
 function motion(tot){const on=MOTION(),n=document.querySelector("#big .n");
+ // Opening or leaving the report: the screen that appears eases in. A new filter, month, sort or "Show all": the list fades in.
+ const view=rp?"rep":"home",lk=[$("month").value,cardF,cat,showAll,S.sk,S.sd].join("|");
+ if(on&&mView&&view!=mView){if(rp)replay($("report"));else document.querySelectorAll("#app>.sum,#app>section").forEach(e=>replay(e))}
+ if(on&&mList!=null&&lk!=mList)replay($("rows"),"vfade");
+ if(on&&mCat!=null&&catAll!=mCat)replay($("cats"),"vfade");
+ mView=view;mList=lk;mCat=catAll;
  if(on&&n&&mTot!=null&&mTot!==tot){const from=mTot,to=tot,t0=performance.now(),tok=++mTok;
   const step=t=>{if(tok!=mTok||!n.isConnected)return;const k=Math.min(1,(t-t0)/700),e=1-Math.pow(1-k,3);n.textContent=fmt(from+(to-from)*e);if(k<1)requestAnimationFrame(step);else n.textContent=fmt(to)};requestAnimationFrame(step)}
  mTot=tot;
@@ -403,9 +411,12 @@ function motion(tot){const on=MOTION(),n=document.querySelector("#big .n");
   const from=mBars.has(k)?mBars.get(k):"0%";if(on&&from!==to){i.style.transition="none";i.style.width=from;todo.push([i,to])}});
  mBars=next;
  if(todo.length){void document.body.offsetWidth;requestAnimationFrame(()=>todo.forEach(([i,to])=>{i.style.transition="width .7s cubic-bezier(.2,.8,.2,1)";i.style.width=to}))}
- const ids=new Set(),fresh=[];document.querySelectorAll("#rows [data-del]").forEach(b=>{ids.add(b.dataset.del);if(mIds&&!mIds.has(b.dataset.del))fresh.push(b.closest("tr"))});
- if(on&&fresh.length&&fresh.length<=3)fresh.forEach(r=>r.classList.add("new"));
- mIds=ids}
+ const ids=new Set(),fresh=[];document.querySelectorAll("#rows [data-del]").forEach(b=>{ids.add(b.dataset.del);if(mIds&&!mIds.has(b.dataset.del))fresh.push(b.dataset.del)});
+ const now=performance.now();if(on&&fresh.length&&fresh.length<=3)fresh.forEach(id=>mGlow.set(id,now));
+ glow();mIds=ids}
+// Rows still glowing keep their place in the animation when the list is drawn again (a rate arriving, a sync).
+const mGlow=new Map();
+function glow(){const now=performance.now();for(const[id,t]of mGlow){if(now-t>1600){mGlow.delete(id);continue}const b=document.querySelector(`#rows [data-del="${CSS.escape(id)}"]`);if(b){const r=b.closest("tr");r.classList.add("new");r.style.animationDelay=-(now-t)+"ms"}}}
 // Delete a purchase (the ✕ button or a swipe): it slides away first, then goes, with Undo.
 function delTx(id,tr){const go=()=>{const i=S.tx.findIndex(x=>x.id==id);if(i>=0){const it=S.tx[i];S.tx.splice(i,1);pushUndo("Deleted “"+(it.desc||"purchase").slice(0,28)+"”",()=>{S.tx.splice(Math.min(i,S.tx.length),0,it)})}save();render()};
  if(tr&&MOTION()){tr.classList.add("gone");setTimeout(go,200)}else go()}
@@ -427,7 +438,10 @@ function render(){
  CL=[...new Set([...S.tx.filter(t=>!t.inc).map(t=>t.card),...S.recur.filter(r=>!r.inc).map(r=>r.card||"Recurring"),...Object.keys(S.cards)])].sort((a,b)=>a.localeCompare(b));
  if(cardF!="all"&&!CL.includes(cardF))cardF="all";
  const rc=[...new Set(["Recurring",...CL])],copt=s=>rc.map(c=>`<option${c==s?" selected":""}>${esc(c)}</option>`).join("");
- ["imp","crd","rec","bud","mer","acc","how","wrk"].forEach(p=>{$("p-"+p).hidden=panel!=p});workRender();
+ // A panel that closes with nothing else opening fades up and away; switching straight to another panel swaps at once.
+ ["imp","crd","rec","bud","mer","acc","how","wrk"].forEach(p=>{const el=$("p-"+p),off=panel!=p;if(!off){el.classList.remove("pout");el.hidden=false;return}
+  if(el.hidden||el.classList.contains("pout"))return;
+  if(MOTION()&&!panel&&!rp){el.classList.add("pout");setTimeout(()=>{if(panel!=p){el.hidden=true}el.classList.remove("pout")},200)}else el.hidden=true});workRender();
  document.querySelectorAll("[data-p]").forEach(b=>b.classList.toggle("on",b.dataset.p==panel));
  document.querySelectorAll("[data-h]").forEach(e=>e.hidden=e.dataset.h!=HOW);document.querySelectorAll("[data-how]").forEach(b=>b.classList.toggle("on",b.dataset.how==HOW));
  $("cardrules").innerHTML=CL.map((c,i)=>{const p=pct(c),n=S.tx.filter(t=>t.card==c).length;return `<div class="row"><input dir="auto" data-ci="${i}" data-f="name" value="${esc(c)}" style="width:170px" aria-label="Card name"><select data-ci="${i}" data-f="rule" aria-label="How this card counts">${ruleOpts(p,1)}</select>${[100,50,0].includes(p)?"":`<input data-ci="${i}" data-f="pct" type="number" min="0" max="100" value="${p}" style="width:70px" aria-label="Percent that counts"><span class="sub">%</span>`}<button data-def="${i}" class="${S.defCard==c?"pri":""}" title="Card the phone uses when no other is named" aria-pressed="${S.defCard==c}">${S.defCard==c?"★ Default":"☆ Default"}</button><span class="sub">${n} purchase${n==1?"":"s"}</span></div>`}).join("")||`<span class="msg">No cards yet. Import or add a purchase first.</span>`;
@@ -521,7 +535,8 @@ function render(){
  if(fs){const el=document.querySelector(fs);if(el&&el!==document.activeElement)el.focus()}
  if(focusCat!=null){const el=document.querySelector(`[data-ren="${focusCat}"]`);if(el){el.focus();el.select()}focusCat=null}
  if(focusSp){const el=document.querySelector(`[data-sp="${focusSp[0]}"][data-i="${focusSp[1]}"][data-f="amt"]`);if(el)el.focus();focusSp=null}
- if(focusTid){const el=document.querySelector(`[data-tid="${focusTid}"][data-f="desc"]`);if(el)el.focus();focusTid=null}
+ // A new expense: its row glows and the page glides to it before the cursor goes in.
+ if(focusTid){const el=document.querySelector(`[data-tid="${focusTid}"][data-f="desc"]`);if(el){if(MOTION()){mGlow.set(focusTid,performance.now());glow();el.scrollIntoView({behavior:"smooth",block:"center"});el.focus({preventScroll:true})}else el.focus()}focusTid=null}
 }
 // Report (view only, not saved). All numbers come from calc() and v(); ignored rows only appear in the list when asked for.
 function repRows(m){return S.tx.filter(t=>(m=="all"||pk(t.date).startsWith(m))&&(cardF=="all"||t.card==cardF))}
@@ -656,7 +671,7 @@ function endDrag(){if(!drag)return;const d=drag;drag=null;if(!d.moved)return;
 document.addEventListener("pointerup",endDrag);document.addEventListener("pointercancel",endDrag);
 document.addEventListener("click",e=>{const t=e.target;
  if(t.id=="showall"){showAll=!showAll;render();return}
- if(t.id=="themeb"){themeSet(THEMES[(THEMES.indexOf(themeGet())+1)%3]);return}
+ if(t.id=="themeb"){if(MOTION()){const h=document.documentElement;h.classList.add("themeswap");setTimeout(()=>h.classList.remove("themeswap"),450)}themeSet(THEMES[(THEMES.indexOf(themeGet())+1)%3]);return}
  if(t.dataset&&t.dataset.ic!==undefined){icOpen=icOpen==+t.dataset.ic?null:+t.dataset.ic;render();return}
  if(t.dataset&&t.dataset.pick!==undefined&&icOpen!=null){const c=S.cats[icOpen];if(c){S.icon[c]=t.dataset.pick;save()}icOpen=null;render();return}
 if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cname").focus();if(CL.some(c=>sameCard(c,n))){crdMsg="That card already exists.";return render()}S.cards[n]=100;crdMsg="";$("cname").value="";save();render();return}
@@ -873,7 +888,8 @@ setInterval(workTick,1000);
  rows.addEventListener("touchend",end);rows.addEventListener("touchcancel",end)}
 
 // The More menu: opens on its button, closes on a click elsewhere, on Escape, or after choosing a panel or the report.
-{const mn=$("menu"),mbs=[$("more"),$("more2")],aria=()=>mbs.forEach(b=>b.setAttribute("aria-expanded",String(!mn.hidden))),shut=()=>{mn.hidden=true;aria()},mb={focus:()=>(mbs.find(b=>b.offsetParent)||mbs[0]).focus()};
- document.addEventListener("click",e=>{const t=e.target;if(t.closest&&t.closest("#more,#more2")){mn.hidden=!mn.hidden;aria();return}
-  if(!mn.hidden&&(!t.closest||!t.closest("#menu")||t.dataset.p||t.id=="repb"))shut()});
+{const mn=$("menu"),mbs=[$("more"),$("more2")],open=()=>!mn.hidden&&!mn.classList.contains("out"),aria=()=>mbs.forEach(b=>b.setAttribute("aria-expanded",String(open()))),
+  shut=()=>{if(!open())return;if(MOTION()){mn.classList.add("out");setTimeout(()=>{if(mn.classList.contains("out")){mn.hidden=true;mn.classList.remove("out")}},160)}else mn.hidden=true;aria()},mb={focus:()=>(mbs.find(b=>b.offsetParent)||mbs[0]).focus()};
+ document.addEventListener("click",e=>{const t=e.target;if(t.closest&&t.closest("#more,#more2")){if(open())shut();else{mn.classList.remove("out");mn.hidden=false;aria()}return}
+  if(open()&&(!t.closest||!t.closest("#menu")||t.dataset.p||t.id=="repb"))shut()});
  document.addEventListener("keydown",e=>{if(e.key=="Escape"&&!mn.hidden){shut();mb.focus()}})}
