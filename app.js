@@ -439,7 +439,7 @@ function render(){
  const B=S.budget&&S.budget.cats?S.budget:{total:0,cats:bare()},bOn=m.length==7&&cardF=="all",bc=bOn?B.cats:bare();
  let bl="";
  let bh="";
- if(bOn&&B.total>0){const left=B.total-tot,u=tot/B.total;bh=`<div id="budline"><div class="hn${left<0?" over":""}">${fmt(Math.abs(left))}</div> <div class="l${left<0?" over":""}">${left<0?"over the "+fmt(B.total)+" budget":"left of "+fmt(B.total)}</div></div><div class="bar hbar${u>1?" over":u>=.8?" mid":""}" aria-hidden="true"><i style="width:${Math.max(0,Math.min(1,u))*100}%"></i></div>`}
+ if(bOn&&B.total>0){const left=B.total-tot,u=tot/B.total;bh=`<div class="bar hbar${u>1?" over":u>=.8?" mid":""}" aria-hidden="true"><i style="width:${Math.max(0,Math.min(1,u))*100}%"></i></div><div class="l${left<0?" over":""}" id="budline">${left<0?fmt(-left)+" over the "+fmt(B.total)+" budget":fmt(left)+" left of "+fmt(B.total)}</div>`}
  if(bOn){const ov=S.cats.filter(c=>bLvl(by[c]||0,B.cats[c])==2),nr=S.cats.filter(c=>bLvl(by[c]||0,B.cats[c])==1);
   if(ov.length||nr.length)bl+=`<div class="l" id="budalert">${ov.length?`<span class="over">Over budget: ${ov.map(esc).join(", ")}</span>`:""}${ov.length&&nr.length?" · ":""}${nr.length?"Near the limit (80%+): "+nr.map(esc).join(", "):""}</div>`}
  if(bOn&&bLvl(tot,B.total)==1)bl+=`<div class="l" id="totalalert">Near the limit (80%+): the whole budget</div>`;
@@ -453,7 +453,7 @@ function render(){
  {const el=$("trip"),bc2=buyC(),hc=homeC();el.hidden=bc2==hc;
   if(bc2!=hc){let fa=0,ha=0;for(const t of base)if(!t.skip&&!t.inc&&t.fx&&t.fx.c==bc2){const x=v(t);ha+=x;fa+=t.amt?t.fx.a*x/t.amt:0}
    el.innerHTML=`✈ Buying in <b>${bc2}</b>`+(fa||ha?` · <b>${fmtc(fa,bc2)}</b> spent · ${fmt(ha)}`:" · nothing spent yet")}}
- $("big").innerHTML=`<div>${bh}<div class="n${bh?" sm":""}">${fmt(tot)}</div><div class="l">spent${one?" · "+one:""}${K.back?" · after "+fmt(K.back)+" paid back":""}</div>${bl}</div>`+
+ $("big").innerHTML=`<div><div class="n">${fmt(tot)}</div><div class="l">spent${one?" · "+one:""}${K.back?" · after "+fmt(K.back)+" paid back":""}</div>${bh}${bl}</div>`+
   (shown.length>1?shown.map(c=>`<div><div class="m">${fmt(per[c])}</div><div class="l">${esc(c)}${rl(pct(c))?" · "+rl(pct(c)):""}</div></div>`).join(""):"")+(ign.length?`<div class="l">Not counting ${ign.length} ignored (${fmt(ign.reduce((a,t)=>a+v(t),0))})</div>`:"");
  const mx=Math.max(1,...Object.values(by));
  // Bars (S.barMode): by amount (every bar against the largest category) or by budget (a bar with a budget fills toward it, one without stays empty).

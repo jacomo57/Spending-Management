@@ -12,7 +12,7 @@ Payslip (תלוש שכר): pick the PDF in Import, or paste its text. Only the n
 Cards: S.cards[name] = percent that counts (full 100, half 50, custom, not counted 0). Rename a card in the Cards panel. A joint card is a card set to half.
 Summary: spent, In and Left over (when the view has income), a figure per card (when more than one), currency.
 Add expense and income (2026-11-19): "+ Add expense" sits above the expense list (the top "+ Add purchase" and "+ Add income" buttons are gone). Choosing "Income" in a row's category box turns it into plain income (amount positive, no card, no split, no currency); a category on an income row still makes it a payback. The report always shows Spent, Income and Left over.
-Main screen (2026-11-19): with a budget set (one month, All cards) the big headline is what is left of it (red "over" when past it), spent sits under the bar; when Buying in is not the home currency a trip strip (#trip) shows what was spent in it. How to page (2026-11-19): More, How to; topic buttons (#p-how, data-how / data-h), one topic at a time; keep the text in step with the features. Multi-currency fixes (2026-11-19): a row's date change fetches the rate again unless fx.m (hand-set); a statement can be imported in another currency (box next to the card rule); changing Home currency asks to convert all amounts (undo); fillRates() fills rows saved without a rate.
+Main screen (2026-11-19): with a budget set (one month, All cards) under the bar a small line says what is left of it (red "over" when past it); when Buying in is not the home currency a trip strip (#trip) shows what was spent in it. How to page (2026-11-19): More, How to; topic buttons (#p-how, data-how / data-h), one topic at a time; keep the text in step with the features. Multi-currency fixes (2026-11-19): a row's date change fetches the rate again unless fx.m (hand-set); a statement can be imported in another currency (box next to the card rule); changing Home currency asks to convert all amounts (undo); fillRates() fills rows saved without a rate.
 Multi-currency (2026-11-19): Account has Home currency (everything is shown in it) and Buying in (the currency new purchases are entered in, e.g. EUR on a trip). A row in another currency keeps t.fx={c,a,r} (original amount, rate) with amt=a*r in the home currency, so calc()/v() are unchanged; the row shows the original amount, a currency box (switch it if the input was wrong) and the rate. Rates: api.frankfurter.dev (ECB), for the purchase date, cached on the device; offline = last known rate, else type it. Editing the home amount changes the rate. Changing the home currency later does not convert old rows. Tested with a mocked rate service. Phone items: a quick-add amount is in "Buying in" (or the item's own "cur" code); a notification naming another currency (€50, USD 12,5) is saved in it and the shekel value is looked up on arrival; a shekel amount stays shekels.
 Income: a row with inc:1 and a positive amount ("Income (a category-box choice)", recurring income, positive rows of a bank file). No category = income, counts toward In. With a category = a payback, lowers that category and Spent in full. Card rules never apply to income. calc(rows) in app.js is the single definition of spent / in / per category / per card.
 Budgets (Budget panel): S.budget = {total, cats:{name:amount}}, monthly, saved with the settings. Shown with one month picked and no card filter: "X left of Y" under Spent, category bars fill against their budget (amber from 80%, red when over). Budgets follow a renamed category.
@@ -68,7 +68,7 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
 <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=0c2678097b">
+<link rel="stylesheet" href="style.css?v=4d14694a15">
 </head>
 <body>
 <main>
@@ -246,7 +246,7 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="toast top" id="bnote" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=0c2678097b"></script>
-<script src="cloud.js?v=0c2678097b"></script>
+<script src="app.js?v=4d14694a15"></script>
+<script src="cloud.js?v=4d14694a15"></script>
 </body>
 </html>

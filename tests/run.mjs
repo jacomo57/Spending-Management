@@ -478,17 +478,17 @@ async function local() {
     await text(p, "#budline", "₪ 150 over the ₪ 1,000 budget");
     await p.reload(); await p.selectOption("#month", mo); await text(p, "#budline", "over the ₪ 1,000 budget");
   });
-  await test("main screen: left of budget is the headline; trip strip shows when Buying in is not the home currency", async () => {
+  await test("main screen: spent is the headline, left of budget a small line; trip strip shows when Buying in is not the home currency", async () => {
     const p = await open("?local=1"), mo = today.slice(0, 7);
     await p.evaluate(([d]) => { S.tx = [{ id: "t1", date: d, desc: "Bar", amt: 200, card: "My card", cat: "Other", fx: { c: "EUR", a: 50, r: 4 } }, { id: "t2", date: d, desc: "Rent", amt: 300, card: "My card", cat: "Other" }]; S.budget = { total: 1000, cats: {} }; save(); render() }, [today]);
     await p.selectOption("#month", mo);
-    eq(await p.locator("#big .hn").textContent(), "₪ 500", "headline is what is left");
+    await text(p, "#budline", "₪ 500 left of ₪ 1,000");
     await total(p, "₪ 500");
     eq(await p.locator("#trip").isVisible(), false, "no strip at home");
     await p.evaluate(() => { S.buy = "EUR"; save(); render() });
     await text(p, "#trip", "€ 50 spent"); await text(p, "#trip", "₪ 200");
     await p.evaluate(() => { S.budget.total = 0; save(); render() });
-    eq(await p.locator("#big .hn").count(), 0, "no headline without a budget");
+    eq(await p.locator("#budline").count(), 0, "no budget line without a budget");
   });
   await test("payslip PDF: only the net pay (נטו לתשלום) is added, as income; a second upload is not added again", async () => {
     // A made-up slip laid out like a real one: boxes with the number left of its label, other amounts above and beside it.
