@@ -249,3 +249,46 @@ The user confirmed on 2026-11-16 that the live site signs in and saves under the
 ## 2026-11-19: Budget panel text removed
 
 - The two help texts in the Budget panel were removed at the user's request (less writing); their wording is kept in `docs/handoff.md` for the planned How-to page. 52 tests, `failures: 0`.
+
+## 2026-11-19: multi-currency (the user travels soon)
+
+- Account has a Home currency (everything is shown in it) and "Buying in" (the currency new purchases are entered in). Every stored amount `t.amt` stays in the home currency, so `calc()`/`v()` and every total are unchanged; a foreign row also carries `t.fx={c,a,r,m?}` (currency, original amount, rate; `m` = rate typed by hand or home amount edited, so a date change does not replace it).
+- Rates come from frankfurter.dev (European Central Bank, free, no key), looked up for the purchase date and cached per device (`localStorage` `spend-fx`, not synced). Rows saved without a rate (offline, a changed date, a statement in another currency) are filled when the app opens or comes back to the front (`fillRates`).
+- Statements can be imported in another currency (box in the Import panel). Changing the home currency offers to convert everything at today's rate (undoable). Phone quick-add uses Buying in; notifications naming euro etc. are saved in that currency.
+- The foreign row shows on one line: "Paid [amount] [currency] rate [x]", rate to 2 decimals, full width on phones; the "Counted as" line was dropped.
+- Why: one shekel total is what matters to the user; keeping `amt` in the home currency avoided touching every calculation.
+- Not checked: a real phone, real euro statements and notifications.
+
+## 2026-11-19: income in the report, Add expense button, How to page, budget sum
+
+- "+ Add expense" sits above the list. Income is a choice in the category box ("Income"). The monthly report always shows Spent, Income and Left over.
+- How to: a page in More with topic buttons (Expenses, Income, Categories, Cards, Budget, Recurring, Import, Currencies, Report, Merchants, Account and phone), one topic at a time, each explanation a bold title and a short line (text in `index.html`, `#p-how`). Keep it updated when a feature changes. Work and the new phone controls are not in it yet.
+- Budget panel: a line adds up the category budgets and says what is left of the total budget (or how much they go over it).
+
+## 2026-11-19: main screen (brainstorm, ideas 1 and 5 chosen)
+
+- The user picked two of eight ideas: what is left of the budget (always, when a budget is set) and a trip strip. The others (vs last month, money in and out, biggest this month, waiting to confirm, recurring coming up, streak/alert) were declined for now.
+- First build made "left of budget" the headline; after seeing it on the phone the user asked to swap. Final: spent is the big number, then the bar, then one small line "₪ X left of ₪ Y" (red "₪ X over the ₪ Y budget" when past it, `#budline`).
+- Trip strip (`#trip`): shows only when Buying in is not the home currency: "✈ Buying in EUR · € 50 spent · ₪ 200". It counts only rows whose `fx.c` is the buying currency, so purchases entered before switching are in the total but not the strip.
+- 56 tests, `failures: 0`; checked at 375px.
+
+## 2026-11-19: Work page (brainstormed with /grilling, then built)
+
+- Decisions with the user: one hourly rate; a separate work log; nothing goes into income on its own; its own button next to More; the timer keeps running when the app is closed (it stores the start time); edit, add and delete sessions; sync like the rest.
+- Pay follows the usual Israeli rules (the user first guessed 120%, then asked for the legal rates): first 8 hours 100%, next 2 hours 125%, then 150%; hours inside the Shabbat window (Friday 18:00 to Saturday 19:00, editable) or in a session ticked Holiday 150%, their overtime 175% then 200%. A work day is all sessions that START on one date, counted together from clock-in, with no midnight split (the user: "it was still a 10-hour work day"). The clock only decides each hour's rate. All numbers are editable under "Rate and rules"; each session keeps the settings it started with (`c`), so later changes never alter old sessions.
+- Holidays are a per-session checkbox (no built-in list: dates move every year). Weekly 42-hour limit and unpaid breaks are left out on purpose.
+- Data: `S.work = {rate,lim,o1,o2,r,ro1,ro2,sf,st, log:[{id,s,e,hol,c,inc}]}` inside the settings document, so it syncs with no new Firestore collection and no rules change (decided instead of the planned new collection). Pay is `workDay()` / `workCalc()` in `app.js`.
+- "Add to income" per session or "Add all to income" makes one income row with id `work-<session id>` (so two devices never add it twice) and marks the session.
+- Page: big HH:MM:SS timer (first drawn inside a ring with a stopwatch button on top; the user asked to remove both), Start/Stop, earned so far, Holiday tick while running, this month's hours and amount and what is not in income yet, the session list. A strip on the main screen shows the running time and amount and opens the page.
+- Test: pay for a 10h and 12h weekday, Friday 16:00 to Saturday 02:00 (1450 at rate 100), a holiday session, two sessions on one day, an ordinary day; the timer ticks; the saved rate stays; add to income only once. 57 tests, `failures: 0`.
+- Not handled: editing a session after it was added to income leaves the income row as it was; the rate is not converted if the home currency changes. Not checked on a real phone.
+- One publish run failed on GitHub's side ("No artifacts named github-pages"); a re-run of the same run succeeded. Nothing in the code was wrong.
+
+## 2026-11-19: motion and polish (11 ideas shown as live mockups, all chosen)
+
+- The ideas were shown as a page of live demos in the app's own colours (a private claude.ai artifact); the user approved all of them and asked that tapping never shows the blue outline.
+- No blue tap flash (`-webkit-tap-highlight-color`) and no focus ring on tap; a keyboard still gets the ring on buttons, a box being typed in gets a grey border.
+- Animations: the big number counts to its new value and bars grow from where they were (from zero the first time) (`motion()` in `app.js`, run at the end of `render()`); a new purchase glows in (only when 1 to 3 rows are new, so a month change does not flash everything); a deleted one slides away (`delTx()`, used by ✕ and swipe); panels, the More menu and the Undo message ease in, the message slides away (`slideAway()`); buttons press in; "Saved" gets a tick (`#sync.ok`); the timer's colons blink and the strip has a breathing dot; loading shows shimmering shapes (`BOOT`, `bootLoading()` used by `cloud.js`); category icons are rounded colour tiles.
+- Phone (640px and under): a bottom bar with Home, Report, Work and More (`#tabbar`; More opens the same menu as a sheet above it; the top Work and More buttons hide); a round + button on Home (`#fab`, calls `addPurchase()`); swipe a purchase left past 90px to delete it, with Undo (touch handlers on `#rows`). The report keeps the bottom bar.
+- All motion is off when the device asks for reduced motion, and under test automation (`navigator.webdriver`), so tests read final values.
+- 57 tests, `failures: 0` (one flaky failure in an unrelated import test passed on two reruns). Checked at 375px: the bottom bar and each tab, the More sheet, the + button, swipe to delete and swipe back, row glow and slide-out, the blinking timer. Not seen: the smoothness itself (the browser pane draws about 2 frames a second), a real phone, the dark theme.
