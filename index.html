@@ -24,6 +24,7 @@ Accounts + cloud sync (Firebase, see docs/backend.md): only active when FB_REAL 
 FB_REAL is set (project spending-management-608d5), so the live site requires sign-in.
 Tested automatically on the emulator (npm test): sign up/in, wrong invite, two-device sync, per-account privacy, delete all, download + restore, delete account, income and budgets on a second device and after signing out, import cases above, income by hand, paybacks, recurring income, budgets, payslip (a made-up PDF, a made-up JPEG and pasted text), re-import after an edit, installable files, update notice, opening offline and syncing an offline edit.
 Names: a merchant, card or category may be called anything, including "constructor" or "__proto__" (the lookup maps have no prototype, fixMaps() in app.js; tested).
+Work log (2026-11-19): a Work button next to More opens a page with a big running timer (ring + HH:MM:SS), Start/Stop, the amount earned so far, and a list of sessions (edit start/end, Holiday tick, delete with Undo, add by hand). While running, a strip on the main screen shows the time and opens the page. Stored in S.work (rate, rules, log) inside the settings document, so it syncs with no rules change. Pay (workDay() in app.js): sessions that start on one date are one work day, no midnight split; first 8h 100%, next 2h 125%, then 150%; hours inside the Shabbat window (Fri 18:00 to Sat 19:00, editable) or in a Holiday session 150%, their overtime 175% / 200%. Each session keeps the rate and rules it started with. Nothing reaches income by itself: "Add to income" per session or all (row id work-<session id>, so never twice). Not done: weekly 42h limit, unpaid breaks, a built-in holiday list, rate in another currency after the home currency changes. Not tested on a real phone.
 Dates are the device's local date everywhere (ymd() in app.js), tested with the clock set to 00:30 Israel time.
 The user signed in on the live site under the policy on 2026-11-16 and it loaded and saved.
 UNTESTED: the Content Security Policy in Safari/Firefox, the browser's own print dialog (the PDF made by script was checked: 5 pages for 160 rows, table header on every page, Hebrew present), phone layout on a real phone (only checked in the browser pane at 375 and 768px), installing on a real phone, password reset email, a real bank export (only a made-up one), a real payslip PDF (only one made by the test; a real payslip screenshot was read correctly by hand on 2026-11-16), a phone photo of a paper payslip (tilted or shadowed pictures will likely fail), a real password-locked payslip (a made-up locked PDF gets the message).
@@ -68,7 +69,7 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
 <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=4d14694a15">
+<link rel="stylesheet" href="style.css?v=9e9fe347bc">
 </head>
 <body>
 <main>
@@ -86,6 +87,7 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
 <div id="app">
 <nav class="row" aria-label="Tools">
   <span class="sub" id="sync" role="status"></span>
+  <button id="workb" data-p="wrk">⏱ Work</button>
   <div class="menuw"><button id="more" aria-haspopup="true" aria-expanded="false" aria-controls="menu">More ▾</button>
    <div id="menu" hidden>
     <button data-p="imp">Import</button>
@@ -111,6 +113,19 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
   <div class="row"><button id="dl">Download my data</button><button id="rsbtn">Restore from file</button><input type="file" id="rsfile" accept=".json,application/json" hidden><span class="msg" id="rsmsg"></span></div>
   <div class="grid cl" id="phone"></div>
   <div class="row cl"><input id="delpass" type="password" placeholder="Your password" autocomplete="current-password" aria-label="Your password" style="width:170px"><button class="danger" id="delacc">Delete my account</button><span class="msg" id="accmsg"></span></div>
+</div></div>
+
+<div class="panel" id="p-wrk" hidden><div class="grid">
+  <div class="wclock">
+    <div class="wface" id="wface"><svg viewBox="0 0 120 120" aria-hidden="true"><rect class="wk" x="52" y="1" width="16" height="7" rx="2"/><circle class="rb" cx="60" cy="64" r="48"/><circle class="rp" id="wprog" cx="60" cy="64" r="48" pathLength="60" stroke-dasharray="0 60"/></svg><div id="wtime" role="timer">00:00:00</div></div>
+    <div class="sub" id="wsub"></div><div id="wearn" role="status"></div>
+    <button class="wgo pri" id="wgo">Start</button>
+    <label class="row sub" id="wholw" hidden><input type="checkbox" id="whol"> Holiday (whole session at the Shabbat rate)</label>
+  </div>
+  <div class="sub" id="wtot"></div>
+  <details><summary>Rate and rules</summary><div class="grid" id="wcfg"></div></details>
+  <div class="grid" id="wlist"></div>
+  <div class="row"><button id="wadd">+ Add session</button><button id="wall">Add all to income</button><button id="wmore" hidden></button></div>
 </div></div>
 
 <div class="panel" id="p-how" hidden><div class="grid">
@@ -215,6 +230,7 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
 </div></div>
 
 <div class="sum">
+  <button class="trip wstrip" id="wstrip" hidden>⏱</button>
   <div class="trip" id="trip" hidden role="status"></div>
   <div class="big" id="big"></div>
 </div>
@@ -246,7 +262,7 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="toast top" id="bnote" hidden role="status"></div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=4d14694a15"></script>
-<script src="cloud.js?v=4d14694a15"></script>
+<script src="app.js?v=9e9fe347bc"></script>
+<script src="cloud.js?v=9e9fe347bc"></script>
 </body>
 </html>

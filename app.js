@@ -39,7 +39,7 @@ const own=o=>{if(o&&typeof o=="object")delete o["__proto__"];return o};
 function fixMaps(){for(const k of["rules","cards","recDone","hue","alias","icon"])if(!S[k]||typeof S[k]!="object"||Object.getPrototypeOf(S[k]))S[k]=bare(S[k]);
  const b=S.budget;if(b&&typeof b=="object"&&b.cats&&Object.getPrototypeOf(b.cats))b.cats=bare(b.cats)}
 let S={tx:[],rules:{},cur:"₪"};
-let HOW="exp",rpT="month",rpN=12,FOUND=[],rp=false,rpM=null,rpL=true,rpS=false,cmp=false,cmA=null,cmB=null,q="",cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null,showAll=false,catAll=false,catTop=[];
+let wAll=false,HOW="exp",rpT="month",rpN=12,FOUND=[],rp=false,rpM=null,rpL=true,rpS=false,cmp=false,cmA=null,cmB=null,q="",cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null,showAll=false,catAll=false,catTop=[];
 // Accounts + cloud sync (Firebase): see docs/backend.md. The cloud code is in cloud.js.
 // FB_REAL = the real project's firebaseConfig (public by design; firestore.rules is the protection).
 // If it is set to null the site falls back to local-only mode (localStorage, no sign-in).
@@ -405,7 +405,7 @@ function render(){
  CL=[...new Set([...S.tx.filter(t=>!t.inc).map(t=>t.card),...S.recur.filter(r=>!r.inc).map(r=>r.card||"Recurring"),...Object.keys(S.cards)])].sort((a,b)=>a.localeCompare(b));
  if(cardF!="all"&&!CL.includes(cardF))cardF="all";
  const rc=[...new Set(["Recurring",...CL])],copt=s=>rc.map(c=>`<option${c==s?" selected":""}>${esc(c)}</option>`).join("");
- ["imp","crd","rec","bud","mer","acc","how"].forEach(p=>{$("p-"+p).hidden=panel!=p});
+ ["imp","crd","rec","bud","mer","acc","how","wrk"].forEach(p=>{$("p-"+p).hidden=panel!=p});workRender();
  document.querySelectorAll("[data-p]").forEach(b=>b.classList.toggle("on",b.dataset.p==panel));
  document.querySelectorAll("[data-h]").forEach(e=>e.hidden=e.dataset.h!=HOW);document.querySelectorAll("[data-how]").forEach(b=>b.classList.toggle("on",b.dataset.how==HOW));
  $("cardrules").innerHTML=CL.map((c,i)=>{const p=pct(c),n=S.tx.filter(t=>t.card==c).length;return `<div class="row"><input dir="auto" data-ci="${i}" data-f="name" value="${esc(c)}" style="width:170px" aria-label="Card name"><select data-ci="${i}" data-f="rule" aria-label="How this card counts">${ruleOpts(p,1)}</select>${[100,50,0].includes(p)?"":`<input data-ci="${i}" data-f="pct" type="number" min="0" max="100" value="${p}" style="width:70px" aria-label="Percent that counts"><span class="sub">%</span>`}<button data-def="${i}" class="${S.defCard==c?"pri":""}" title="Card the phone uses when no other is named" aria-pressed="${S.defCard==c}">${S.defCard==c?"★ Default":"☆ Default"}</button><span class="sub">${n} purchase${n==1?"":"s"}</span></div>`}).join("")||`<span class="msg">No cards yet. Import or add a purchase first.</span>`;
@@ -646,6 +646,13 @@ if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cn
  if(t.id=="bmb"){if(S.barMode=="budget")delete S.barMode;else S.barMode="budget";save();render()}
  if(t.dataset.how){HOW=t.dataset.how;render();return}
  if(t.dataset.p){panel=panel==t.dataset.p?null:t.dataset.p;render();return}
+ if(t.id=="wgo"){wToggle();return}
+ if(t.closest&&t.closest("#wstrip")){panel="wrk";render();window.scrollTo(0,0);return}
+ if(t.id=="wadd"){wAdd();return}
+ if(t.id=="wall"){wInc(null);return}
+ if(t.id=="wmore"){wAll=!wAll;render();return}
+ if(t.dataset.winc){wInc([t.dataset.winc]);return}
+ if(t.dataset.wdel){wDel(t.dataset.wdel);return}
  const b=t.closest&&t.closest("[data-c]");if(b){cat=cat==b.dataset.c?null:b.dataset.c;render()}
  if(t.id=="repb"){rp=true;rpM=null;render();window.scrollTo(0,0);return}
  if(t.dataset.rclose!==undefined){rp=false;render();return}
@@ -670,6 +677,7 @@ if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cn
  if(t.id=="undo")doUndo();
  const sb=t.closest&&t.closest("[data-sort]");if(sb){const c=sb.dataset.sort;if((S.sk||"date")==c)S.sd=(S.sd||"desc")=="asc"?"desc":"asc";else{S.sk=c;S.sd=(c=="amt"||c=="date")?"desc":"asc"}save();render()}});
 document.addEventListener("change",e=>{const t=e.target;
+ if(t.dataset.wc||t.dataset.wf||t.id=="whol")return wChange(t);
  if(t.dataset.skip){const x=S.tx.find(y=>y.id==t.dataset.skip);if(x){if(t.checked)x.skip=1;else delete x.skip;save();render()}}
  else if(t.dataset.tid){const x=S.tx.find(y=>y.id==t.dataset.tid),f=t.dataset.f;
   if(x&&f=="ccy"){const c=t.value;return setFx(x,c,x.fx?x.fx.a:x.amt).then(()=>{save();render()})}
@@ -745,6 +753,87 @@ function start(){fixMaps();dropEmpty();recGen();S.tx.forEach(t=>{if(t.cat=="Othe
  panel=S.tx.some(t=>!String(t.id).startsWith("rec-"))?null:"imp";
  $("accbtn").textContent=C.on?"Account":"Backup";document.querySelectorAll(".cl").forEach(e=>e.hidden=!C.on);$("who").textContent=C.user?C.user.email:"";
  $("boot").hidden=true;$("app").hidden=false;render();stat();}
+
+// ---- Work log (2026-11-19) ----
+// S.work = {rate,lim,o1,o2,r,ro1,ro2,sf,st, log:[{id,s,e,hol,c,inc}]}. It lives in the settings document, so it syncs with no new rules.
+// s/e = start/end in ms (e null = running; elapsed time comes from the clock, so closing the app does not stop it). c = the settings the session
+// was started with (kept, so changing the rate later never changes old sessions). inc = id of the income row made from it.
+// Pay (Israeli overtime, see workDay): all sessions that START on one date count together as one work day, in time order, with no midnight split.
+// Hours up to lim (8) pay 100%; the next 2 pay o1 (125%); the rest o2 (150%). Hours inside the Shabbat window (Friday sf to Saturday st) or in a
+// session ticked Holiday pay r (150%), and the overtime hours among them ro1 (175%) / ro2 (200%).
+function wdef(){return{rate:0,lim:8,o1:125,o2:150,r:150,ro1:175,ro2:200,sf:"18:00",st:"19:00"}}
+function wcfg(){const c=wdef(),w=S.work;if(w&&typeof w=="object")for(const k in c)if(w[k]!=null&&w[k]!==""&&typeof w[k]==typeof c[k])c[k]=w[k];return c}
+function wlog(){if(!S.work||typeof S.work!="object"||Array.isArray(S.work))S.work={};if(!Array.isArray(S.work.log))S.work.log=[];return S.work.log}
+function wcur(){return(S.work&&Array.isArray(S.work.log)&&S.work.log.find(x=>!x.e))||null}
+function wmin(s){const m=/^(\d{1,2}):(\d{2})$/.exec(s||"");return m?+m[1]*60+ +m[2]:0}
+function wat(d,min){const x=new Date(d);x.setHours(0,0,0,0);x.setMinutes(min);return x.getTime()}
+function wrest(m,c){const f=new Date(m);f.setDate(f.getDate()-(f.getDay()+2)%7);const g=new Date(f);g.setDate(g.getDate()+1);return m>=wat(f,wmin(c.sf))&&m<wat(g,wmin(c.st))}
+// One work day: the sessions that start on the same date. Returns {id:{ms,pay}}. Each stretch is cut where the rate changes (window edge, end of the 8 hours).
+function workDay(list,now){const out={};let cum=0;
+ list.slice().sort((a,b)=>a.s-b.s).forEach(x=>{const c=Object.assign(wdef(),x.c),end=x.e||now;let ms=0,pay=0;
+  const edges=[],d=new Date(x.s);d.setHours(0,0,0,0);
+  for(;d.getTime()<=end;d.setDate(d.getDate()+1)){const g=d.getDay();if(g==5)edges.push(wat(d,wmin(c.sf)));if(g==6)edges.push(wat(d,wmin(c.st)))}
+  let a=x.s;
+  for(let n=0;a<end&&n<500;n++){let b=end;for(const p of edges)if(p>a&&p<b)b=p;
+   const t1=c.lim,t2=c.lim+2,tier=cum<t1?0:cum<t2?1:2,nh=tier==0?t1:tier==1?t2:Infinity,bt=a+(nh-cum)*36e5;let hit=false;
+   if(bt<b){b=bt;hit=true}
+   if(!(b>a))break;
+   const hrs=(b-a)/36e5,rest=x.hol||wrest((a+b)/2,c);
+   pay+=hrs*c.rate*((rest?[c.r,c.ro1,c.ro2][tier]:[100,c.o1,c.o2][tier])/100);
+   cum=hit?nh:cum+hrs;ms+=b-a;a=b}
+  out[x.id]={ms,pay}});
+ return out}
+function workCalc(now){const g={},out={};wlog().forEach(x=>{const d=new Date(x.s),k=d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate();(g[k]=g[k]||[]).push(x)});for(const k in g)Object.assign(out,workDay(g[k],now));return out}
+const wp2=n=>String(n).padStart(2,"0");
+function wclock(ms){const s=Math.max(0,Math.floor(ms/1000));return wp2(Math.floor(s/3600))+":"+wp2(Math.floor(s/60)%60)+":"+wp2(s%60)}
+function whm(ms){const m=Math.round(Math.max(0,ms)/6e4);return Math.floor(m/60)+"h "+wp2(m%60)+"m"}
+function wlocal(ms){const d=new Date(ms);return d.getFullYear()+"-"+wp2(d.getMonth()+1)+"-"+wp2(d.getDate())+"T"+wp2(d.getHours())+":"+wp2(d.getMinutes())}
+const wdate=ms=>wlocal(ms).slice(0,10);
+function wmoney(n){return esc(S.cur)+" "+n.toLocaleString(undefined,{maximumFractionDigits:2})}
+function workTick(){const x=wcur(),now=Date.now(),st=$("wstrip");
+ if(!x){if(st&&!st.hidden)st.hidden=true;return}
+ const r=workCalc(now)[x.id]||{ms:0,pay:0};
+ if(st){st.hidden=false;st.textContent="⏱ Working · "+wclock(now-x.s)+" · "+wmoney(r.pay)+" so far"}
+ if($("wtime")){$("wtime").textContent=wclock(now-x.s);$("wprog").setAttribute("stroke-dasharray",((now-x.s)%6e4/1e3)+" 60");$("wearn").textContent=wmoney(r.pay)+" so far"}}
+function workRender(){workTick();
+ if(panel!="wrk")return;
+ const x=wcur(),c=wcfg(),now=Date.now(),calc2=workCalc(now),log=wlog().slice().sort((a,b)=>b.s-a.s);
+ $("wgo").textContent=x?"Stop":"Start";$("wgo").classList.toggle("pri",!x);$("wgo").classList.toggle("danger",!!x);
+ $("wface").classList.toggle("run",!!x);
+ $("wholw").hidden=!x;if(x)$("whol").checked=!!x.hol;
+ $("wsub").textContent=x?"Started "+wlocal(x.s).slice(11)+(x.hol?" · holiday":""):"Not running";
+ if(!x){$("wtime").textContent="00:00:00";$("wprog").setAttribute("stroke-dasharray","0 60");$("wearn").textContent=c.rate?"":"Set your hourly rate below"}
+ const ym=wdate(now).slice(0,7),mine=log.filter(y=>y.e&&wdate(y.s).slice(0,7)==ym),owed=log.filter(y=>y.e&&!(y.inc&&S.tx.some(t=>t.id==y.inc)));
+ $("wtot").textContent="This month: "+whm(mine.reduce((s,y)=>s+(calc2[y.id]?calc2[y.id].ms:0),0))+" · "+wmoney(mine.reduce((s,y)=>s+(calc2[y.id]?calc2[y.id].pay:0),0))+" · not in income yet: "+wmoney(owed.reduce((s,y)=>s+(calc2[y.id]?calc2[y.id].pay:0),0));
+ $("wall").hidden=!owed.length;
+ const num=(k,l,u,st)=>`<label class="row"><span class="wl">${l}</span><input type="number" data-wc="${k}" min="0" step="${st||1}" value="${c[k]}" style="width:90px"><span class="sub">${u}</span></label>`;
+ $("wcfg").innerHTML=num("rate","Hourly rate",esc(S.cur),"0.01")+num("lim","Normal day","hours")+num("o1","Overtime, first 2 hours","%")+num("o2","Overtime after that","%")+num("r","Shabbat / holiday","%")+num("ro1","Shabbat overtime, first 2 hours","%")+num("ro2","Shabbat overtime after that","%")+
+  `<label class="row"><span class="wl">Shabbat starts, Friday</span><input type="time" data-wc="sf" value="${c.sf}"></label><label class="row"><span class="wl">Shabbat ends, Saturday</span><input type="time" data-wc="st" value="${c.st}"></label><div class="sub">Changes apply to new sessions only. Not counted: weekly limit, unpaid breaks.</div>`;
+ const shown=wAll?log:log.slice(0,8);
+ $("wlist").innerHTML=shown.map(y=>{const r=calc2[y.id]||{ms:0,pay:0},inInc=y.inc&&S.tx.some(t=>t.id==y.inc);
+  return `<div class="row wrow"><input type="datetime-local" data-wf="s" data-wid="${y.id}" value="${wlocal(y.s)}" aria-label="Start">${y.e?`<input type="datetime-local" data-wf="e" data-wid="${y.id}" value="${wlocal(y.e)}" aria-label="End">`:`<span class="sub">running…</span>`}<label class="sub"><input type="checkbox" data-wf="hol" data-wid="${y.id}"${y.hol?" checked":""}> Holiday</label>${y.e?`<b>${whm(r.ms)} · ${wmoney(r.pay)}</b>${inInc?`<span class="sub">✓ in income</span>`:`<button data-winc="${y.id}">Add to income</button>`}`:""}<button class="x" data-wdel="${y.id}" aria-label="Delete">✕</button></div>`}).join("")||`<span class="msg">No sessions yet.</span>`;
+ $("wmore").hidden=log.length<=8;$("wmore").textContent=wAll?"Show fewer":"Show all ("+log.length+")"}
+function wToggle(){const x=wcur();if(x)x.e=Math.max(Date.now(),x.s+1);else wlog().push({id:uid(),s:Date.now(),e:null,hol:0,c:wcfg()});save();render()}
+function wAdd(){const d=new Date();d.setHours(9,0,0,0);const s=d.getTime();d.setHours(17,0,0,0);wlog().push({id:uid(),s,e:d.getTime(),hol:0,c:wcfg()});save();render()}
+function wDel(id){const l=wlog(),i=l.findIndex(y=>y.id==id);if(i<0)return;const it=l[i];l.splice(i,1);pushUndo("Deleted a work session",()=>{wlog().splice(Math.min(i,wlog().length),0,it)});save();render()}
+// Income row id is "work-"+session id, so two devices adding the same session make the same row.
+function wInc(ids){const calc2=workCalc(Date.now()),made=[];
+ wlog().forEach(y=>{if(!y.e||(ids&&!ids.includes(y.id)))return;const id="work-"+y.id;if(y.inc&&S.tx.some(t=>t.id==y.inc))return;const r=calc2[y.id];if(!r||!(r.pay>0))return;
+  if(!S.tx.some(t=>t.id==id))S.tx.push({id,date:wdate(y.s),desc:"Work "+whm(r.ms),amt:r2(r.pay),inc:1,card:"",cat:""});y.inc=id;made.push(y.id)});
+ if(!made.length)return;
+ pushUndo("Added "+made.length+" work session"+(made.length>1?"s":"")+" to income",()=>{wlog().forEach(y=>{if(made.includes(y.id)){S.tx=S.tx.filter(t=>t.id!=y.inc);delete y.inc}})});save();render()}
+function wChange(t){wlog();
+ if(t.dataset.wc){const k=t.dataset.wc;let v=t.value;
+  if(k=="sf"||k=="st"){if(!/^\d{2}:\d{2}$/.test(v))return later(render)}else{v=parseFloat(v);if(!(v>=0)||(k=="lim"&&(v<1||v>24)))return later(render)}
+  S.work[k]=v;save();return later(render)}
+ if(t.id=="whol"){const x=wcur();if(x){x.hol=t.checked?1:0;if(!x.hol)delete x.hol;save();render()}return}
+ const y=wlog().find(z=>z.id==t.dataset.wid);if(!y)return;
+ if(t.dataset.wf=="hol"){if(t.checked)y.hol=1;else delete y.hol;save();return render()}
+ const ms=new Date(t.value).getTime(),f=t.dataset.wf;
+ if(!(ms>0)||(f=="s"&&y.e&&ms>=y.e)||(f=="e"&&ms<=y.s))return later(render);
+ y[f]=ms;save();render()}
+
+setInterval(workTick,1000);
 
 // The More menu: opens on its button, closes on a click elsewhere, on Escape, or after choosing a panel or the report.
 {const mn=$("menu"),mb=$("more"),shut=()=>{mn.hidden=true;mb.setAttribute("aria-expanded","false")};

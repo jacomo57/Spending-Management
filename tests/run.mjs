@@ -490,6 +490,32 @@ async function local() {
     await p.evaluate(() => { S.budget.total = 0; save(); render() });
     eq(await p.locator("#budline").count(), 0, "no budget line without a budget");
   });
+  await test("work log: Israeli overtime and Shabbat pay, saved rate per session, timer, add to income once", async () => {
+    const p = await open("?local=1");
+    // pay for sessions given as [startY,M,D,h, endY,M,D,h(, hol)] at rate 100 (Nov 16 2026 is a Monday, Nov 20 a Friday)
+    const pay = (...ss) => p.evaluate(a => { const L = a.map((s, i) => ({ id: "s" + i, s: new Date(2026, 10, s[0], s[1]).getTime(), e: new Date(2026, 10, s[2], s[3]).getTime(), hol: s[4] || 0, c: Object.assign(wdef(), { rate: 100 }) })); const o = workDay(L, 0); return Math.round(L.reduce((t, x) => t + o[x.id].pay, 0)) }, ss);
+    eq(await pay([16, 9, 16, 19]), 1050, "10h weekday: 8 x 100% + 2 x 125%");
+    eq(await pay([16, 9, 16, 21]), 1350, "12h weekday: then 150%");
+    eq(await pay([20, 16, 21, 2]), 1450, "Fri 16:00 to Sat 02:00, no midnight split: 2h 100% + 6h 150% + 2h overtime at 175%");
+    eq(await pay([16, 9, 16, 17, 1]), 1200, "holiday session: 150%");
+    eq(await pay([16, 8, 16, 12], [16, 14, 16, 20]), 1050, "two sessions on one day count together");
+    eq(await pay([22, 9, 22, 17]), 800, "ordinary Sunday-to-Thursday day is 100%");
+    await p.evaluate(() => { S.work = { rate: 50 }; save(); render() });
+    await p.click("#workb");
+    await p.click("#wgo");
+    eq(await p.locator("#wstrip").isVisible(), true, "strip while running");
+    await p.waitForFunction(() => /^00:00:0[1-9]$/.test(document.getElementById("wtime").textContent), null, { timeout: 8000 }).catch(async () => { throw new Error("timer should be running, shows " + await p.locator("#wtime").textContent()) });
+    await p.evaluate(() => { S.work.rate = 999; save() });
+    await p.click("#wgo");
+    eq(await p.locator("#wstrip").isVisible(), false, "no strip when stopped");
+    eq(await p.evaluate(() => wlog()[0].c.rate), 50, "session keeps the rate it started with");
+    await p.click("#wadd");
+    await text(p, "#wlist", "8h 00m");
+    await p.click(".wrow:has-text('8h 00m') [data-winc]");
+    eq(await p.evaluate(() => S.tx.filter(t => t.inc && t.id.startsWith("work-")).map(t => t.amt).join()), "7992", "income row made from the 8h session added after the rate became 999");
+    await p.evaluate(() => { wInc(null); wInc(null) });
+    eq(await p.evaluate(() => S.tx.filter(t => t.id.startsWith("work-")).length), 2, "the 8h session is not added twice (only the short timer one is new)");
+  });
   await test("payslip PDF: only the net pay (נטו לתשלום) is added, as income; a second upload is not added again", async () => {
     // A made-up slip laid out like a real one: boxes with the number left of its label, other amounts above and beside it.
     const box = (top, left, t) => `<div style="position:absolute;top:${top}px;left:${left}px">${t}</div>`;
