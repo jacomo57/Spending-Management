@@ -794,7 +794,7 @@ function workTick(){const x=wcur(),now=Date.now(),st=$("wstrip");
  if(!x){if(st&&!st.hidden)st.hidden=true;return}
  const r=workCalc(now)[x.id]||{ms:0,pay:0};
  if(st){st.hidden=false;st.textContent="⏱ Working · "+wclock(now-x.s)+" · "+wmoney(r.pay)+" so far"}
- if($("wtime")){$("wtime").textContent=wclock(now-x.s);$("wprog").setAttribute("stroke-dasharray",((now-x.s)%6e4/1e3)+" 60");$("wearn").textContent=wmoney(r.pay)+" so far"}}
+ if($("wtime")){$("wtime").textContent=wclock(now-x.s);$("wearn").textContent=wmoney(r.pay)+" so far"}}
 function workRender(){workTick();
  if(panel!="wrk")return;
  const x=wcur(),c=wcfg(),now=Date.now(),calc2=workCalc(now),log=wlog().slice().sort((a,b)=>b.s-a.s);
@@ -802,7 +802,7 @@ function workRender(){workTick();
  $("wface").classList.toggle("run",!!x);
  $("wholw").hidden=!x;if(x)$("whol").checked=!!x.hol;
  $("wsub").textContent=x?"Started "+wlocal(x.s).slice(11)+(x.hol?" · holiday":""):"Not running";
- if(!x){$("wtime").textContent="00:00:00";$("wprog").setAttribute("stroke-dasharray","0 60");$("wearn").textContent=c.rate?"":"Set your hourly rate below"}
+ if(!x){$("wtime").textContent="00:00:00";$("wearn").textContent=c.rate?"":"Set your hourly rate below"}
  const ym=wdate(now).slice(0,7),mine=log.filter(y=>y.e&&wdate(y.s).slice(0,7)==ym),owed=log.filter(y=>y.e&&!(y.inc&&S.tx.some(t=>t.id==y.inc)));
  $("wtot").textContent="This month: "+whm(mine.reduce((s,y)=>s+(calc2[y.id]?calc2[y.id].ms:0),0))+" · "+wmoney(mine.reduce((s,y)=>s+(calc2[y.id]?calc2[y.id].pay:0),0))+" · not in income yet: "+wmoney(owed.reduce((s,y)=>s+(calc2[y.id]?calc2[y.id].pay:0),0));
  $("wall").hidden=!owed.length;

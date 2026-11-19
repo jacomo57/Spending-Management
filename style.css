@@ -176,10 +176,7 @@ span.cn:hover{border-color:transparent;background:none}
 /* Top row: + Add purchase, then one More menu (Import, Cards, Recurring, Budget, Report, Merchants, Account, Theme, Delete all data). */
 #workb{margin-inline-start:auto}#workb+.menuw{margin-inline-start:0}
 .wclock{display:grid;justify-items:center;gap:8px;padding:6px 0;text-align:center}
-.wface{position:relative;width:190px;height:190px}.wface svg{width:100%;height:100%}
-.wface .rb{fill:none;stroke:rgba(127,127,127,.25);stroke-width:7}.wface .wk{fill:var(--ink)}
-.wface .rp{fill:none;stroke:var(--acc);stroke-width:7;stroke-linecap:round;transform:rotate(-90deg);transform-origin:60px 64px}
-#wtime{position:absolute;inset:0;display:grid;place-items:center;padding-top:6%;font-size:30px;font-weight:800;font-variant-numeric:tabular-nums}
+#wtime{font-size:56px;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums;padding:14px 0}.wface.run #wtime{color:var(--acc)}
 #wearn{font-size:18px;font-weight:600;min-height:1.3em}.wgo{font-size:18px;min-width:190px;min-height:48px}
 .wrow input[type=datetime-local]{flex:1 1 220px;min-width:0}.wl{width:165px;max-width:100%}.wrow{align-items:center;padding:6px 0;border-top:1px solid rgba(127,127,127,.2)}
 .wstrip{display:block;width:100%;text-align:start;border:0;font:inherit;font-size:14px;color:var(--ink);cursor:pointer}
