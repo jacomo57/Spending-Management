@@ -720,6 +720,15 @@ async function local() {
     await p.waitForFunction(() => S.home == "EUR" && S.tx[0].amt == 100, null, { timeout: 5000 });
     eq(await p.evaluate(() => [S.tx[1].amt, !!S.tx[1].fx, S.budget.total].join()), "50,false,250", "euro rows become plain, budget converted");
   });
+  await test("Budget panel adds up the category budgets against the total", async () => {
+    const p = await open("?local=1");
+    await p.click("#more"); await p.click('[data-p="bud"]');
+    await setField(p.locator("#btotal"), "5000");
+    await setField(p.locator('[data-bi="0"]'), "1000"); await setField(p.locator('[data-bi="1"]'), "1500");
+    await text(p, "#budsum", "₪ 2,500 · ₪ 2,500 left of the ₪ 5,000 total");
+    await setField(p.locator('[data-bi="2"]'), "3000");
+    await text(p, "#budsum", "₪ 500 more than the ₪ 5,000 total");
+  });
   await test("the page opens on this month with its budget", async () => {
     const p = await open("?local=1");
     await p.evaluate(() => { S.budget = { total: 1000, cats: {} }; S.tx.push({ id: "n1", date: ymd(), desc: "Shufersal", amt: 45, card: "My card", cat: "Groceries" }); save(); });

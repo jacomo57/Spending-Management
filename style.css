@@ -182,3 +182,4 @@ nav.row{margin-top:4px}.menuw{position:relative;margin-inline-start:auto}
 
 .how-tabs{display:flex;flex-wrap:wrap;gap:6px}.how-tabs button{font-size:14px;padding:5px 12px;border-radius:999px}.how-tabs button.on{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
 .how h4{margin:12px 0 2px;font-size:15px}.how h4:first-child{margin-top:2px}.how p{margin:0;line-height:1.45;color:var(--mute)}
+.budsum{padding-top:8px;border-top:1px solid var(--line)}.budsum .over{color:var(--bad)}

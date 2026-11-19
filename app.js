@@ -443,6 +443,7 @@ function render(){
   if(ov.length||nr.length)bl+=`<div class="l" id="budalert">${ov.length?`<span class="over">Over budget: ${ov.map(esc).join(", ")}</span>`:""}${ov.length&&nr.length?" · ":""}${nr.length?"Near the limit (80%+): "+nr.map(esc).join(", "):""}</div>`}
  if(bOn&&bLvl(tot,B.total)==1)bl+=`<div class="l" id="totalalert">Near the limit (80%+): the whole budget</div>`;
  budNote(bOn,m,B,by,tot);
+ {const cs=S.cats.reduce((a,c)=>a+(+B.cats[c]||0),0),el=$("budsum");el.hidden=!cs;if(cs)el.innerHTML=`Set in the categories: <b>${fmt(cs)}</b>`+(B.total>0?(B.total>=cs?` · <b>${fmt(B.total-cs)}</b> left of the ${fmt(B.total)} total`:` · <b class="over">${fmt(cs-B.total)}</b> more than the ${fmt(B.total)} total`):"")}
  if(document.activeElement!=$("btotal"))$("btotal").value=B.total||"";if(document.activeElement!=$("mstart"))$("mstart").value=S.mstart||"";
  {const ks=Object.keys(S.rules).sort((x,y)=>x.localeCompare(y)),co=[...S.cats,"Other"];
   $("merlist").innerHTML=ks.map(k=>{const c=S.rules[k],os=co.includes(c)?co:[...co,c];return `<div class="row"><span dir="auto" style="width:170px">${esc(k)}</span><select data-mk="${esc(k)}" aria-label="Category for ${esc(k)}">${os.map(o=>`<option value="${esc(o)}"${o==c?" selected":""}>${esc(o)}</option>`).join("")}</select><button class="x" data-delmk="${esc(k)}" aria-label="Forget ${esc(k)}">✕</button></div>`}).join("")||`<span class="msg">None yet. They are learned when you change a purchase's category.</span>`}
