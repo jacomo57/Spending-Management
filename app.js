@@ -386,7 +386,29 @@ function budNote(bOn,m,B,by,tot){if(!bOn)return;const L={t:bLvl(tot,B.total),c:b
  S.cats.forEach(c=>{if((L.c[c]||0)>(was.L.c[c]||0))msg.push(c+(L.c[c]==2?" is over budget":" passed 80% of its budget"))});
  if(!msg.length)return;const el=$("bnote");el.textContent=msg.join(" · ");el.hidden=false;clearTimeout(bnT);bnT=setTimeout(()=>{el.hidden=true},8000)}
 function showToast(){const el=$("toast");clearTimeout(toastT);if(!undo.length){el.hidden=true;return}
- const u=undo[undo.length-1];el.innerHTML=`<span>${esc(u.label)}</span><button id="undo">Undo</button>`;el.hidden=false;toastT=setTimeout(()=>{el.hidden=true},8000)}
+ const u=undo[undo.length-1];el.innerHTML=`<span>${esc(u.label)}</span><button id="undo">Undo</button>`;el.classList.remove("out");el.hidden=false;toastT=setTimeout(()=>slideAway(el),8000)}
+// ---- Motion (2026-11-19) ---- Off when the device asks for reduced motion, and under test automation (so tests read final values).
+const MOTION=()=>!navigator.webdriver&&!(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches);
+const BOOT=$("boot").innerHTML;function bootLoading(){$("boot").innerHTML=BOOT}
+// A message slides out of view, then hides.
+function slideAway(el){if(!MOTION()){el.hidden=true;return}el.classList.add("out");setTimeout(()=>{if(el.classList.contains("out")){el.hidden=true;el.classList.remove("out")}},260)}
+// After each render: the big number counts to its new value, bars grow from where they were (from zero the first time), new rows glow.
+let mTot=null,mTok=0,mBars=new Map(),mIds=null;
+function motion(tot){const on=MOTION(),n=document.querySelector("#big .n");
+ if(on&&n&&mTot!=null&&mTot!==tot){const from=mTot,to=tot,t0=performance.now(),tok=++mTok;
+  const step=t=>{if(tok!=mTok||!n.isConnected)return;const k=Math.min(1,(t-t0)/700),e=1-Math.pow(1-k,3);n.textContent=fmt(from+(to-from)*e);if(k<1)requestAnimationFrame(step);else n.textContent=fmt(to)};requestAnimationFrame(step)}
+ mTot=tot;
+ const next=new Map(),todo=[];
+ document.querySelectorAll("#cats [data-c] .bar i,#big .hbar i").forEach(i=>{const w=i.closest("[data-c]"),k=w?"c:"+w.dataset.c:"total",to=i.style.width;next.set(k,to);
+  const from=mBars.has(k)?mBars.get(k):"0%";if(on&&from!==to){i.style.transition="none";i.style.width=from;todo.push([i,to])}});
+ mBars=next;
+ if(todo.length){void document.body.offsetWidth;requestAnimationFrame(()=>todo.forEach(([i,to])=>{i.style.transition="width .7s cubic-bezier(.2,.8,.2,1)";i.style.width=to}))}
+ const ids=new Set(),fresh=[];document.querySelectorAll("#rows [data-del]").forEach(b=>{ids.add(b.dataset.del);if(mIds&&!mIds.has(b.dataset.del))fresh.push(b.closest("tr"))});
+ if(on&&fresh.length&&fresh.length<=3)fresh.forEach(r=>r.classList.add("new"));
+ mIds=ids}
+// Delete a purchase (the ✕ button or a swipe): it slides away first, then goes, with Undo.
+function delTx(id,tr){const go=()=>{const i=S.tx.findIndex(x=>x.id==id);if(i>=0){const it=S.tx[i];S.tx.splice(i,1);pushUndo("Deleted “"+(it.desc||"purchase").slice(0,28)+"”",()=>{S.tx.splice(Math.min(i,S.tx.length),0,it)})}save();render()};
+ if(tr&&MOTION()){tr.classList.add("gone");setTimeout(go,200)}else go()}
 function doUndo(){const u=undo.pop();if(!u)return;u.fn();save();render();showToast()}
 document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key=="z"&&!/INPUT|TEXTAREA|SELECT/.test(e.target.tagName||"")&&undo.length){e.preventDefault();doUndo()}});
 let pendingMonth=null,focusTid=null,focusSp=null;
@@ -494,6 +516,8 @@ function render(){
   <td class="k"><input type="checkbox" data-skip="${t.id}"${t.skip?" checked":""} aria-label="Ignore this purchase"></td><td class="k dl"><button class="x" data-del="${t.id}" aria-label="Delete">✕</button></td></tr>`}).join("")
   :`<tr><td colspan="7" class="empty" style="grid-column:1/-1">${S.tx.length?"Nothing matches these filters.":"No purchases yet. Press Import above, or load the sample data to try it out."}</td></tr>`;
  report();if(needRates())fillRates();
+ motion(tot);
+ {const tab=rp?"rep":panel=="wrk"?"wrk":panel?"":"home";document.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("on",b.dataset.tab==tab));$("fab").hidden=tab!="home"}
  if(fs){const el=document.querySelector(fs);if(el&&el!==document.activeElement)el.focus()}
  if(focusCat!=null){const el=document.querySelector(`[data-ren="${focusCat}"]`);if(el){el.focus();el.select()}focusCat=null}
  if(focusSp){const el=document.querySelector(`[data-sp="${focusSp[0]}"][data-i="${focusSp[1]}"][data-f="amt"]`);if(el)el.focus();focusSp=null}
@@ -646,6 +670,8 @@ if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cn
  if(t.id=="bmb"){if(S.barMode=="budget")delete S.barMode;else S.barMode="budget";save();render()}
  if(t.dataset.how){HOW=t.dataset.how;render();return}
  if(t.dataset.p){panel=panel==t.dataset.p?null:t.dataset.p;render();return}
+ {const tb=t.closest&&t.closest("[data-tab]");if(tb){const k=tb.dataset.tab;rp=k=="rep";if(rp)rpM=null;panel=k=="wrk"?"wrk":null;render();window.scrollTo(0,0);return}}
+ if(t.closest&&t.closest("#fab")){addPurchase();return}
  if(t.id=="wgo"){wToggle();return}
  if(t.closest&&t.closest("#wstrip")){panel="wrk";render();window.scrollTo(0,0);return}
  if(t.id=="wadd"){wAdd();return}
@@ -669,7 +695,7 @@ if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cn
  if(t.id=="rcancel")recForm(false);
  if(t.dataset.delcat!==undefined)delCat(+t.dataset.delcat);
  if(t.dataset.delrec){const i=S.recur.findIndex(x=>x.id==t.dataset.delrec);if(i>=0){const it=S.recur[i];S.recur.splice(i,1);pushUndo("Deleted recurring “"+it.desc.slice(0,28)+"”",()=>{S.recur.splice(Math.min(i,S.recur.length),0,it)})}save();render()}
- if(t.dataset.del){const i=S.tx.findIndex(x=>x.id==t.dataset.del);if(i>=0){const it=S.tx[i];S.tx.splice(i,1);pushUndo("Deleted “"+(it.desc||"purchase").slice(0,28)+"”",()=>{S.tx.splice(Math.min(i,S.tx.length),0,it)})}save();render()}
+ if(t.dataset.del)delTx(t.dataset.del,t.closest("tr"));
  if(t.dataset.delmk){const k=t.dataset.delmk,old=S.rules[k];if(old!=null){delete S.rules[k];pushUndo("Forgot merchant “"+k+"”",()=>{S.rules[k]=old});save();render()}}
  if(t.dataset.spdel){const x=S.tx.find(y=>y.id==t.dataset.spdel),i=+t.dataset.i,p=x&&sp(x)[i];
   if(p){x.split.splice(i,1);if(!x.split.length)delete x.split;pushUndo("Removed a split part",()=>{const y=S.tx.find(z=>z.id==x.id);if(y&&!y.inc)(y.split=sp(y)).splice(Math.min(i,y.split.length),0,p)});save();render()}}
@@ -793,8 +819,8 @@ function wmoney(n){return esc(S.cur)+" "+n.toLocaleString(undefined,{maximumFrac
 function workTick(){const x=wcur(),now=Date.now(),st=$("wstrip");
  if(!x){if(st&&!st.hidden)st.hidden=true;return}
  const r=workCalc(now)[x.id]||{ms:0,pay:0};
- if(st){st.hidden=false;st.textContent="⏱ Working · "+wclock(now-x.s)+" · "+wmoney(r.pay)+" so far"}
- if($("wtime")){$("wtime").textContent=wclock(now-x.s);$("wearn").textContent=wmoney(r.pay)+" so far"}}
+ if(st){st.hidden=false;$("wst").innerHTML=`Working · ${wclock(now-x.s)} · ${wmoney(r.pay)} so far`}
+ if($("wtime")){$("wtime").innerHTML=wclock(now-x.s).replace(/:/g,'<span class="c">:</span>');$("wearn").textContent=wmoney(r.pay)+" so far"}}
 function workRender(){workTick();
  if(panel!="wrk")return;
  const x=wcur(),c=wcfg(),now=Date.now(),calc2=workCalc(now),log=wlog().slice().sort((a,b)=>b.s-a.s);
@@ -835,8 +861,19 @@ function wChange(t){wlog();
 
 setInterval(workTick,1000);
 
+// Phone: swipe a purchase left to delete it (past 90px it turns red; let go to delete, with Undo). Vertical scrolling is left alone.
+{let tr=null,sx=0,sy=0,dx=0,lock=null;const rows=$("rows");
+ rows.addEventListener("touchstart",e=>{const r=e.target.closest("tr");tr=r&&r.querySelector("[data-del]")&&e.touches.length==1?r:null;if(!tr)return;sx=e.touches[0].clientX;sy=e.touches[0].clientY;dx=0;lock=null},{passive:true});
+ rows.addEventListener("touchmove",e=>{if(!tr)return;const x=e.touches[0].clientX-sx,y=e.touches[0].clientY-sy;
+  if(lock==null&&Math.abs(x)+Math.abs(y)>12)lock=x<0&&Math.abs(x)>Math.abs(y)*1.5?"x":"y";if(lock!="x")return;
+  dx=Math.min(0,x);tr.classList.add("swipe");tr.classList.remove("back");tr.style.transform=`translateX(${dx}px)`;tr.classList.toggle("del",dx<-90)},{passive:true});
+ const end=()=>{if(!tr)return;const r=tr;tr=null;if(lock!="x")return;
+  if(dx<-90){r.classList.add("back");r.style.transform="translateX(-120%)";setTimeout(()=>delTx(r.querySelector("[data-del]").dataset.del),200)}
+  else{r.classList.add("back");r.style.transform="";setTimeout(()=>r.classList.remove("swipe","del","back"),220)}};
+ rows.addEventListener("touchend",end);rows.addEventListener("touchcancel",end)}
+
 // The More menu: opens on its button, closes on a click elsewhere, on Escape, or after choosing a panel or the report.
-{const mn=$("menu"),mb=$("more"),shut=()=>{mn.hidden=true;mb.setAttribute("aria-expanded","false")};
- document.addEventListener("click",e=>{const t=e.target;if(t.closest&&t.closest("#more")){mn.hidden=!mn.hidden;mb.setAttribute("aria-expanded",String(!mn.hidden));return}
+{const mn=$("menu"),mbs=[$("more"),$("more2")],aria=()=>mbs.forEach(b=>b.setAttribute("aria-expanded",String(!mn.hidden))),shut=()=>{mn.hidden=true;aria()},mb={focus:()=>(mbs.find(b=>b.offsetParent)||mbs[0]).focus()};
+ document.addEventListener("click",e=>{const t=e.target;if(t.closest&&t.closest("#more,#more2")){mn.hidden=!mn.hidden;aria();return}
   if(!mn.hidden&&(!t.closest||!t.closest("#menu")||t.dataset.p||t.id=="repb"))shut()});
  document.addEventListener("keydown",e=>{if(e.key=="Escape"&&!mn.hidden){shut();mb.focus()}})}

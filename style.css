@@ -141,7 +141,7 @@ thead tr{flex-wrap:wrap;gap:4px}thead th{flex:none}thead th button{padding:3px 9
 .nt{display:block;width:100%;margin-top:2px;font-size:12px;color:var(--mute)}
 .nt:placeholder-shown:not(:focus){border-color:transparent;background:transparent;box-shadow:none;min-height:0;height:22px;padding-block:0}
 
-body.rep #app>*:not(#report){display:none!important}
+body.rep #app>*:not(#report):not(#tabbar){display:none!important}
 #report .rctl{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-bottom:12px}
 #report .rctl label{display:flex;gap:6px;align-items:center;font-size:14px}#report .rctl select{width:auto}
 #report h3{margin:18px 0 4px;font-size:15px}
@@ -187,6 +187,69 @@ nav.row{margin-top:4px}.menuw{position:relative;margin-inline-start:auto}
 #wmsg{flex-basis:100%}#wmsg:empty{display:none}
 .allrow{margin-top:8px;justify-content:center}
 .fxl b{font-weight:600;color:var(--ink)}
+
+/* ---- Motion and polish (2026-11-19). All of it is off when the device asks for reduced motion (last rule). ---- */
+/* No blue flash or ring when tapping; a keyboard still gets the focus ring on buttons, a typed-in box gets a quiet border. */
+*{-webkit-tap-highlight-color:transparent}
+:focus:not(:focus-visible){outline:none}
+input:focus-visible,select:focus-visible,textarea:focus-visible{outline:none;border-color:var(--mute)}
+button{transition:transform .08s ease,background-color .15s,color .15s}button:active{transform:scale(.96)}
+/* Panels, the More menu and messages ease in when they appear; a message slides away before it hides. */
+.panel:not([hidden]){animation:mIn .25s cubic-bezier(.2,.8,.2,1)}
+#menu:not([hidden]){animation:mPop .16s ease-out;transform-origin:top right}
+.toast:not([hidden]){animation:mUp .3s cubic-bezier(.2,.8,.2,1)}.toast.top:not([hidden]){animation:mIn .3s cubic-bezier(.2,.8,.2,1)}
+.toast.out{transition:transform .25s ease,opacity .25s;transform:translateY(130%);opacity:0}.toast.top.out{transform:translateY(-130%)}
+@keyframes mIn{from{opacity:0;transform:translateY(-6px)}}
+@keyframes mPop{from{opacity:0;transform:scale(.92)}}
+@keyframes mUp{from{transform:translateY(130%)}}
+@media (min-width:641px){.toast:not([hidden]):not(.top){animation-name:mUpC}.toast.out:not(.top){transform:translate(-50%,130%)}}
+@keyframes mUpC{from{transform:translate(-50%,130%)}}
+/* A new purchase drops in with a short glow; a deleted one slides away. */
+#rows tr.new{animation:rIn .45s cubic-bezier(.2,.8,.2,1),rGlow 1.6s ease}
+#rows tr.gone{transition:transform .22s ease,opacity .22s;transform:translateX(40px);opacity:0}
+@keyframes rIn{from{opacity:0;transform:translateY(-8px)}}
+@keyframes rGlow{0%,35%{background:color-mix(in srgb,var(--acc) 14%,var(--card))}}
+/* "Saved" gets a tick that pops in. */
+#sync.ok::before{content:"✓ ";color:var(--ok);display:inline-block;animation:tick .4s cubic-bezier(.2,1.6,.4,1)}
+@keyframes tick{from{transform:scale(0)}}
+/* Work timer: the colons blink while it runs, and the main-screen strip has a breathing dot. */
+.wface.run #wtime .c{animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:.25}}
+.wstrip .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--bad);margin-inline-end:7px;animation:breathe 1.6s ease-in-out infinite}
+@keyframes breathe{50%{opacity:.35;transform:scale(.8)}}
+/* Loading: grey shapes of the main screen shimmer until the data arrives. */
+#boot .sk{height:14px;border-radius:7px;margin:10px 0;background:linear-gradient(90deg,var(--line) 0%,var(--card) 50%,var(--line) 100%);background-size:200% 100%;animation:shim 1.2s linear infinite}
+#boot .sk.big{height:44px;width:55%}#boot .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+#boot:has(.sk){text-align:start;padding:16px 0}
+@keyframes shim{to{background-position:-200% 0}}
+/* Category icons sit on a rounded tile in the category's colour. */
+.ci{border-radius:10px;background:color-mix(in srgb,var(--ic,var(--mute)) 22%,var(--card))}
+/* Phone: a bar at the bottom (Home, Report, Work, More) and a round + button for a new expense. */
+#tabbar,#fab{display:none}
+@media (max-width:640px){
+ main{padding-bottom:calc(110px + env(safe-area-inset-bottom,0px))}
+ #workb,#more{display:none}
+ #tabbar{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:0;right:0;bottom:0;z-index:18;background:var(--card);border-top:1px solid var(--line);padding:4px max(4px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(4px,env(safe-area-inset-left,0px))}
+ body.rep #app>#tabbar{display:grid}
+ #tabbar button{border:0;background:none;display:grid;justify-items:center;gap:1px;font-size:11px;color:var(--mute);min-height:52px;padding:6px 0 0;position:relative;border-radius:0}
+ #tabbar button i{font-style:normal;font-size:19px;line-height:1.1}
+ #tabbar button.on{color:var(--acc);font-weight:600}
+ #tabbar button.on::before{content:"";position:absolute;top:0;left:calc(50% - 12px);width:24px;height:3px;border-radius:3px;background:var(--acc);animation:mPop .25s ease-out}
+ #fab{display:grid;place-items:center;position:fixed;inset-inline-end:max(16px,env(safe-area-inset-right,0px));bottom:calc(76px + env(safe-area-inset-bottom,0px));width:56px;height:56px;border-radius:50%;border:0;padding:0;background:var(--acc);color:var(--onacc);font-size:30px;line-height:1;box-shadow:0 8px 20px var(--shadow);z-index:17}
+ #fab[hidden]{display:none}
+ #menu{position:fixed;top:auto;left:12px;right:12px;bottom:calc(70px + env(safe-area-inset-bottom,0px));min-width:0;transform-origin:bottom center}
+ #menu:not([hidden]){animation:mUp .25s cubic-bezier(.2,.8,.2,1)}
+ .toast{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+ /* Swipe a purchase left to delete it. */
+ #rows{overflow-x:clip}
+ #rows tr{position:relative;touch-action:pan-y}
+ #rows tr.swipe{transition:none}
+ #rows tr.swipe::after{content:"Delete";position:absolute;left:calc(100% + 8px);top:0;bottom:0;width:110px;display:grid;place-items:center;border-radius:12px;background:var(--line);color:var(--ink);font-weight:600}
+ #rows tr.swipe.del::after{background:var(--bad);color:#fff}
+ #rows tr.back{transition:transform .2s ease}
+}
+@media print{#tabbar,#fab{display:none!important}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 
 .how-tabs{display:flex;flex-wrap:wrap;gap:6px}.how-tabs button{font-size:14px;padding:5px 12px;border-radius:999px}.how-tabs button.on{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
 .how h4{margin:12px 0 2px;font-size:15px}.how h4:first-child{margin-top:2px}.how p{margin:0;line-height:1.45;color:var(--mute)}

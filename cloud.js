@@ -6,7 +6,7 @@
 const mk=t=>/^\d{4}-\d{2}/.test(t.date||"")?t.date.slice(0,7):"none";
 function ser(){const o=Object.assign({},S);delete o.tx;const g=bare();S.tx.forEach(t=>(g[mk(t)]=g[mk(t)]||[]).push(t));
  const out={settings:JSON.stringify(o),months:bare()};for(const m in g)out.months[m]=JSON.stringify(g[m]);return out}
-function stat(){$("sync").textContent=!C.on||!C.ready?"":C.err||(C.pend?(navigator.onLine?"Saving…":"Offline. Changes will sync when you’re back online."):"Saved")}
+function stat(){const el=$("sync");el.textContent=!C.on||!C.ready?"":C.err||(C.pend?(navigator.onLine?"Saving…":"Offline. Changes will sync when you’re back online."):"Saved");el.classList.toggle("ok",el.textContent=="Saved")}
 // C.un[key] counts this device's writes to a document that the server has not confirmed yet. While it is above zero,
 // incoming versions of that document are ignored (ours is newer and will win); when it reaches zero we re-check.
 function put(key,p){C.pend++;C.un[key]=(C.un[key]||0)+1;stat();
@@ -83,7 +83,7 @@ function authShow(m){C.mode=m;$("auth").hidden=!m;$("boot").hidden=true;if(!m)re
  $("ago").textContent=m=="in"?"Sign in":m=="up"?"Create account":"Finish";
  $("aswap").textContent=m=="in"?"Create account":m=="up"?"I have an account":"Sign out";
  $("aforgot").hidden=m!="in";$("amsg").textContent=""}
-function enter(){authShow(null);$("boot").textContent="Loading your data…";$("boot").hidden=false;listen()}
+function enter(){authShow(null);bootLoading();$("boot").hidden=false;listen()}
 // The invite code is the id of a document in /invites; the rules only let the profile be created if it exists.
 function claim(code){if(/\//.test(code))return Promise.reject({code:"permission-denied"});
  return C.F.setDoc(C.F.doc(C.db,"users",C.auth.currentUser.uid),{invite:code,created:Date.now()})}
