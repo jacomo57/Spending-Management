@@ -398,8 +398,9 @@ let mTot=null,mTok=0,mBars=new Map(),mIds=null,mView=null,mList=null,mCat=null;
 function replay(el,cls){if(!el)return;cls=cls||"vin";el.classList.remove(cls);void el.offsetWidth;el.classList.add(cls)}
 function motion(tot){const on=MOTION(),n=document.querySelector("#big .n");
  // Opening or leaving the report: the screen that appears eases in. A new filter, month, sort or "Show all": the list fades in.
- const view=rp?"rep":"home",lk=[$("month").value,cardF,cat,showAll,S.sk,S.sd].join("|");
- if(on&&mView&&view!=mView){if(rp)replay($("report"));else document.querySelectorAll("#app>.sum,#app>section").forEach(e=>replay(e))}
+ const view=rp?"rep":PHONE()&&panel?"p:"+panel:"home",lk=[$("month").value,cardF,cat,showAll,S.sk,S.sd].join("|");
+ if(mView&&view!=mView&&PHONE()&&view!="rep")window.scrollTo(0,0);
+ if(on&&mView&&view!=mView){if(rp)replay($("report"));else if(view=="home")document.querySelectorAll("#app>.sum,#app>section").forEach(e=>replay(e))}
  if(on&&mList!=null&&lk!=mList)replay($("rows"),"vfade");
  if(on&&mCat!=null&&catAll!=mCat)replay($("cats"),"vfade");
  mView=view;mList=lk;mCat=catAll;
@@ -417,6 +418,29 @@ function motion(tot){const on=MOTION(),n=document.querySelector("#big .n");
 // Rows still glowing keep their place in the animation when the list is drawn again (a rate arriving, a sync).
 const mGlow=new Map();
 function glow(){const now=performance.now();for(const[id,t]of mGlow){if(now-t>1600){mGlow.delete(id);continue}const b=document.querySelector(`#rows [data-del="${CSS.escape(id)}"]`);if(b){const r=b.closest("tr");r.classList.add("new");r.style.animationDelay=-(now-t)+"ms"}}}
+// ---- Phone (2026-11-19): panels are pages, and + opens a sheet that slides up to add an expense or income. ----
+const PHONE=()=>!!(window.matchMedia&&matchMedia("(max-width:640px)").matches);
+const PTITLE={imp:"Import",crd:"Cards",rec:"Recurring",bud:"Budget",mer:"Merchants",acc:"Account",how:"How to",wrk:"Work"};
+let shKind="exp";
+function sheetKind(k){shKind=k;document.querySelectorAll("[data-kind]").forEach(b=>b.classList.toggle("on",b.dataset.kind==k));document.querySelector("#shform .shx").hidden=k=="inc";
+ $("shdesc").placeholder=k=="inc"?"From (salary, gift, refund)":"Description (shop, what for)"}
+function sheetOpen(){syncCats();const el=$("addsheet"),cards=CL.filter(c=>c!="Recurring"),def=cardF!="all"?cardF:S.defCard&&cards.includes(S.defCard)?S.defCard:cards[0]||"My card";
+ $("shcur").textContent=CCY[buyC()];$("shamt").value="";$("shdesc").value="";$("shdate").value=ymd();$("shmsg").textContent="";
+ $("shcat").innerHTML=`<option value="">✨ Auto category</option>`+ORDER.map(c=>`<option value="${esc(c)}">${ic(c)}${esc(c)}</option>`).join("");$("shcat").value=cat&&ORDER.includes(cat)?cat:"";
+ $("shcard").innerHTML=[...new Set([...cards,def])].map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");$("shcard").value=def;
+ sheetKind("exp");el.classList.remove("out");el.hidden=false;document.body.classList.add("shopen");$("shamt").focus({preventScroll:true})}
+function sheetClose(){const el=$("addsheet");if(el.hidden)return;document.body.classList.remove("shopen");if(el.contains(document.activeElement))document.activeElement.blur();
+ if(!MOTION()){el.hidden=true;return}el.classList.add("out");setTimeout(()=>{if(el.classList.contains("out")){el.hidden=true;el.classList.remove("out")}},260)}
+function sheetSave(){const a=parseFloat(String($("shamt").value).replace(",","."));if(!(a>0)){$("shmsg").textContent="Enter an amount.";$("shamt").focus();return}
+ const d=/^\d{4}-\d{2}-\d{2}$/.test($("shdate").value)?$("shdate").value:ymd(),desc=$("shdesc").value.trim().slice(0,1e4),id=uid(),inc=shKind=="inc",bc=buyC(),hc=homeC();
+ const x=inc?{id,date:d,desc,amt:a,inc:1,card:"",cat:""}:{id,date:d,desc,amt:a,card:$("shcard").value||"My card",cat:$("shcat").value||guess(desc)};
+ if(bc!=hc){x.fx={c:bc,a,r:0};x.amt=0;getRate(bc,hc,d).then(r=>{if(r&&x.fx&&!x.fx.r){x.fx.r=r;x.amt=r2(a*r);if(S.tx.includes(x)){save();render()}}})}
+ S.tx.push(x);pushUndo("Added “"+(desc||(inc?"income":"expense")).slice(0,28)+"”",()=>{S.tx=S.tx.filter(t=>t.id!=id)});
+ pendingMonth=pk(d);q="";$("q").value="";if(cat&&(inc||x.cat!=cat))cat=null;
+ if(MOTION())mGlow.set(id,performance.now());sheetClose();save();render();
+ const b=document.querySelector(`#rows [data-del="${CSS.escape(id)}"]`);if(b)b.closest("tr").scrollIntoView({behavior:MOTION()?"smooth":"auto",block:"center"})}
+$("shform").addEventListener("submit",e=>{e.preventDefault();sheetSave()});
+document.addEventListener("keydown",e=>{if(e.key=="Escape"&&!$("addsheet").hidden)sheetClose()});
 // Delete a purchase (the ✕ button or a swipe): it slides away first, then goes, with Undo.
 function delTx(id,tr){const go=()=>{const i=S.tx.findIndex(x=>x.id==id);if(i>=0){const it=S.tx[i];S.tx.splice(i,1);pushUndo("Deleted “"+(it.desc||"purchase").slice(0,28)+"”",()=>{S.tx.splice(Math.min(i,S.tx.length),0,it)})}save();render()};
  if(tr&&MOTION()){tr.classList.add("gone");setTimeout(go,200)}else go()}
@@ -441,7 +465,7 @@ function render(){
  // A panel that closes with nothing else opening fades up and away; switching straight to another panel swaps at once.
  ["imp","crd","rec","bud","mer","acc","how","wrk"].forEach(p=>{const el=$("p-"+p),off=panel!=p;if(!off){el.classList.remove("pout");el.hidden=false;return}
   if(el.hidden||el.classList.contains("pout"))return;
-  if(MOTION()&&!panel&&!rp){el.classList.add("pout");setTimeout(()=>{if(panel!=p){el.hidden=true}el.classList.remove("pout")},200)}else el.hidden=true});workRender();
+  if(MOTION()&&!panel&&!rp&&!PHONE()){el.classList.add("pout");setTimeout(()=>{if(panel!=p){el.hidden=true}el.classList.remove("pout")},200)}else el.hidden=true});workRender();
  document.querySelectorAll("[data-p]").forEach(b=>b.classList.toggle("on",b.dataset.p==panel));
  document.querySelectorAll("[data-h]").forEach(e=>e.hidden=e.dataset.h!=HOW);document.querySelectorAll("[data-how]").forEach(b=>b.classList.toggle("on",b.dataset.how==HOW));
  $("cardrules").innerHTML=CL.map((c,i)=>{const p=pct(c),n=S.tx.filter(t=>t.card==c).length;return `<div class="row"><input dir="auto" data-ci="${i}" data-f="name" value="${esc(c)}" style="width:170px" aria-label="Card name"><select data-ci="${i}" data-f="rule" aria-label="How this card counts">${ruleOpts(p,1)}</select>${[100,50,0].includes(p)?"":`<input data-ci="${i}" data-f="pct" type="number" min="0" max="100" value="${p}" style="width:70px" aria-label="Percent that counts"><span class="sub">%</span>`}<button data-def="${i}" class="${S.defCard==c?"pri":""}" title="Card the phone uses when no other is named" aria-pressed="${S.defCard==c}">${S.defCard==c?"★ Default":"☆ Default"}</button><span class="sub">${n} purchase${n==1?"":"s"}</span></div>`}).join("")||`<span class="msg">No cards yet. Import or add a purchase first.</span>`;
@@ -531,7 +555,9 @@ function render(){
   :`<tr><td colspan="7" class="empty" style="grid-column:1/-1">${S.tx.length?"Nothing matches these filters.":"No purchases yet. Press Import above, or load the sample data to try it out."}</td></tr>`;
  report();if(needRates())fillRates();
  motion(tot);
- {const tab=rp?"rep":panel=="wrk"?"wrk":panel?"":"home";document.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("on",b.dataset.tab==tab));$("fab").hidden=tab!="home"}
+ // Phone: a panel is a page of its own (body.pg hides the main screen, a Back bar names it). The bottom bar marks where you are.
+ {const tab=rp?"":panel=="wrk"||panel=="acc"?panel:panel?"":"home";document.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("on",b.dataset.tab==tab));$("fab").hidden=tab!="home";
+  document.body.classList.toggle("pg",!!panel&&!rp);$("pgtitle").textContent=panel?PTITLE[panel]||"":""}
  if(fs){const el=document.querySelector(fs);if(el&&el!==document.activeElement)el.focus()}
  if(focusCat!=null){const el=document.querySelector(`[data-ren="${focusCat}"]`);if(el){el.focus();el.select()}focusCat=null}
  if(focusSp){const el=document.querySelector(`[data-sp="${focusSp[0]}"][data-i="${focusSp[1]}"][data-f="amt"]`);if(el)el.focus();focusSp=null}
@@ -685,8 +711,11 @@ if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cn
  if(t.id=="bmb"){if(S.barMode=="budget")delete S.barMode;else S.barMode="budget";save();render()}
  if(t.dataset.how){HOW=t.dataset.how;render();return}
  if(t.dataset.p){panel=panel==t.dataset.p?null:t.dataset.p;render();return}
- {const tb=t.closest&&t.closest("[data-tab]");if(tb){const k=tb.dataset.tab;rp=k=="rep";if(rp)rpM=null;panel=k=="wrk"?"wrk":null;render();window.scrollTo(0,0);return}}
- if(t.closest&&t.closest("#fab")){addPurchase();return}
+ {const tb=t.closest&&t.closest("[data-tab]");if(tb){const k=tb.dataset.tab;rp=false;panel=k=="home"?null:k;render();window.scrollTo(0,0);return}}
+ if(t.id=="pgback"){panel=null;render();window.scrollTo(0,0);return}
+ if(t.closest&&t.closest("#fab")){sheetOpen();return}
+ if(t.closest&&t.closest("[data-shclose]")){sheetClose();return}
+ {const kb=t.closest&&t.closest("[data-kind]");if(kb){sheetKind(kb.dataset.kind);return}}
  if(t.id=="wgo"){wToggle();return}
  if(t.closest&&t.closest("#wstrip")){panel="wrk";render();window.scrollTo(0,0);return}
  if(t.id=="wadd"){wAdd();return}
@@ -703,7 +732,7 @@ if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cn
  const tb=t.closest&&t.closest("[data-tm]");if(tb){$("month").value=tb.dataset.tm;cmA=null;render();return}
  if(t.id=="clearcat"){cat=null;render()}
  if(t.id=="addcat")addCat();
- if(t.id=="addp")addPurchase();
+ if(t.id=="addp"){if(PHONE())sheetOpen();else addPurchase()}
  if(t.id=="slipgo")slipAdd();
  if(t.id=="radd")addRec();
  if(t.id=="recnew")recForm(true);
@@ -792,7 +821,7 @@ document.addEventListener("visibilitychange",()=>{if(!document.hidden){fxTried.c
 let recDay=ymd();document.addEventListener("visibilitychange",()=>{if(document.hidden||ymd()==recDay||$("app").hidden)return;recDay=ymd();recGen();render()});
 function start(){fixMaps();dropEmpty();recGen();S.tx.forEach(t=>{if(t.cat=="Other"&&!t.inc)t.cat=guess(t.desc)});save();
  panel=S.tx.some(t=>!String(t.id).startsWith("rec-"))?null:"imp";
- $("accbtn").textContent=C.on?"Account":"Backup";document.querySelectorAll(".cl").forEach(e=>e.hidden=!C.on);$("who").textContent=C.user?C.user.email:"";
+ $("accbtn").textContent=$("acctab").textContent=PTITLE.acc=C.on?"Account":"Backup";document.querySelectorAll(".cl").forEach(e=>e.hidden=!C.on);$("who").textContent=C.user?C.user.email:"";
  $("boot").hidden=true;$("app").hidden=false;render();stat();}
 
 // ---- Work log (2026-11-19) ----

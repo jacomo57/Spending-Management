@@ -516,6 +516,19 @@ async function local() {
     await p.evaluate(() => { wInc(null); wInc(null) });
     eq(await p.evaluate(() => S.tx.filter(t => t.id.startsWith("work-")).length), 2, "the 8h session is not added twice (only the short timer one is new)");
   });
+  await test("add sheet: an expense with category from the description, an income, an empty amount refused", async () => {
+    const p = await open("?local=1");
+    await p.evaluate(() => sheetOpen());
+    await p.fill("#shamt", ""); await p.click("#shsave");
+    await text(p, "#shmsg", "Enter an amount");
+    await p.fill("#shamt", "42.5"); await p.fill("#shdesc", "Shufersal"); await p.click("#shsave");
+    eq(await p.locator("#addsheet").isVisible(), false, "sheet closes");
+    eq(await p.evaluate(() => { const t = S.tx.find(x => x.desc == "Shufersal"); return [t.amt, !!t.inc, t.cat != "", t.date == ymd()].join() }), "42.5,false,true,true", "expense saved");
+    await p.evaluate(() => sheetOpen()); await p.click('[data-kind="inc"]');
+    eq(await p.locator("#shcat").isVisible(), false, "no category for income");
+    await p.fill("#shamt", "1000"); await p.fill("#shdesc", "Gift"); await p.press("#shdesc", "Enter");
+    eq(await p.evaluate(() => { const t = S.tx.find(x => x.desc == "Gift"); return [t.amt, t.inc, t.cat].join() }), "1000,1,", "income saved");
+  });
   await test("payslip PDF: only the net pay (נטו לתשלום) is added, as income; a second upload is not added again", async () => {
     // A made-up slip laid out like a real one: boxes with the number left of its label, other amounts above and beside it.
     const box = (top, left, t) => `<div style="position:absolute;top:${top}px;left:${left}px">${t}</div>`;
