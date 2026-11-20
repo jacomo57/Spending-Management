@@ -739,6 +739,7 @@ if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cn
  if(t.closest&&t.closest("#wstrip")){panel="wrk";render();window.scrollTo(0,0);return}
  if(t.id=="wadd"){wAdd();return}
  if(t.id=="wall"){wInc(null);return}
+ if(t.dataset.wmonth){wInc(wlog().filter(y=>y.e&&wdate(y.s).slice(0,7)==t.dataset.wmonth).map(y=>y.id));return}
  if(t.id=="wmore"){wAll=!wAll;render();return}
  if(t.dataset.winc){wInc([t.dataset.winc]);return}
  if(t.dataset.wdel){wDel(t.dataset.wdel);return}
@@ -841,7 +842,14 @@ let recDay=ymd();document.addEventListener("visibilitychange",()=>{if(document.h
 function start(){fixMaps();dropEmpty();recGen();S.tx.forEach(t=>{if(t.cat=="Other"&&!t.inc)t.cat=guess(t.desc)});save();
  panel=S.tx.some(t=>!String(t.id).startsWith("rec-"))?null:"imp";
  $("accbtn").textContent=$("acctab").textContent=PTITLE.acc=C.on?"Account":"Backup";document.querySelectorAll(".cl").forEach(e=>e.hidden=!C.on);$("who").textContent=C.user?C.user.email:"";
- $("boot").hidden=true;$("app").hidden=false;render();stat();}
+ $("boot").hidden=true;$("app").hidden=false;render();stat();deepLink()}
+// Links for a phone automation or an NFC tag (2026-11-20): open the app address with #add (add-expense sheet), #add-income, #work (Work page)
+// or #work-toggle (start or stop the timer, then show the Work page). The link is removed from the address once used, so a reload never repeats it.
+function deepLink(){const h=location.hash.slice(1);if(!/^(add|add-income|work|work-toggle)$/.test(h))return;
+ try{history.replaceState(history.state,"",location.pathname+location.search)}catch(e){}
+ if(h=="work"||h=="work-toggle"){if(h=="work-toggle")wToggle();panel="wrk";render();navSync();window.scrollTo(0,0)}
+ else{sheetOpen();sheetKind(h=="add-income"?"inc":"exp")}}
+window.addEventListener("hashchange",()=>{if($("app").hidden===false)deepLink()});
 
 // ---- Work log (2026-11-19) ----
 // S.work = {rate,lim,o1,o2,r,ro1,ro2,sf,st, log:[{id,s,e,hol,c,inc}]}. It lives in the settings document, so it syncs with no new rules.
@@ -893,7 +901,13 @@ function workRender(){workTick();
  $("wsub").textContent=x?"Started "+wlocal(x.s).slice(11)+(x.hol?" · holiday":""):"Not running";
  if(!x){$("wtime").textContent="00:00:00";$("wearn").textContent=c.rate?"":"Set your hourly rate below"}
  const ym=wdate(now).slice(0,7),mine=log.filter(y=>y.e&&wdate(y.s).slice(0,7)==ym),owed=log.filter(y=>y.e&&!(y.inc&&S.tx.some(t=>t.id==y.inc)));
- $("wtot").textContent="This month: "+whm(mine.reduce((s,y)=>s+(calc2[y.id]?calc2[y.id].ms:0),0))+" · "+wmoney(mine.reduce((s,y)=>s+(calc2[y.id]?calc2[y.id].pay:0),0))+" · not in income yet: "+wmoney(owed.reduce((s,y)=>s+(calc2[y.id]?calc2[y.id].pay:0),0));
+ const sum=a=>[a.reduce((q,y)=>q+(calc2[y.id]?calc2[y.id].ms:0),0),a.reduce((q,y)=>q+(calc2[y.id]?calc2[y.id].pay:0),0)],
+  wk=new Date(now);wk.setHours(0,0,0,0);wk.setDate(wk.getDate()-wk.getDay());const wks=wk.getTime(),
+  fin=log.filter(y=>y.e),[wm,wp]=sum(fin.filter(y=>y.s>=wks)),[mm,mp]=sum(mine);
+ $("wtot").innerHTML="This week: "+whm(wm)+" · "+wmoney(wp)+"<br>This month: "+whm(mm)+" · "+wmoney(mp)+"<br>Not in income yet: "+wmoney(owed.reduce((q,y)=>q+(calc2[y.id]?calc2[y.id].pay:0),0));
+ const by={};fin.forEach(y=>{(by[wdate(y.s).slice(0,7)]=by[wdate(y.s).slice(0,7)]||[]).push(y)});
+ $("wmonths").innerHTML=Object.keys(by).sort().reverse().map(k=>{const a=by[k],[m,p]=sum(a),od=a.filter(y=>!(y.inc&&S.tx.some(t=>t.id==y.inc))&&calc2[y.id]&&calc2[y.id].pay>0);
+  return `<div class="row"><span class="wl">${esc(new Date(k+"-15").toLocaleString(undefined,{month:"long",year:"numeric"}))}</span><b>${whm(m)} · ${wmoney(p)}</b>${od.length?`<button data-wmonth="${k}">Add month to income</button>`:`<span class="sub">✓ in income</span>`}</div>`}).join("");
  $("wall").hidden=!owed.length;
  const num=(k,l,u,st)=>`<label class="row"><span class="wl">${l}</span><input type="number" data-wc="${k}" min="0" step="${st||1}" value="${c[k]}" style="width:90px"><span class="sub">${u}</span></label>`;
  $("wcfg").innerHTML=num("rate","Hourly rate",esc(S.cur),"0.01")+num("lim","Normal day","hours")+num("o1","Overtime, first 2 hours","%")+num("o2","Overtime after that","%")+num("r","Shabbat / holiday","%")+num("ro1","Shabbat overtime, first 2 hours","%")+num("ro2","Shabbat overtime after that","%")+

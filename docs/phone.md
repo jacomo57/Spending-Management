@@ -71,3 +71,12 @@ Add Macro, name `Wallet payment`.
 - **If a row shows the name `{...}` in curly braces and 0**: the value was typed instead of inserted with the button, so MacroDroid sent the words as they are. Delete that row in the app, fix the body, and test again (an earlier version of this guide had made-up names, which caused this on 2026-11-18).
 - Test: pay with the phone, or press "Test macro" with a sample. A row appears (marked "not on a statement yet"), and the statement import later merges with it.
 - If the card is wrong: the digits in Wallet (••5315) can differ from the physical card's. Rename the app card to include the issuer word (for example `Max 1234`), or set it as the Default.
+
+## Start the quick-expense popup with an NFC tag (added 2026-11-20, not tried on a real phone)
+The macro above already shows the popup and sends the purchase. An NFC tag only needs to be a new **trigger** for the same macro.
+1. Buy an NFC sticker (NTAG213 or similar, any cheap one). Stick it where you want (phone stand, wallet, door).
+2. MacroDroid, open the `Quick expense` macro, Triggers, add **Device Events, NFC Tag** (name may be "NFC Tag Scanned"). MacroDroid shows "Scan a tag": hold the phone to the sticker. It reads the tag's ID, so the sticker needs no writing. Save.
+3. Keep the existing triggers (shortcut, tile) next to it: a macro can have several.
+4. Test: lock-screen on is fine, but the screen must be on and unlocked for most phones to read a tag. Touch the sticker: the popup appears, type amount and what, OK, "Added …".
+- Optional second tag for the work timer: a new macro `Work timer`, trigger NFC Tag (another sticker), action **Open Website / Launch URL** with `https://jacomo57.github.io/Spending-Management/#work-toggle`. Each touch starts or stops the timer and shows the Work page. If the link opens in the browser instead of the installed app, in Android Settings, Apps, Spend (or Chrome), "Open by default" / "Open supported links" must be on.
+- Links the app understands (open the app address followed by): `#add` (add-expense sheet), `#add-income`, `#work` (Work page), `#work-toggle` (start/stop timer). A tag or macro can open any of these instead of the popup if you prefer the full sheet (category, card, date) over the two-question popup.

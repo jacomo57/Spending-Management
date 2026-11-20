@@ -524,6 +524,25 @@ async function local() {
     await p.evaluate(() => { wInc(null); wInc(null) });
     eq(await p.evaluate(() => S.tx.filter(t => t.id.startsWith("work-")).length), 2, "the 8h session is not added twice (only the short timer one is new)");
   });
+  await test("Work log: week and month totals, add a whole month to income", async () => {
+    const p = await open("?local=1");
+    await p.evaluate(() => { S.work = { rate: 100, log: [] }; const d = new Date(); d.setDate(1); d.setHours(9, 0, 0, 0); const s1 = d.getTime(); d.setHours(17, 0, 0, 0);
+      wlog().push({ id: "a1", s: s1, e: d.getTime(), hol: 0, c: wcfg() }); const o = new Date(s1); o.setMonth(o.getMonth() - 1); o.setHours(9, 0, 0, 0); const s2 = o.getTime(); o.setHours(11, 0, 0, 0);
+      wlog().push({ id: "b1", s: s2, e: o.getTime(), hol: 0, c: wcfg() }); save(); panel = "wrk"; render() });
+    await text(p, "#wtot", "This week");
+    await text(p, "#wtot", "This month: 8h 00m");
+    eq(await p.locator("#wmonths [data-wmonth]").count(), 2, "one button per month");
+    await p.locator("#wmonths [data-wmonth]").last().click();
+    eq(await p.evaluate(() => S.tx.filter(t => t.id == "work-b1").map(t => t.amt).join()), "200", "the older month (2h at 100) was added");
+    eq(await p.evaluate(() => S.tx.some(t => t.id == "work-a1")), false, "the other month was left alone");
+    eq(await p.locator("#wmonths [data-wmonth]").count(), 1, "that month now shows in income");
+  });
+  await test("Links for a phone automation or NFC tag open the add sheet, the Work page or toggle the timer", async () => {
+    let p = await open("?local=1#add"); await p.waitForSelector("#addsheet:not([hidden])"); eq(await p.evaluate(() => location.hash), "", "link removed from the address");
+    p = await open("?local=1#add-income"); await p.waitForSelector("#addsheet:not([hidden])"); eq(await p.evaluate(() => shKind), "inc", "income tab");
+    p = await open("?local=1#work-toggle"); await p.waitForSelector("#p-wrk:not([hidden])"); eq(await p.evaluate(() => !!wcur()), true, "timer started");
+    p = await open("?local=1#work"); await p.waitForSelector("#p-wrk:not([hidden])");
+  });
   await test("Back (phone gesture or browser) closes a page, the report or the add sheet instead of leaving the app", async () => {
     const p = await open("?local=1"), u = p.url();
     await p.click('[data-p="bud"]'); eq(await p.locator("#p-bud").isVisible(), true, "budget open");
