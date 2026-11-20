@@ -94,3 +94,31 @@ One NFC button (or any trigger) toggles the timer without opening the app: the f
 - The time pieces must be inserted with the magic-text button: a field showing empty braces `{}:{}:{}` sends nothing readable. Values arriving in braces (`{16}:{17}:{52}`), without leading zeros, or as 12-hour am/pm are all read by the app. If a time still cannot be read, the app shows "Timer press: couldn’t read the time …, used now" with what it received.
 - If you press twice by accident, open Work and fix the session's start/end there.
 - Two presses within a few seconds can arrive in the wrong order only if the app is open while you press from another phone: not expected.
+
+## One voice button: say an expense or a shift command (added 2026-11-20, not tried on a real phone)
+One free hardware button (or NFC tag, widget, any trigger) opens MacroDroid's voice prompt. What you say is sent to the app in the background, and a popup confirms it only if the server accepted it. The app reads the sentence the next time it is open and online:
+- **Expense:** "coffee 39", "I just spent 39 bucks on coffee", "39 שקל קפה", "Aroma 25 with Max". The largest number is the amount (digits, or English words like "thirty nine"; "18,50" is 18.50). The other words, minus fillers like spent, on, for, bucks, שקל and על, are the place. "with <card>" picks that card if you have one by that name. The amount counts in your "Buying in" currency, also when the phone writes "$39". A sentence with no number still becomes a row (amount 0, your words kept) so you can fix it.
+- **Shift:** any sentence with "shift", "timer", משמרת or טיימר. Start words (start, begin, התחלתי, תתחיל) start the timer, but only if none is running. End words (end, stop, finish, over, סיימתי, עצרתי, גמרתי) stop it, but only if one is running. So a repeated or late command never flips it the wrong way. "Shift" with neither kind of word toggles.
+
+Do the "Before you start" steps above first (phone key on, MacroDroid installed). Create two text variables in MacroDroid first: `say` and `code` (the timer macro may already have `code`).
+1. MacroDroid, Add Macro, name `Voice add`.
+2. Trigger: **Hardware Button / Key** (or Device Events, **NFC Tag**, or a widget). Pick your free button. Long press is safest if that button also does something else.
+3. Action: **Set Variable** `say` to empty text (so an old sentence is never sent again). Then action: **Voice Input**. Output variable: `say`. Language: System default (or Hebrew/English if you mix). It shows the listening prompt and waits for you.
+4. Action: **If** `say` is empty (equals nothing): **Popup Message** `Didn't hear anything`, then **Cancel Macro Actions**, End If. (Stops an empty row when you cancel.)
+5. Action: **HTTP Request**, like the other macros: POST, the **Address** from the app, content type `application/json`, "block next actions" on, response code saved into `code`. Use this body: replace `PASTE-KEY-HERE`, and put `{lv=say}`, the date and the time in with the magic-text button (as in the timer macro, not typed by hand):
+   ```
+   {"fields":{"key":{"stringValue":"PASTE-KEY-HERE"},"say":{"stringValue":"{lv=say}"},"date":{"stringValue":"{year}-{month_digit}-{dayofmonth}"},"time":{"stringValue":"{hour}:{minute}:{second}"}}}
+   ```
+6. The popups, only on success (turn off "case sensitive" in each "contains" check, since the phone may write "Start my shift"):
+   - **If** `code` = 200
+     - **If** `say` contains `shift` OR `משמרת` OR `timer`
+       - **If** `say` contains `start` OR `התחל` OR `תחיל`: **Popup Message** `Started shift`
+       - **Else:** **Popup Message** `Ended shift`
+     - **Else:** **Popup Message** `Added: {lv=say}`
+   - **Else:** **Popup Message** `NOT sent (code {lv=code}). Say it again.`
+
+**Good to know**
+- The popup shows what the server stored. It can't show the app's parsed result, because the app turns your words into a row or a timer change only when it is next open. "Added: coffee 39" is exactly what was heard, so if the words look wrong, open the app and fix the row.
+- "Started/Ended shift" is MacroDroid's guess from the same words. Always say "start" or "end" with "shift" so the popup and the app agree.
+- A double quote (") in what you say would break the message (the popup then says NOT sent). Speech rarely produces one; if it happens, say it again.
+- No internet: the popup says NOT sent (code 0 or empty), and nothing is saved. Say it again later.

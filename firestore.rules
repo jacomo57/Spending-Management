@@ -52,13 +52,13 @@ service cloud.firestore {
       }
       match /inbox/{id} {
         allow read, delete: if ownerWithProfile();
-        allow create: if request.resource.data.keys().hasOnly(['key', 'amt', 'desc', 'card', 'date', 'title', 'text', 'work', 'time'])
+        allow create: if request.resource.data.keys().hasOnly(['key', 'amt', 'desc', 'card', 'date', 'title', 'text', 'work', 'time', 'say'])
           && request.resource.data.key is string
           && request.resource.data.key.size() >= 20 && request.resource.data.key.size() <= 100
           && exists(/databases/$(database)/documents/users/$(uid))
           && get(/databases/$(database)/documents/users/$(uid)/data/phone).data.key == request.resource.data.key
           && shortText('amt', 40) && shortText('desc', 200) && shortText('card', 60) && shortText('date', 40)
-          && shortText('title', 200) && shortText('text', 500) && shortText('work', 10) && shortText('time', 20);
+          && shortText('title', 200) && shortText('text', 500) && shortText('work', 10) && shortText('time', 20) && shortText('say', 200);
       }
       // A month is named YYYY-MM; "none" holds rows without a date (the app's mk() in cloud.js).
       match /months/{doc} {

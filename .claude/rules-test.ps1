@@ -86,6 +86,8 @@ Expect 'Phone adds with the key' (Call Post "users/$ua/inbox" $null (& $item $k1
 Expect 'Phone adds with all the fields' (Call Post "users/$ua/inbox" $null (& $item $k1 ',"card":{"stringValue":"Visa"},"date":{"stringValue":"2026-11-16"},"title":{"stringValue":"Kiosk"},"text":{"stringValue":"paid"}')) 200
 Expect 'Phone adds a timer press' (Call Post "users/$ua/inbox" $null (& $item $k1 ',"work":{"stringValue":"toggle"},"time":{"stringValue":"09:30:00"}')) 200
 Expect 'Phone adds a too-long work text' (Call Post "users/$ua/inbox" $null (& $item $k1 (',"work":{"stringValue":"' + ('x' * 11) + '"}'))) 403
+Expect 'Phone adds spoken text' (Call Post "users/$ua/inbox" $null (& $item $k1 ',"say":{"stringValue":"coffee 39"}')) 200
+Expect 'Phone adds a too-long spoken text' (Call Post "users/$ua/inbox" $null (& $item $k1 (',"say":{"stringValue":"' + ('x' * 201) + '"}'))) 403
 Expect 'Phone adds with a wrong key' (Call Post "users/$ua/inbox" $null (& $item $k2 '')) 403
 Expect 'Phone adds without a key' (Call Post "users/$ua/inbox" $null '{"fields":{"amt":{"stringValue":"45"}}}') 403
 Expect 'Phone adds with an unknown field' (Call Post "users/$ua/inbox" $null (& $item $k1 ',"json":{"stringValue":"x"}')) 403

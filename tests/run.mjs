@@ -287,6 +287,24 @@ async function smoke() {
     eq(await p.evaluate(() => { S.work.done = []; wlog().length = 0; const a = new Date(); a.setHours(2, 17, 52, 0); workInbox([["br1", { work: "toggle", date: "{" + ymd(a) + "}", time: "{2}:{17}:{52}" }]]); return wlog()[0].s == a.getTime() }), true, "braces around the time are ignored");
     // An unreadable press time is reported (what was received), and the arrival time is used.
     eq(await p.evaluate(() => { S.work.done = []; wlog().length = 0; workInbox([["bad1", { work: "toggle", date: "{year}-x", time: "{hour}:{minute}" }]]); return wlog().length + "|" + document.querySelector(".toast:not(.top)").textContent.includes("{hour}:{minute}") }), "1|true", "unreadable time is reported");
+    // Spoken text from a phone button: an expense (amount + place) or a shift command, without opening the app.
+    await p.evaluate(() => { S.work.done = []; wlog().length = 0; S.tx = S.tx.filter(t => !t.auto) });
+    const n0 = await p.evaluate(() => S.tx.length);
+    eq(await send(key, { say: "I just spent 39 bucks on coffee" }), 200, "spoken expense");
+    await p.waitForFunction(n => S.tx.length > n, n0, { timeout: 15000 });
+    eq(await p.evaluate(() => { const t = S.tx[S.tx.length - 1]; return t.desc + "|" + t.amt }), "Coffee|39", "amount and place from a sentence");
+    eq(await p.evaluate(() => ["coffee 18.50", "שילמתי 25 שקל על פיצה", "spent 1,200 at the electric company", "$39 for coffee", "thirty-nine shekels on lunch", "two hundred and fifty for shoes", "2 coffees 30", "falafel 18,50", "groceries"].map(x => { const r = parseSay(x); return r.desc + "|" + r.amt }).join(";")),
+      "Coffee|18.5;פיצה|25;Electric company|1200;Coffee|39;Lunch|39;Shoes|250;2 coffees|30;Falafel|18.5;Groceries|0", "other sentences");
+    eq(await p.evaluate(() => ["start my shift", "starting shift", "end my shift", "I'm ending my shift", "my shift is over", "stop the timer", "התחלתי משמרת", "סיימתי משמרת", "shift"].map(x => parseSay(x).k).join()), "start,start,stop,stop,stop,stop,start,stop,toggle", "shift commands");
+    eq(await p.evaluate(() => { const t = inboxRow("w1", { say: "Aroma 25 with Visa", date: "{2026}-{11}-{3}" }); return [t.desc, t.amt, t.card, t.date].join("|") }), "Aroma|25|Visa 1234|2026-11-03", "card named with 'with' and a braced date");
+    eq(await send(key, { say: "start my shift" }), 200, "spoken start");
+    await p.waitForFunction(() => wcur(), null, { timeout: 15000 });
+    eq(await p.evaluate(() => workInbox([["s2", { say: "start my shift" }]]) + "|" + wlog().length), "1|1", "start while running changes nothing");
+    eq(await send(key, { say: "end my shift" }), 200, "spoken end");
+    await p.waitForFunction(() => wlog().length == 1 && wlog()[0].e, null, { timeout: 15000 });
+    eq(await p.evaluate(() => { workInbox([["s3", { say: "end shift" }]]); return wlog().length + "|" + !!wcur() }), "1|false", "end with no shift changes nothing");
+    eq(await p.evaluate(() => S.tx.filter(t => /shift/i.test(t.desc)).length), 0, "a shift command is not an expense");
+    await p.evaluate(() => { S.tx = S.tx.filter(t => t.desc != "Coffee"); save(); render() }); await saved(p);
     // New key: the old one stops working. Turned off: nothing is accepted.
     await p.click("#accbtn"); await p.click("#pnew"); await p.waitForFunction(k => { const e = document.getElementById("pkeyv"); return e && e.value != k }, key);
     eq(await send(key, { amt: "5" }), 403, "old key after New key");

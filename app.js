@@ -178,17 +178,37 @@ function add(list,card,ccy){const id=rid,have=bare(),alt=bare(),pend=S.tx.filter
 // Phone inbox (cloud.js listens; docs/backend.md): an item is short texts sent by a phone automation: amt, desc, card, date, or the
 // raw title and text of a payment notification, which are read here. Nothing is dropped: an item without a readable amount
 // becomes a row with amount 0 so it can be fixed by hand. inboxAdd([[id,data]]) -> rows added; an id already saved is skipped.
-function inboxRow(id,d){const s=k=>typeof d[k]=="string"?d[k].replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g,"").trim():"",
+// Spoken text (2026-11-20): an item {say:"I just spent 39 bucks on coffee"} comes from a phone button with speech-to-text.
+// A sentence with "shift"/"timer" is a work command (start, end or just toggle); anything else is an expense: a number is the amount, the rest is the place.
+// Speech-to-text usually writes numbers as digits; English number words ("thirty nine") are read only when the sentence has no digits.
+// The amount is the largest number said ("2 coffees 30" is 30); "18,50" is 18.50, "1,200" is 1200.
+const SAYN={zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19,twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90};
+function sayWords(s){if(/\d/.test(s))return s;const out=[];let cur=null,tot=0;const flush=()=>{if(cur!==null){out.push(String(tot+cur));cur=null;tot=0}};
+ s.split(/\s+/).forEach(w=>{const k=w.toLowerCase().replace(/[.,!?]+$/,""),ps=k.split("-");
+  if(k&&ps.every(p=>p in SAYN))cur=(cur||0)+ps.reduce((a,p)=>a+SAYN[p],0);else if(k=="hundred")cur=(cur===null?1:cur)*100;
+  else if(k=="thousand"){tot+=(cur===null?1:cur)*1000;cur=0}else if(k=="and"&&cur!==null){}else{flush();out.push(w)}});flush();return out.join(" ")}
+function parseSay(t){t=sayWords(String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g," ").trim());const x=" "+t.toLowerCase()+" ";
+ if(/shift|timer|משמרת|טיימר/.test(x))return{k:/\b(end(ed|ing)?|stop(ped|ping)?|finish(ed|ing)?|clos(e|ed|ing)|done|over|clock(ed|ing)? out)\b|סיי[מם]|סיום|גמר|עצר|עצור|סגר|סגור/.test(x)?"stop":/\b(start(ed|ing)?|begin(ning)?|began|open(ed|ing)?|clock(ed|ing)? in)\b|התחל|תחיל|פתח/.test(x)?"start":"toggle"};
+ const val=s=>parseFloat(/^\d+,\d{1,2}$/.test(s)?s.replace(",","."):s.replace(/,/g,"")),
+  m=[...t.matchAll(/\d[\d,]*(?:\.\d{1,2})?/g)].map(a=>(a[0]=a[0].replace(/,$/,""),a)).sort((a,b)=>val(b[0])-val(a[0]))[0],amt=m?val(m[0]):0,
+  desc=(m?t.slice(0,m.index)+" "+t.slice(m.index+m[0].length):t).replace(/\b(i|i've|ive|just|spent|spend|paid|pay|bought|buy|got|for|on|at|in|a|an|the|my|bucks?|shekels?|nis|ils|dollars?)\b|הוצאתי|שילמתי|קניתי|שקלים|שקל|ש"ח|ש״ח|₪|\$|(?<![א-ת])על(?![א-ת])/gi," ").replace(/[.,!?]+/g," ").replace(/\s+/g," ").trim();
+ return{k:"exp",amt:isFinite(amt)?Math.round(amt*100)/100:0,desc:desc?desc[0].toUpperCase()+desc.slice(1):""}}
+// A work command from the phone: "toggle", "start" or "stop" (from the work field, or spoken), else "".
+function shiftOf(d){if(!d)return"";if(d.work)return/^(toggle|start|stop)$/.test(d.work)?d.work:"";const p=typeof d.say=="string"&&d.say?parseSay(d.say):0;return p&&p.k!="exp"?p.k:""}
+function inboxRow(id,d){if(typeof d.say=="string"&&d.say&&!d.amt&&!d.desc){const p=parseSay(d.say);d={...d,amt:p.amt?String(p.amt):"",desc:p.desc||d.say.slice(0,200),text:d.say}}
+ const s=k=>typeof d[k]=="string"?d[k].replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g,"").trim():"",
   num=x=>{const n=parseFloat(String(x).replace(/,/g,"").replace(/[^\d.-]/g,""));return isFinite(n)?Math.round(n*100)/100:0},
   title=s("title"),text=s("text"),all=(title+" "+text).trim(),N="([\\d,]+(?:\\.\\d{1,2})?)",
   cur=all.match(new RegExp("(?:₪|ILS|NIS)\\s*"+N))||all.match(new RegExp(N+"\\s*(?:₪|ILS|NIS|ש\"ח|ש״ח)")),any=cur||all.match(/([\d,]+\.\d{2})/),
   amt=s("amt")?num(s("amt")):any?num(any[1]):0,desc=(s("desc")||title||text).slice(0,200),
-  dm=s("date").match(/^(\d{4})-(\d{1,2})-(\d{1,2})/),de=s("date").match(/^(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})/),
+  dm=s("date").replace(/[{}]/g,"").match(/^(\d{4})-(\d{1,2})-(\d{1,2})/),de=s("date").replace(/[{}]/g,"").match(/^(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})/),
   date=dm?dm[1]+"-"+p2(dm[2])+"-"+p2(dm[3]):de?de[3]+"-"+p2(de[2])+"-"+p2(de[1]):ymd(),
   cards=[...new Set(S.tx.filter(t=>!t.inc&&t.card&&t.card!="Recurring").sort((a,b)=>b.date.localeCompare(a.date)).map(t=>t.card))],
   want=s("card"),iw=(all.match(/\bwith\s+([a-z]{3,})/i)||[])[1],l4=(want.match(/(\d{4})\s*$/)||all.match(/[•*·.x]{2,}\s*(\d{4})/i)||[])[1],
   card=cards.find(c=>want&&c.toLowerCase()==want.toLowerCase())||(l4&&cards.find(c=>c.includes(l4)))||(want&&!/^\D*\d{4}$/.test(want)?want:"")||(iw&&cards.find(c=>c.toLowerCase().includes(iw.toLowerCase())))||(cards.includes(S.defCard)?S.defCard:"")||cards[0]||"My card",
   t={id,date:/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date)?date:ymd(),desc,amt,card:canon(card),cat:desc?guess(desc):"Other",auto:1};
+ // Spoken "coffee 39 with Max": the card was found from "with Max", so the place loses those words.
+ if(d.say&&iw&&card.toLowerCase().includes(iw.toLowerCase())){const x=t.desc.replace(new RegExp("\\s*\\bwith\\s+"+iw+"\\b.*$","i"),"").trim();if(x&&x!=t.desc){t.desc=x;t.cat=guess(x)}}
  // Read from a notification without a shekel amount (foreign money, or nothing found): keep the original words in the note.
  // Currency (2026-11-19): a plain amount from the quick-add button is in the "Buying in" currency (or the item's own "cur" code);
  // a notification that names another currency (€50, USD 12.5) is saved in that currency, the shekel value looked up by inboxAdd.
@@ -200,18 +220,19 @@ function inboxRow(id,d){const s=k=>typeof d[k]=="string"?d[k].replace(/[\u200e\u
  if(fc&&fc!=homeC()&&fa){t.fx={c:fc,a:fa,r:0};t.amt=0}
  else if(!s("amt")&&!cur&&all)t.note=all.slice(0,500);
  return t}
-function inboxAdd(list){const ids=[];list.forEach(([id,d])=>{if(d&&d.work)return;const k="in-"+String(id).replace(/[^\w:.-]/g,"");if(!d||S.tx.some(t=>t.id==k))return;const t=inboxRow(k,d);S.tx.push(t);ids.push(k);
+function inboxAdd(list){const ids=[];list.forEach(([id,d])=>{if(d&&(d.work||shiftOf(d)))return;const k="in-"+String(id).replace(/[^\w:.-]/g,"");if(!d||S.tx.some(t=>t.id==k))return;const t=inboxRow(k,d);S.tx.push(t);ids.push(k);
  if(t.fx)getRate(t.fx.c,homeC(),t.date).then(r=>{if(r&&t.fx&&!t.fx.r&&S.tx.includes(t)){t.fx.r=r;t.amt=r2(t.fx.a*r);save();render()}})});return ids}
 // Work timer from the phone (2026-11-20): an item {work:"toggle", date:"yyyy-mm-dd", time:"HH:MM:SS"} (the phone clock when the button was pressed)
 // starts the timer at that moment, or stops the running one. Items are applied oldest first, so presses made while the app was closed replay in order.
 // S.work.done remembers the last items handled, so a second open device (or a retry) never toggles twice. Returns how many were applied.
-function workInbox(list){const bad=[],w=list.filter(([,d])=>d&&d.work=="toggle").map(([id,d])=>{const m=/^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec((d.date||"").replace(/[{}]/g,"")),t=/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?\s*(am|pm)?$/i.exec((d.time||"").replace(/[{}]/g,"").trim()),
+function workInbox(list){const bad=[],w=list.filter(([,d])=>shiftOf(d)).map(([id,d])=>{const m=/^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec((d.date||"").replace(/[{}]/g,"")),t=/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?\s*(am|pm)?$/i.exec((d.time||"").replace(/[{}]/g,"").trim()),
    // MacroDroid may send minutes or seconds without a leading zero ("9:5:3") or a 12-hour clock with am/pm: all are read.
    hr=t?(t[4]?+t[1]%12+(/pm/i.test(t[4])?12:0):+t[1]):0,
-   ms=m&&t?new Date(+m[1],+m[2]-1,+m[3],hr,+t[2],+(t[3]||0)).getTime():Date.now();if(!(m&&t))bad.push(JSON.stringify((d.date||"")+" "+(d.time||"")).slice(0,60));return[id,isFinite(ms)?Math.min(ms,Date.now()):Date.now()]}).sort((a,b)=>a[1]-b[1]);
+   ms=m&&t?new Date(+m[1],+m[2]-1,+m[3],hr,+t[2],+(t[3]||0)).getTime():Date.now();if(!(m&&t))bad.push(JSON.stringify((d.date||"")+" "+(d.time||"")).slice(0,60));return[id,isFinite(ms)?Math.min(ms,Date.now()):Date.now(),shiftOf(d)]}).sort((a,b)=>a[1]-b[1]);
  let n=0;if(!w.length)return 0;wlog();if(!Array.isArray(S.work.done))S.work.done=[];
- w.forEach(([id,ms])=>{const k=String(id).replace(/[^\w:.-]/g,"");if(S.work.done.includes(k))return;const x=wcur();
-  if(x)x.e=Math.max(ms,x.s+1);else wlog().push({id:"w-"+k,s:ms,e:null,hol:0,c:wcfg()});S.work.done.push(k);n++});
+ // "start" does nothing while a shift is running and "stop" does nothing when none is, so a repeated or late command never flips the timer.
+ w.forEach(([id,ms,kind])=>{const k=String(id).replace(/[^\w:.-]/g,"");if(S.work.done.includes(k))return;const x=wcur();
+  if(x&&kind!="start")x.e=Math.max(ms,x.s+1);else if(!x&&kind!="stop")wlog().push({id:"w-"+k,s:ms,e:null,hol:0,c:wcfg()});S.work.done.push(k);n++});
  S.work.done=S.work.done.slice(-40);
  // The press time could not be read (the macro sent something else): the time of arrival was used. Say what was received, so the macro can be fixed.
  if(bad.length)pushUndo("Timer press: couldn’t read the time "+bad[0]+", used now",()=>{});return n}
