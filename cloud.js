@@ -68,7 +68,7 @@ function phoneListen(){const F=C.F,uid=C.user.uid;C.pkey="";C.pwait=false;phoneS
  C.unsub.push(F.onSnapshot(F.doc(C.db,"users",uid,"data","phone"),{includeMetadataChanges:true},d=>{if(C.pwait||d.metadata.hasPendingWrites)return;C.pkey=d.exists()?String(d.data().key||""):"";phoneShow()},()=>phoneShow("Not available yet.")));
  C.unsub.push(F.onSnapshot(F.collection(C.db,"users",uid,"inbox"),{includeMetadataChanges:true},q=>{if(q.metadata.fromCache||!C.ready)return;
   const got=[];q.forEach(d=>{if(!d.metadata.hasPendingWrites)got.push([d.id,d.data()])});if(!got.length)return;
-  const ids=inboxAdd(got);got.forEach(([id])=>F.deleteDoc(F.doc(C.db,"users",uid,"inbox",id)).catch(()=>{}));
+  const wn=workInbox(got),ids=inboxAdd(got);if(wn){save();remoteRender()}got.forEach(([id])=>F.deleteDoc(F.doc(C.db,"users",uid,"inbox",id)).catch(()=>{}));
   if(ids.length){save();remoteRender();pushUndo("Added "+ids.length+" from your phone",()=>{S.tx=S.tx.filter(t=>!ids.includes(t.id))})}},()=>{}))}
 document.addEventListener("click",e=>{const t=e.target;if(!t||!t.id&&!t.dataset)return;
  if(t.id=="pon"||t.id=="pnew")phoneKey(true);else if(t.id=="poff")phoneKey(false);

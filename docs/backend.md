@@ -33,6 +33,7 @@ Goal: two users only (the owner and their partner), each with a private, indepen
 - The phone sends `POST https://firestore.googleapis.com/v1/projects/spending-management-608d5/databases/(default)/documents/users/{uid}/inbox` with no sign-in and a JSON body like `{"fields":{"key":{"stringValue":"..."},"amt":{"stringValue":"45"},"desc":{"stringValue":"Kiosk"}}}`. The Account panel shows the address and the key (Turn on, New key, Turn off).
 - Rules: create only, only if the profile exists and `key` equals the one in `data/phone`; only the listed fields, all short texts. The sender can never read, list, change or delete. The owner's app reads and deletes.
 - The app (`phoneListen()` in `cloud.js`, `inboxRow()`/`inboxAdd()` in `app.js`) turns each server-confirmed item into a purchase with id `in-{item id}` (so two open devices add the same row, not two), marks it `auto:1`, and deletes the item. `title`/`text` are a raw notification: amount (₪/ILS), merchant and the card's last 4 digits are read in the app, so the automation stays simple. An item without a readable amount becomes a row with amount 0.
+- Work timer press (2026-11-20): an item with `work:"toggle"` plus `date` and `time` (the phone clock) is not a purchase. `workInbox()` in `app.js` starts the timer at that moment, or stops the running one, oldest item first; `S.work.done` (last 40 item ids) stops a second device or retry from toggling twice. Rules allow the extra fields `work` (10 chars) and `time` (20 chars); the rules were published 2026-11-20.
 - `auto:1` rows merge with the matching statement row on import (`add()`): same amount, within 2 days, same card first.
 - The key is a secret: never in the repo or chat. Claude tests with the emulator only.
 - Not handled: an installment or foreign-currency purchase (the statement amount differs, so both rows stay; delete one by hand).
@@ -42,7 +43,7 @@ Goal: two users only (the owner and their partner), each with a private, indepen
 
 ## Security rules
 - `firestore.rules` in the repo is the source. Publish with `npm run deploy:rules` (needs `firebase login` once on that computer). Until then: paste the file into the Firebase console (Firestore, Rules, Publish).
-- `.claude/rules-test.ps1` runs 71 allow/deny checks against the emulator (other user's data, no invite, signed out, invite codes unreadable, document names, shape and size, the phone key and inbox). Run it after any rules change; it must report `failures: 0`.
+- `.claude/rules-test.ps1` runs 73 allow/deny checks against the emulator (other user's data, no invite, signed out, invite codes unreadable, document names, shape and size, the phone key and inbox). Run it after any rules change; it must report `failures: 0`.
 
 ## Emulator
 - Firebase Emulator Suite: Auth on 127.0.0.1:9099, Firestore on 127.0.0.1:8080, project id `demo-spend`, config in `firebase.json`. Fully local.

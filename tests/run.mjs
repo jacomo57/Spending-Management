@@ -260,6 +260,17 @@ async function smoke() {
     eq(/matched 2 you had already added/.test(msg) && /Added 0 purchases/.test(msg), true, "import message: " + msg);
     await total(p, "₪ 364"); eq(await rows(p), 3, "rows after the statement");
     eq(await p.evaluate(() => S.tx.filter(t => t.auto).length + "|" + S.tx.map(t => t.desc).sort().join()), "0|AROMA TLV,SHUFERSAL DEAL 42,Zara", "merged rows");
+    // Work timer button (MacroDroid, app closed): toggle items carry the press time; first starts, second stops, in order.
+    const ymd0 = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    const hh = n => { const d = new Date(Date.now() - n * 36e5); return [ymd0(d), String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") + ":00"] };
+    const [d1, t1] = hh(3), [d2, t2] = hh(2);
+    eq(await send(key, { work: "toggle", date: d1, time: t1 }), 200, "start press");
+    await p.waitForFunction(() => wcur(), null, { timeout: 15000 });
+    eq(await send(key, { work: "toggle", date: d2, time: t2 }), 200, "stop press");
+    await p.waitForFunction(() => wlog().length == 1 && wlog()[0].e, null, { timeout: 15000 });
+    eq(await p.evaluate(() => Math.round((wlog()[0].e - wlog()[0].s) / 6e4)), 60, "started 3h ago, stopped 2h ago");
+    eq(await p.evaluate(() => S.tx.length), 3, "no purchase row from a timer press");
+    eq(await p.evaluate(() => { return workInbox([["dup", { work: "toggle", date: "2026-01-01", time: "01:00" }]]) + workInbox([["dup", { work: "toggle", date: "2026-01-01", time: "01:00" }]]) }), 1, "an item already handled is not applied twice");
     // New key: the old one stops working. Turned off: nothing is accepted.
     await p.click("#accbtn"); await p.click("#pnew"); await p.waitForFunction(k => { const e = document.getElementById("pkeyv"); return e && e.value != k }, key);
     eq(await send(key, { amt: "5" }), 403, "old key after New key");

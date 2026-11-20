@@ -200,8 +200,17 @@ function inboxRow(id,d){const s=k=>typeof d[k]=="string"?d[k].replace(/[\u200e\u
  if(fc&&fc!=homeC()&&fa){t.fx={c:fc,a:fa,r:0};t.amt=0}
  else if(!s("amt")&&!cur&&all)t.note=all.slice(0,500);
  return t}
-function inboxAdd(list){const ids=[];list.forEach(([id,d])=>{const k="in-"+String(id).replace(/[^\w:.-]/g,"");if(!d||S.tx.some(t=>t.id==k))return;const t=inboxRow(k,d);S.tx.push(t);ids.push(k);
+function inboxAdd(list){const ids=[];list.forEach(([id,d])=>{if(d&&d.work)return;const k="in-"+String(id).replace(/[^\w:.-]/g,"");if(!d||S.tx.some(t=>t.id==k))return;const t=inboxRow(k,d);S.tx.push(t);ids.push(k);
  if(t.fx)getRate(t.fx.c,homeC(),t.date).then(r=>{if(r&&t.fx&&!t.fx.r&&S.tx.includes(t)){t.fx.r=r;t.amt=r2(t.fx.a*r);save();render()}})});return ids}
+// Work timer from the phone (2026-11-20): an item {work:"toggle", date:"yyyy-mm-dd", time:"HH:MM:SS"} (the phone clock when the button was pressed)
+// starts the timer at that moment, or stops the running one. Items are applied oldest first, so presses made while the app was closed replay in order.
+// S.work.done remembers the last items handled, so a second open device (or a retry) never toggles twice. Returns how many were applied.
+function workInbox(list){const w=list.filter(([,d])=>d&&d.work=="toggle").map(([id,d])=>{const m=/^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(d.date||""),t=/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(d.time||""),
+   ms=m&&t?new Date(+m[1],+m[2]-1,+m[3],+t[1],+t[2],+(t[3]||0)).getTime():Date.now();return[id,isFinite(ms)?Math.min(ms,Date.now()):Date.now()]}).sort((a,b)=>a[1]-b[1]);
+ let n=0;if(!w.length)return 0;wlog();if(!Array.isArray(S.work.done))S.work.done=[];
+ w.forEach(([id,ms])=>{const k=String(id).replace(/[^\w:.-]/g,"");if(S.work.done.includes(k))return;const x=wcur();
+  if(x)x.e=Math.max(ms,x.s+1);else wlog().push({id:"w-"+k,s:ms,e:null,hol:0,c:wcfg()});S.work.done.push(k);n++});
+ S.work.done=S.work.done.slice(-40);return n}
 // Excel: every sheet becomes tab-separated text in the paste box (dates as yyyy-mm-dd, numbers unformatted). The library loads on first use.
 function loadXlsx(){return window.XLSX?Promise.resolve():new Promise((ok,no)=>{const s=document.createElement("script");s.src="vendor/xlsx.full.min.js";s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
 function sheetText(ws){if(!ws["!ref"])return "";const R=XLSX.utils.decode_range(ws["!ref"]),out=[];

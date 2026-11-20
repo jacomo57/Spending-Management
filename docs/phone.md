@@ -80,3 +80,16 @@ The macro above already shows the popup and sends the purchase. An NFC tag only 
 4. Test: lock-screen on is fine, but the screen must be on and unlocked for most phones to read a tag. Touch the sticker: the popup appears, type amount and what, OK, "Added …".
 - Optional second tag for the work timer: a new macro `Work timer`, trigger NFC Tag (another sticker), action **Open Website / Launch URL** with `https://jacomo57.github.io/Spending-Management/#work-toggle`. Each touch starts or stops the timer and shows the Work page. If the link opens in the browser instead of the installed app, in Android Settings, Apps, Spend (or Chrome), "Open by default" / "Open supported links" must be on.
 - Links the app understands (open the app address followed by): `#add` (add-expense sheet), `#add-income`, `#work` (Work page), `#work-toggle` (start/stop timer). A tag or macro can open any of these instead of the popup if you prefer the full sheet (category, card, date) over the two-question popup.
+
+## The work-timer button, in the background (added 2026-11-20, not tried on a real phone)
+One NFC button (or any trigger) toggles the timer without opening the app: the first press starts it, the next stops it. The press time is sent with it, so the hours are right even if the app is opened hours later. Do the "Before you start" steps above first (phone key on, MacroDroid installed).
+1. MacroDroid, Add Macro, name `Work timer`.
+2. Trigger: Device Events, **NFC Tag** (scan your button), or any other trigger you like.
+3. Action: **HTTP Request**, exactly like the Quick expense macro (POST, the **Address** from the app, content type `application/json`, block next actions, response code into `code`), with this body. Replace `PASTE-KEY-HERE`, and put the time in with the magic-text button: Hour (24-hour), Minute, Second from the Date/Time list:
+   ```
+   {"fields":{"key":{"stringValue":"PASTE-KEY-HERE"},"work":{"stringValue":"toggle"},"date":{"stringValue":"{year}-{month_digit}-{dayofmonth}"},"time":{"stringValue":"{hour}:{minute}:{second}"}}}
+   ```
+4. Then **If** `code` = 200: **Popup Message** `Timer toggled`; else `NOT sent (code {lv=code})`. (The popup cannot say whether it started or stopped: the app decides that when it receives it.)
+- The app applies the press the next time it is open and online (like the expenses), oldest first. Open it to see the timer; the Work page and strip then show the right time. Presses made while the app was closed all replay in order.
+- If you press twice by accident, open Work and fix the session's start/end there.
+- Two presses within a few seconds can arrive in the wrong order only if the app is open while you press from another phone: not expected.

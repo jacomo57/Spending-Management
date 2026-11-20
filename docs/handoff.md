@@ -11,6 +11,7 @@ Last updated 2026-11-20. Project `C:\Claude\Spending Project`, branch `dev`, rem
 ## Next
 Nothing is asked for yet. The user sets up MacroDroid with an NFC tag (see `docs/phone.md`, NFC section); wait for feedback from the phone (animations, bottom bar, back gesture, Work page totals, `#add` / `#work-toggle` links).
 ## Open items
+- Work-timer button (MacroDroid, `docs/phone.md`): never tried with a real macro. The macro field names for hour/minute/second may differ in the user's MacroDroid version.
 - Never checked on a real phone: the motion pass (its smoothness was never seen: the browser pane draws about 2 frames a second), the bottom bar, swipe to delete, the Work page and timer, multi-currency with real euro statements and notifications. The dark theme of the new screens was not checked.
 - Not confirmed on a phone: the back gesture staying in the app; the `#...` links opening the installed app (not the browser).
 - How to page: no topic yet for Work, the links, the phone bottom bar, the + button or swipe to delete.
