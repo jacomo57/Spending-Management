@@ -10,7 +10,7 @@
 //  - The PDF and picture readers in vendor/ (about 9MB, used once a month for a payslip): saved on first use and kept across
 //    versions, so an app update does not download them again. They are still refreshed in the background when used.
 //  - Everything else (Firebase sign-in and data calls, the emulators) is never touched or stored here.
-const VERSION="99fb8b1e5a";
+const VERSION="39d532f483";
 const SHELL="spend-"+VERSION,RT="spend-rt-1";
 const FILES=["./","style.css?v="+VERSION,"app.js?v="+VERSION,"cloud.js?v="+VERSION,"manifest.webmanifest","icons/icon.svg","icons/icon-192.png","icons/icon-512.png","icons/maskable-512.png","icons/apple-touch-icon.png","vendor/xlsx.full.min.js","vendor/firebase/firebase-app.js","vendor/firebase/firebase-auth.js","vendor/firebase/firebase-firestore.js"];
 const HOME=new URL("./",location.href).pathname;

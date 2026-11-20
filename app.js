@@ -179,7 +179,7 @@ function add(list,card,ccy){const id=rid,have=bare(),alt=bare(),pend=S.tx.filter
 // raw title and text of a payment notification, which are read here. Nothing is dropped: an item without a readable amount
 // becomes a row with amount 0 so it can be fixed by hand. inboxAdd([[id,data]]) -> rows added; an id already saved is skipped.
 // Spoken text (2026-11-20): an item {say:"I just spent 39 bucks on coffee"} comes from a phone button with speech-to-text.
-// English only. "start shift" / "end shift" is a work command; anything else is an expense: a number is the amount, the rest is the place.
+// English only. A sentence with "start shift" / "end shift" anywhere in it is a work command; anything else is an expense: a number is the amount, the rest is the place.
 // Speech-to-text usually writes numbers as digits; number words ("thirty nine") are read only when the sentence has no digits.
 // The amount is the largest number said ("2 coffees 30" is 30).
 const SAYN={zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19,twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90};
@@ -187,7 +187,7 @@ function sayWords(s){if(/\d/.test(s))return s;const out=[];let cur=null,tot=0;co
  s.split(/\s+/).forEach(w=>{const k=w.toLowerCase().replace(/[.,!?]+$/,""),ps=k.split("-");
   if(k&&ps.every(p=>p in SAYN))cur=(cur||0)+ps.reduce((a,p)=>a+SAYN[p],0);else if(k=="hundred")cur=(cur===null?1:cur)*100;
   else if(k=="thousand"){tot+=(cur===null?1:cur)*1000;cur=0}else if(k=="and"&&cur!==null){}else{flush();out.push(w)}});flush();return out.join(" ")}
-function parseSay(t){t=sayWords(String(t).trim());const w=/^(start|end) shift[.!]?$/i.exec(t);if(w)return{k:/start/i.test(w[1])?"start":"stop"};
+function parseSay(t){t=sayWords(String(t).trim());const w=/\b(start|end) shift\b/i.exec(t);if(w)return{k:/start/i.test(w[1])?"start":"stop"};
  const val=s=>parseFloat(s.replace(/,/g,"")),
   m=[...t.matchAll(/\d[\d,]*(?:\.\d{1,2})?/g)].map(a=>(a[0]=a[0].replace(/,$/,""),a)).sort((a,b)=>val(b[0])-val(a[0]))[0],amt=m?val(m[0]):0,
   desc=(m?t.slice(0,m.index)+" "+t.slice(m.index+m[0].length):t).replace(/\b(i|i've|ive|just|spent|spend|paid|pay|bought|buy|got|for|on|at|in|a|an|the|my|bucks?|shekels?|dollars?)\b|\$/gi," ").replace(/[.,!?]+/g," ").replace(/\s+/g," ").trim();
@@ -206,7 +206,7 @@ function inboxRow(id,d){if(typeof d.say=="string"&&d.say&&!d.amt&&!d.desc){const
   date=dm?dm[1]+"-"+p2(dm[2])+"-"+p2(dm[3]):de?de[3]+"-"+p2(de[2])+"-"+p2(de[1]):ymd(),
   cards=[...new Set(S.tx.filter(t=>!t.inc&&t.card&&t.card!="Recurring").sort((a,b)=>b.date.localeCompare(a.date)).map(t=>t.card))],
   // Spoken: any word of a card's name said in the sentence picks that card ("coffee 39 with Max", "39 on visa").
-  sm=d.say?cards.map(c=>[c,c.toLowerCase().split(/[^a-z]+/).find(w=>w.length>=3&&new RegExp("\\b"+w+"\\b","i").test(d.say))]).find(x=>x[1]):null,
+  sm=d.say?[...new Set([...cards,...cardNames()])].filter(c=>c!="Recurring").map(c=>[c,c.toLowerCase().split(/[^a-z]+/).find(w=>w.length>=3&&new RegExp("\\b"+w+"\\b","i").test(d.say))]).find(x=>x[1]):null,
   want=sm?sm[0]:s("card"),iw=(all.match(/\bwith\s+([a-z]{3,})/i)||[])[1],l4=(want.match(/(\d{4})\s*$/)||all.match(/[•*·.x]{2,}\s*(\d{4})/i)||[])[1],
   card=cards.find(c=>want&&c.toLowerCase()==want.toLowerCase())||(l4&&cards.find(c=>c.includes(l4)))||(want&&!/^\D*\d{4}$/.test(want)?want:"")||(iw&&cards.find(c=>c.toLowerCase().includes(iw.toLowerCase())))||(cards.includes(S.defCard)?S.defCard:"")||cards[0]||"My card",
   t={id,date:/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date)?date:ymd(),desc,amt,card:canon(card),cat:desc?guess(desc):"Other",auto:1};

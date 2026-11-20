@@ -97,9 +97,9 @@ One NFC button (or any trigger) toggles the timer without opening the app: the f
 
 ## One voice button: say an expense or a shift command (added 2026-11-20, sending confirmed on a real phone 2026-11-20)
 One free hardware button (or NFC tag, widget, any trigger) opens MacroDroid's voice prompt. What you say is sent to the app in the background, and a popup confirms it only if the server accepted it. The app reads the sentence the next time it is open and online. English only (Voice Input listens in one language).
-- **Shift:** say exactly "start shift" or "end shift". "Start" does nothing if a shift is already running and "end" does nothing if none is, so a repeat never flips it the wrong way. The time is when you spoke.
+- **Shift:** say "start shift" or "end shift" (other words around it are fine: "ok start shift now"). "Start" does nothing if a shift is already running and "end" does nothing if none is, so a repeat never flips it the wrong way. The time is when you spoke.
 - **Expense:** "coffee 39", "I just spent 39 bucks on coffee", "thirty nine on lunch". The largest number is the amount, and the other words, minus fillers like spent, on, for, bucks, are the place. The amount counts in your "Buying in" currency, also when the phone writes "$39". A sentence with no number still becomes a row (amount 0, your words kept) so you can fix it.
-- **Card:** say any word of the card's name as it is in the app: "pizza 40 with Max", "visa 30 for lunch". Only cards whose name has an English word of 3+ letters can be picked this way. Without a card word, the usual card is used.
+- **Card:** say any word of the card's name as it is in the app: "pizza 40 with Max", "visa 30 for lunch". Only cards whose name has an English word of 3+ letters can be picked this way. Without a card word, the usual card is used. Cards from the Cards list count too, even before their first purchase.
 
 Do the "Before you start" steps above first (phone key on, MacroDroid installed).
 1. MacroDroid, Add Macro, name `Voice add`. Local variables (text): `say`, `code`.
@@ -110,12 +110,10 @@ Do the "Before you start" steps above first (phone key on, MacroDroid installed)
    ```
    {"fields":{"key":{"stringValue":"PASTE-KEY-HERE"},"say":{"stringValue":"{lv=say}"},"date":{"stringValue":"{year}-{month_digit}-{dayofmonth}"},"time":{"stringValue":"{hour}:{minute}:{second}"}}}
    ```
-6. Popups, only on success. When the server accepts, its reply contains `createTime`; a refusal or no internet does not. Turn off "case sensitive" in each "contains" check.
-   - **If** `code` contains `createTime`
-     - **If** `say` contains `start shift`: **Popup Message** `Started shift`
-     - **Else If** `say` contains `end shift`: **Popup Message** `Ended shift`
-     - **Else:** **Popup Message** `Added: {lv=say}`
+6. Popup, only on success (when the server accepts, its reply contains `createTime`; a refusal or no internet does not):
+   - **If** `code` contains `createTime` (case sensitive off): **Popup Message** `✓ {lv=say}`
    - **Else:** **Popup Message** `NOT sent. Say it again.`
+   - End If
 
 **Good to know**
 - The popup shows what the server stored, not the app's parsed result (the app reads it when next open). If the words look wrong, open the app and fix the row.
