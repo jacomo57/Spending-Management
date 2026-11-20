@@ -283,6 +283,8 @@ async function smoke() {
     eq(await p.evaluate(() => { const o = []; const a = new Date(); a.setHours(9, 5, 3, 0); const y = ymd(a); S.work.done = []; wlog().length = 0;
       workInbox([["u1", { work: "toggle", date: y, time: "9:5:3" }]]); o.push(wlog()[0].s == a.getTime()); wlog().length = 0;
       workInbox([["u2", { work: "toggle", date: y, time: "9:05 pm" }]]); const b = new Date(a); b.setHours(21, 5, 0, 0); o.push(wlog()[0].s == Math.min(b.getTime(), Date.now())); return o.join() }), "true,true", "unpadded and am/pm times");
+    // MacroDroid can wrap each value in braces: "{16}:{17}:{52}" is 16:17:52.
+    eq(await p.evaluate(() => { S.work.done = []; wlog().length = 0; const a = new Date(); a.setHours(2, 17, 52, 0); workInbox([["br1", { work: "toggle", date: "{" + ymd(a) + "}", time: "{2}:{17}:{52}" }]]); return wlog()[0].s == a.getTime() }), true, "braces around the time are ignored");
     // An unreadable press time is reported (what was received), and the arrival time is used.
     eq(await p.evaluate(() => { S.work.done = []; wlog().length = 0; workInbox([["bad1", { work: "toggle", date: "{year}-x", time: "{hour}:{minute}" }]]); return wlog().length + "|" + document.querySelector(".toast:not(.top)").textContent.includes("{hour}:{minute}") }), "1|true", "unreadable time is reported");
     // New key: the old one stops working. Turned off: nothing is accepted.
