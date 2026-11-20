@@ -271,6 +271,18 @@ async function smoke() {
     eq(await p.evaluate(() => Math.round((wlog()[0].e - wlog()[0].s) / 6e4)), 60, "started 3h ago, stopped 2h ago");
     eq(await p.evaluate(() => S.tx.length), 3, "no purchase row from a timer press");
     eq(await p.evaluate(() => { return workInbox([["dup", { work: "toggle", date: "2026-01-01", time: "01:00" }]]) + workInbox([["dup", { work: "toggle", date: "2026-01-01", time: "01:00" }]]) }), 1, "an item already handled is not applied twice");
+    // Both presses made while the app is closed: one start and one stop, with their own times.
+    await p.evaluate(() => { wlog().length = 0; S.work.done = []; save() }); await saved(p);
+    const appUrl = p.url(); await p.goto("about:blank");
+    const [d3, t3] = hh(5), [d4, t4] = hh(4);
+    eq(await send(key, { work: "toggle", date: d3, time: t3 }), 200, "closed: start"); eq(await send(key, { work: "toggle", date: d4, time: t4 }), 200, "closed: stop");
+    await p.goto(appUrl); await p.locator("#app").waitFor();
+    await p.waitForFunction(() => wlog().length >= 1 && wlog()[0].e, null, { timeout: 15000 });
+    eq(await p.evaluate(() => wlog().length + "|" + Math.round((wlog()[0].e - wlog()[0].s) / 6e4)), "1|60", "closed presses: one session of an hour");
+    // Times without leading zeros, as some phones send them: "9:5:3" is 09:05:03.
+    eq(await p.evaluate(() => { const o = []; const a = new Date(); a.setHours(9, 5, 3, 0); const y = ymd(a); S.work.done = []; wlog().length = 0;
+      workInbox([["u1", { work: "toggle", date: y, time: "9:5:3" }]]); o.push(wlog()[0].s == a.getTime()); wlog().length = 0;
+      workInbox([["u2", { work: "toggle", date: y, time: "9:05 pm" }]]); const b = new Date(a); b.setHours(21, 5, 0, 0); o.push(wlog()[0].s == Math.min(b.getTime(), Date.now())); return o.join() }), "true,true", "unpadded and am/pm times");
     // New key: the old one stops working. Turned off: nothing is accepted.
     await p.click("#accbtn"); await p.click("#pnew"); await p.waitForFunction(k => { const e = document.getElementById("pkeyv"); return e && e.value != k }, key);
     eq(await send(key, { amt: "5" }), 403, "old key after New key");

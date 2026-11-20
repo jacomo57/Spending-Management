@@ -205,8 +205,10 @@ function inboxAdd(list){const ids=[];list.forEach(([id,d])=>{if(d&&d.work)return
 // Work timer from the phone (2026-11-20): an item {work:"toggle", date:"yyyy-mm-dd", time:"HH:MM:SS"} (the phone clock when the button was pressed)
 // starts the timer at that moment, or stops the running one. Items are applied oldest first, so presses made while the app was closed replay in order.
 // S.work.done remembers the last items handled, so a second open device (or a retry) never toggles twice. Returns how many were applied.
-function workInbox(list){const w=list.filter(([,d])=>d&&d.work=="toggle").map(([id,d])=>{const m=/^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(d.date||""),t=/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(d.time||""),
-   ms=m&&t?new Date(+m[1],+m[2]-1,+m[3],+t[1],+t[2],+(t[3]||0)).getTime():Date.now();return[id,isFinite(ms)?Math.min(ms,Date.now()):Date.now()]}).sort((a,b)=>a[1]-b[1]);
+function workInbox(list){const w=list.filter(([,d])=>d&&d.work=="toggle").map(([id,d])=>{const m=/^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(d.date||""),t=/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?\s*(am|pm)?$/i.exec((d.time||"").trim()),
+   // MacroDroid may send minutes or seconds without a leading zero ("9:5:3") or a 12-hour clock with am/pm: all are read.
+   hr=t?(t[4]?+t[1]%12+(/pm/i.test(t[4])?12:0):+t[1]):0,
+   ms=m&&t?new Date(+m[1],+m[2]-1,+m[3],hr,+t[2],+(t[3]||0)).getTime():Date.now();return[id,isFinite(ms)?Math.min(ms,Date.now()):Date.now()]}).sort((a,b)=>a[1]-b[1]);
  let n=0;if(!w.length)return 0;wlog();if(!Array.isArray(S.work.done))S.work.done=[];
  w.forEach(([id,ms])=>{const k=String(id).replace(/[^\w:.-]/g,"");if(S.work.done.includes(k))return;const x=wcur();
   if(x)x.e=Math.max(ms,x.s+1);else wlog().push({id:"w-"+k,s:ms,e:null,hol:0,c:wcfg()});S.work.done.push(k);n++});
