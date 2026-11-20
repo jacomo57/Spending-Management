@@ -293,14 +293,16 @@ async function smoke() {
     eq(await send(key, { say: "I just spent 39 bucks on coffee" }), 200, "spoken expense");
     await p.waitForFunction(n => S.tx.length > n, n0, { timeout: 15000 });
     eq(await p.evaluate(() => { const t = S.tx[S.tx.length - 1]; return t.desc + "|" + t.amt }), "Coffee|39", "amount and place from a sentence");
-    eq(await p.evaluate(() => ["coffee 18.50", "שילמתי 25 שקל על פיצה", "spent 1,200 at the electric company", "$39 for coffee", "thirty-nine shekels on lunch", "two hundred and fifty for shoes", "2 coffees 30", "falafel 18,50", "groceries"].map(x => { const r = parseSay(x); return r.desc + "|" + r.amt }).join(";")),
-      "Coffee|18.5;פיצה|25;Electric company|1200;Coffee|39;Lunch|39;Shoes|250;2 coffees|30;Falafel|18.5;Groceries|0", "other sentences");
-    eq(await p.evaluate(() => ["start my shift", "starting shift", "end my shift", "I'm ending my shift", "my shift is over", "stop the timer", "התחלתי משמרת", "סיימתי משמרת", "shift"].map(x => parseSay(x).k).join()), "start,start,stop,stop,stop,stop,start,stop,toggle", "shift commands");
+    eq(await p.evaluate(() => ["coffee 18.50", "spent 1,200 at the electric company", "$39 for coffee", "thirty-nine shekels on lunch", "two hundred and fifty for shoes", "2 coffees 30", "groceries"].map(x => { const r = parseSay(x); return r.desc + "|" + r.amt }).join(";")),
+      "Coffee|18.5;Electric company|1200;Coffee|39;Lunch|39;Shoes|250;2 coffees|30;Groceries|0", "other sentences");
+    eq(await p.evaluate(() => ["start shift", "Start shift.", "end shift", "End Shift"].map(x => parseSay(x).k).join()), "start,start,stop,stop", "shift commands");
     eq(await p.evaluate(() => { const t = inboxRow("w1", { say: "Aroma 25 with Visa", date: "{2026}-{11}-{3}" }); return [t.desc, t.amt, t.card, t.date].join("|") }), "Aroma|25|Visa 1234|2026-11-03", "card named with 'with' and a braced date");
-    eq(await send(key, { say: "start my shift" }), 200, "spoken start");
+    eq(await p.evaluate(() => ["visa 30 for lunch", "pizza 40 using my visa card"].map(x => { const t = inboxRow("w" + x.length, { say: x }); return t.desc + "|" + t.amt + "|" + t.card }).join(";")), "Lunch|30|Visa 1234;Pizza|40|Visa 1234", "card named anywhere in the sentence");
+    eq(await p.evaluate(() => { S.work.done = []; wlog().length = 0; const t = inboxRow("w2", { say: "tea 9", date: "2026-November-3" }).date; workInbox([["mn1", { say: "start shift", date: "2026-November-3", time: "08:15:00" }]]); const s = new Date(wlog()[0].s); wlog().length = 0; return t + "|" + s.getMonth() + "-" + s.getDate() + "-" + s.getHours() }), "2026-11-03|10-3-8", "month names in the date (MacroDroid {month})");
+    eq(await send(key, { say: "start shift" }), 200, "spoken start");
     await p.waitForFunction(() => wcur(), null, { timeout: 15000 });
-    eq(await p.evaluate(() => workInbox([["s2", { say: "start my shift" }]]) + "|" + wlog().length), "1|1", "start while running changes nothing");
-    eq(await send(key, { say: "end my shift" }), 200, "spoken end");
+    eq(await p.evaluate(() => workInbox([["s2", { say: "start shift" }]]) + "|" + wlog().length), "1|1", "start while running changes nothing");
+    eq(await send(key, { say: "end shift" }), 200, "spoken end");
     await p.waitForFunction(() => wlog().length == 1 && wlog()[0].e, null, { timeout: 15000 });
     eq(await p.evaluate(() => { workInbox([["s3", { say: "end shift" }]]); return wlog().length + "|" + !!wcur() }), "1|false", "end with no shift changes nothing");
     eq(await p.evaluate(() => S.tx.filter(t => /shift/i.test(t.desc)).length), 0, "a shift command is not an expense");

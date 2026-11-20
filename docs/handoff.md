@@ -9,7 +9,7 @@ Last updated 2026-11-20. Project `C:\Claude\Spending Project`, branch `dev`, rem
 - Hebrew interface is parked, but keep it possible (use start/end, not left/right, in new CSS). "Partner owes" is dropped.
 
 ## Next
-The user sets up the voice button in MacroDroid (`docs/phone.md`, "One voice button") and reports back: does Speech To Text work from the free hardware button, are the amounts and places read right, and can the popup say Started/Ended shift. Then talk about "Hey Google" / Gemini triggers, and an AI analyst in the app (needs a paid server function and sends data out: ask first). Still waiting for phone feedback on animations, bottom bar, back gesture, Work totals and the `#add` / `#work-toggle` links.
+The voice button sends from the user's phone. Waiting to hear whether the popups (check on `createTime`) and card picking work. Then talk about "Hey Google" / Gemini triggers, and an AI analyst in the app (needs a paid server function and sends data out: ask first). Still waiting for phone feedback on animations, bottom bar, back gesture, Work totals and the `#add` / `#work-toggle` links.
 ## Open items
 - Work-timer button (MacroDroid, `docs/phone.md`): confirmed working on the user's phone 2026-11-20 (app closed, press, press, open: one session with the real times). The timer shows only after the app is next opened; a server function would be needed otherwise (Firebase paid plan, declined).
 - Never checked on a real phone: the motion pass (its smoothness was never seen: the browser pane draws about 2 frames a second), the bottom bar, swipe to delete, the Work page and timer, multi-currency with real euro statements and notifications. The dark theme of the new screens was not checked.
