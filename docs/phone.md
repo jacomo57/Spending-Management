@@ -118,3 +118,63 @@ Do the "Before you start" steps above first (phone key on, MacroDroid installed)
 **Good to know**
 - The popup shows what the server stored, not the app's parsed result (the app reads it when next open). If the words look wrong, open the app and fix the row.
 - A double quote (") in what you say would break the message (the popup then says NOT sent). Say it again.
+
+# iPhone: the same buttons with the Shortcuts app (added 2026-11-21, NOT tried on a real iPhone)
+Shortcuts is built into the iPhone (free). It sends the same message as the MacroDroid macros, so the app needs no change: it reads "Coffee 39.", "Start shift.", "$39" and "Thirty nine shekels on lunch" the same way (checked in the app 2026-11-21). Menu names are from memory and can differ a little between iOS versions.
+
+**Before you start:** in the app, Account, "Add from your phone", Turn on. You need its **Address** and **Key**.
+**The key is in the shortcut:** never use Share on these shortcuts (a shared shortcut carries the key). If it was shared by mistake: Account, "New key", and paste the new key into each shortcut.
+
+## Common part: the send block (used by every shortcut below)
+These five steps end every shortcut. Add actions with the search bar at the bottom ("Search for actions"). Insert a variable by tapping the spot in the text, then the variable in the bar above the keyboard (or "Select Variable").
+1. **Format Date**: tap "Date", choose **Current Date**; tap the format, **Custom**, type `yyyy-MM-dd`. Then **Set Variable**, name `day`.
+2. **Format Date** again: Current Date, Custom `HH:mm:ss`. **Set Variable** `clock`.
+3. **Text**: the body for that shortcut (given below). Replace `PASTE-KEY-HERE` with the Key; put each `VARIABLE` in with the variable bar, not by typing.
+4. **Get Contents of URL**: URL = the **Address**. Tap the arrow / "Show More": Method **POST**; Headers, Add new header: `Content-Type` = `application/json`; Request Body **File**, and choose the **Text** from step 3.
+5. **Text** with only the variable **Contents of URL** in it. Then **If** that Text **contains** `createTime`: **Show Notification** `Added` (or `✓` plus the variable). **Otherwise**: Show Notification `NOT sent. Try again.` **End If**.
+
+## Shortcut 1: "Quick expense" (two questions)
+New shortcut (+), rename it `Quick expense`.
+1. **Ask for Input**: type **Number**, prompt `Amount`. **Set Variable** `amount`.
+2. **Ask for Input**: type Text, prompt `What?`. **Set Variable** `what`.
+3. The send block, with this body in step 3 (`amount`, `what`, `day` are the variables):
+   ```
+   {"fields":{"key":{"stringValue":"PASTE-KEY-HERE"},"amt":{"stringValue":"amount"},"desc":{"stringValue":"what"},"date":{"stringValue":"day"}}}
+   ```
+Try it: run it, type `1`, `test`. "Added" appears; open the app, see "test" ₪1, delete it.
+
+## Shortcut 2: "Voice add" (expense or start/end shift)
+New shortcut, rename `Voice add`. What to say is the same as on Android (see "One voice button" above).
+1. **Dictate Text**: Language **English (US)**, Stop Listening **After Pause**. **Set Variable** `say`.
+2. **If** `say` **does not have any value**: Show Notification `Didn't hear anything`, then **Stop This Shortcut**. End If.
+3. The send block, with this body:
+   ```
+   {"fields":{"key":{"stringValue":"PASTE-KEY-HERE"},"say":{"stringValue":"say"},"date":{"stringValue":"day"},"time":{"stringValue":"clock"}}}
+   ```
+   In step 5 the success notification can show the `say` variable, like the Android popup.
+
+## Optional: "Work timer" (one press toggles)
+New shortcut `Work timer`: only the send block, with this body:
+```
+{"fields":{"key":{"stringValue":"PASTE-KEY-HERE"},"work":{"stringValue":"toggle"},"date":{"stringValue":"day"},"time":{"stringValue":"clock"}}}
+```
+
+## How to start them (pick any; a shortcut can have several)
+- **Home screen icon**: open the shortcut, the ⓘ / share-sheet menu, **Add to Home Screen**.
+- **Action Button** (iPhone 15 Pro and newer): Settings, Action Button, swipe to **Shortcut**, choose `Voice add`.
+- **Back Tap** (any recent iPhone): Settings, Accessibility, Touch, **Back Tap**, Double Tap (or Triple), choose the shortcut. Tapping the back of the phone runs it.
+- **Siri**: say the shortcut's name ("Hey Siri, voice add"). Works with no setup.
+- **Control Center / Lock Screen** (iOS 18): edit Control Center, Add a Control, Shortcuts, pick it.
+- **NFC sticker**: Shortcuts, **Automation** tab, +, **NFC**, Scan, hold the sticker, name it; choose the shortcut and set **Run Immediately** (otherwise iOS asks first).
+
+## Optional: Apple Pay payments, like the Wallet macro (iOS 17+)
+Shortcuts, Automation, +, **Transaction** (name may be "Wallet"). Choose your cards, **Run Immediately**. Action: a new shortcut with the send block and this body, where MERCHANT, AMOUNT and CARD are the shortcut input's Merchant, Amount and Card (tap Shortcut Input, then pick the detail):
+```
+{"fields":{"key":{"stringValue":"PASTE-KEY-HERE"},"title":{"stringValue":"MERCHANT"},"text":{"stringValue":"AMOUNT with CARD"},"date":{"stringValue":"day"}}}
+```
+The app uses the merchant as the name, reads the amount (₪60.00 or 60.00), and picks the card by a word of its name; if it cannot read the amount the row is added at 0 with the text in its note.
+
+## If it says NOT sent
+- Wrong key or body: the reply text in step 5 shows the reason. Add a **Quick Look** on `Contents of URL` to see it.
+- A variable shows as its name in the app (a row called "what"): it was typed instead of inserted. Insert it from the variable bar.
+- No internet: run it again (it does not retry).

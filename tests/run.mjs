@@ -566,6 +566,8 @@ async function local() {
     eq(await p.locator("#wstrip").isVisible(), false, "no strip when stopped");
     eq(await p.evaluate(() => wlog()[0].c.rate), 50, "session keeps the rate it started with");
     await p.click("#wadd");
+    // "+ Add session" adds 9:00-17:00 today; on a Friday or Saturday that is Shabbat pay, so move it back to Thursday.
+    await p.evaluate(() => { const x = wlog().at(-1), back = { 5: 1, 6: 2 }[new Date(x.s).getDay()] || 0; x.s -= back * 864e5; x.e -= back * 864e5; save(); render() });
     await text(p, "#wlist", "8h 00m");
     await p.click(".wrow:has-text('8h 00m') [data-winc]");
     eq(await p.evaluate(() => S.tx.filter(t => t.inc && t.id.startsWith("work-")).map(t => t.amt).join()), "7992", "income row made from the 8h session added after the rate became 999");
