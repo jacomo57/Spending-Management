@@ -134,9 +134,13 @@ const HD=/date|תאריך/i,HS=/desc|merchant|name|details|payee|memo|בית ה?
 const addM=(d,n)=>{let[y,m,day]=d.split("-").map(Number);m+=n;y+=Math.floor((m-1)/12);m=(m-1)%12+1;return y+"-"+String(m).padStart(2,"0")+"-"+String(Math.min(day,new Date(y,m,0).getDate())).padStart(2,"0")};
 function table(rows){rows=rows.map(r=>r.map(x=>String(x==null?"":x).trim())).filter(r=>r.some(Boolean));if(!rows.length)return[];
  const dc=x=>x&&x.length<25?date(x):null,isH=r=>!r.some(dc)&&r.some(x=>HD.test(x))&&r.some(x=>HA.test(x)&&!HX.test(x));
- let di=-1,si=-1,ai=-1,ci=-1,need=true;const out=[];
+ let di=-1,si=-1,ai=-1,ci=-1,ki=-1,pi=-1,oi=-1,oc=-1,bc=-1,need=true;const out=[];
  const head=h=>{const pick=(re,no,pref)=>{const c=h.map((x,i)=>i).filter(i=>re.test(h[i])&&!(no&&no.test(h[i])));return c.length?(c.find(i=>pref(h[i]))??c[0]):-1};
-  di=pick(HD,null,x=>!HB.test(x));ai=pick(HA,HX,x=>HB.test(x));si=h.findIndex((x,i)=>i!=di&&i!=ai&&HS.test(x));ci=h.findIndex(x=>/^(קטגוריה|category)$/i.test(x));need=true;out.card=ai>=0&&HB.test(h[ai])};
+  di=pick(HD,null,x=>!HB.test(x));ai=pick(HA,HX,x=>HB.test(x));si=h.findIndex((x,i)=>i!=di&&i!=ai&&HS.test(x));ci=h.findIndex(x=>/^(קטגוריה|category)$/i.test(x));need=true;out.card=ai>=0&&HB.test(h[ai]);
+  // Optional columns (2026-11-22): each row's card (last 4 digits), how it was paid (phone, standing order...), and the original
+  // amount and currency of a purchase made in another currency (the charged amount stays the one counted).
+  ki=h.findIndex(x=>/ספרות|last ?4|card (no|number|ending)/i.test(x));pi=h.findIndex(x=>/אופן ביצוע|payment method/i.test(x));
+  oi=h.findIndex((x,i)=>i!=ai&&/סכום עסקה|original amount/i.test(x));oc=h.findIndex(x=>/^(מטבע עסקה|original currency)/i.test(x));bc=h.findIndex(x=>/^(מטבע חיוב|billing currency)/i.test(x))};
  let i=rows.slice(0,25).findIndex(isH);
  if(i<0){i=0;if(!rows[0].some(dc)&&rows[0].some(x=>HL.test(x))){head(rows[0]);i=1}}
  for(;i<rows.length;i++){const r=rows[i];if(isH(r)){head(r);continue}
@@ -148,7 +152,10 @@ function table(rows){rows=rows.map(r=>r.map(x=>String(x==null?"":x).trim())).fil
   let d=dc(r[di]),desc=r[si];const a=num(r[ai]);if(!d||!desc||isNaN(a)||a===0)continue;
   // Installments ("תשלום 3 מתוך 5"): the row carries the original purchase date, so move this payment to its own month.
   const m=r.join(" ").match(/תשלום\s*(\d+)\s*מתוך\s*(\d+)/);if(m&&+m[1]>=1&&+m[1]<=+m[2]){d=addM(d,m[1]-1);desc+=" "+m[1]+"/"+m[2]}
-  out.push({date:d,desc,amt:a,hint:ci>=0?r[ci]||"":""})}
+  const x={date:d,desc,amt:a,hint:ci>=0?r[ci]||"":""},k4=ki>=0&&String(r[ki]||"").match(/(\d{4})\s*$/);if(k4)x.d4=k4[1];if(pi>=0&&r[pi])x.pay=r[pi];
+  if(!m&&/הוראת קבע|standing order|direct debit/i.test(r.join(" ")))x.so=1;
+  if(oi>=0&&oc>=0&&!m){const c=curCode(r[oc]),b=bc>=0?curCode(r[bc]):"",oa=Math.abs(num(r[oi]));if(c&&c!=homeC()&&(!b||b==homeC())&&oa)x.fx={c,a:a<0?-oa:oa}}
+  out.push(x)}
  return out}
 // Returns purchases with signed amounts: positive = spending, negative = refund or credit.
 // A file where most amounts are negative is a bank-style export (spending shown as minus): its positive rows come back as income (inc:1).
@@ -169,11 +176,15 @@ function parse(text){const lines=text.split(/\r?\n/).filter(l=>l.trim());if(!lin
 function add(list,card,ccy){const id=rid,have=bare(),alt=bare(),pend=S.tx.filter(t=>t.auto&&!t.inc),far=(a,b)=>Math.abs(new Date(a)-new Date(b))/864e5;let n=0,ni=0,nm=0;
  S.tx.forEach(t=>{if(t.card==card&&!t.auto){const k=t.src||id(t);have[k]=(have[k]||0)+1;if(t.src){const c=id(t);alt[c]=(alt[c]||0)+1}}});
  list.forEach(x=>{const k=id(x);if(have[k]>0){have[k]--;return}if(alt[k]>0){alt[k]--;return}
-  if(!x.inc){const ok=pend.filter(t=>Math.abs(t.amt-x.amt)<.005&&far(t.date,x.date)<=2).sort((a,b)=>(b.card==card)-(a.card==card)||far(a.date,x.date)-far(b.date,x.date)),t=ok[0];
+  // A bill made from a statement's standing order (id "rec-...") is replaced only by a row on its own card, within 7 days of its set
+  // day, with the same amount or the same description (a bill whose amount changes each month).
+  // How the row was paid breaks ties: paid by phone prefers a purchase from a Wallet / Apple Pay notification (t.via "w"), anything else prefers the others.
+  if(!x.inc){const mob=/נייד|mobile|wallet|apple|google pay/i.test(x.pay||""),same=t=>Math.abs(t.amt-x.amt)<.005,
+   ok=pend.filter(t=>String(t.id).startsWith("rec-")?t.card==card&&(same(t)||t.desc==x.desc)&&far(t.date,x.date)<=7:same(t)&&far(t.date,x.date)<=2).sort((a,b)=>(b.card==card)-(a.card==card)||(x.pay?((b.via=="w")==mob)-((a.via=="w")==mob):0)||far(a.date,x.date)-far(b.date,x.date)),t=ok[0];
    if(t){pend.splice(pend.indexOf(t),1);if(t.desc&&t.desc!=x.desc&&!t.note)t.note=t.desc.slice(0,500);if(t.cat=="Other")t.cat=guess(x.desc,x.hint);
-    t.date=x.date;t.desc=x.desc;t.amt=x.amt;t.card=card;delete t.auto;nm++;return}}
+    t.date=x.date;t.desc=x.desc;t.amt=x.amt;t.card=card;delete t.auto;if(x.fx)t.fx={c:x.fx.c,a:x.fx.a,r:x.amt/x.fx.a,m:1};else if(t.fx&&t.fx.a){t.fx.r=x.amt/t.fx.a;t.fx.m=1}nm++;return}}
   const t={id:uid(),date:x.date,desc:x.desc,amt:x.amt,card,cat:x.inc?"":guess(x.desc,x.hint)};
-  if(x.inc){t.inc=1;ni++}else{n++;if(ccy&&ccy!=homeC()){t.fx={c:ccy,a:x.amt,r:0};t.src=id(x);t.amt=0}}S.tx.push(t)});
+  if(x.inc){t.inc=1;ni++}else{n++;if(x.fx)t.fx={c:x.fx.c,a:x.fx.a,r:x.amt/x.fx.a,m:1};else if(ccy&&ccy!=homeC()){t.fx={c:ccy,a:x.amt,r:0};t.src=id(x);t.amt=0}}S.tx.push(t)});
  save();return[n,ni,nm]}
 // Phone inbox (cloud.js listens; docs/backend.md): an item is short texts sent by a phone automation: amt, desc, card, date, or the
 // raw title and text of a payment notification, which are read here. Nothing is dropped: an item without a readable amount
@@ -210,6 +221,8 @@ function inboxRow(id,d){if(typeof d.say=="string"&&d.say&&!d.amt&&!d.desc){const
   want=sm?sm[0]:s("card"),iw=(all.match(/\bwith\s+([a-z]{3,})/i)||[])[1],l4=(want.match(/(\d{4})\s*$/)||all.match(/[•*·.x]{2,}\s*(\d{4})/i)||[])[1],
   card=cards.find(c=>want&&c.toLowerCase()==want.toLowerCase())||(l4&&cards.find(c=>c.includes(l4)))||(want&&!/^\D*\d{4}$/.test(want)?want:"")||(iw&&cards.find(c=>c.toLowerCase().includes(iw.toLowerCase())))||(cards.includes(S.defCard)?S.defCard:"")||cards[0]||"My card",
   t={id,date:/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date)?date:ymd(),desc,amt,card:canon(card),cat:desc?guess(desc):"Other",auto:1};
+ // From a payment notification (Wallet / Apple Pay): the statement import prefers it for a row paid by phone.
+ if(!d.say&&(s("title")||s("text")))t.via="w";
  // The card's words leave the place: "Coffee with Max card" becomes "Coffee".
  if(sm){const x=t.desc.replace(new RegExp("\\s*\\b(with|using|by)?\\s*"+sm[1]+"\\b(\\s+card)?","i")," ").replace(/\s+/g," ").trim();if(x&&x!=t.desc){t.desc=x[0].toUpperCase()+x.slice(1);t.cat=guess(t.desc)}}
  // Read from a notification without a shekel amount (foreign money, or nothing found): keep the original words in the note.
@@ -331,9 +344,9 @@ function readFile(f){const m=$("msg"),r=new FileReader(),my=++readN;slipShow(nul
  if(!/\.xlsx?$/i.test(f.name)){r.onload=()=>{$("paste").value=r.result};return r.readAsText(f)}
  m.textContent="Reading the file…";
  r.onload=()=>loadXlsx().then(()=>{const w=XLSX.read(r.result,{type:"array",cellNF:true}),text=w.SheetNames.map(n=>sheetText(w.Sheets[n])).filter(Boolean).join("\n");
-   $("paste").value=text;const d4=cardDigits(text,f.name),c=$("card");
+   $("paste").value=text;const ds=fileCards(parse(text)||[]),d4=cardDigits(text,f.name)||ds[0],c=$("card");
    if(d4&&(!c.value.trim()||c.value==autoCard)){c.value=autoCard=CL.find(x=>x.includes(d4))||"Card "+d4;impRule()}
-   m.textContent="File read. Check the card name, then press Import and sort."})
+   m.textContent=ds.length>1?`File read: it has ${ds.length} cards (${ds.join(", ")}). Each row goes to its own card; the name below is for ${d4}. Press Import and sort.`:"File read. Check the card name, then press Import and sort."})
   .catch(()=>{m.textContent="Couldn’t read that Excel file. Export it as CSV instead, or paste the rows."});
  r.readAsArrayBuffer(f)}
 // A backup or restore file is the user's own, but its values end up inside the page's HTML, so force the risky ones into shape.
@@ -341,10 +354,10 @@ function clean(o){const id=x=>String(x||"").replace(/[^\w:.-]/g,"")||uid();
  if(!o||!Array.isArray(o.tx)||o.tx.some(t=>!t||!/^\d{4}-\d{2}-\d{2}$/.test(t.date)||typeof t.amt!="number"))return null;
  o.tx.forEach(t=>{t.id=id(t.id);t.desc=String(t.desc||"");if(t.src!=null)t.src=String(t.src);if(t.note!=null)t.note=String(t.note).slice(0,500);
   if(t.inc){t.inc=1;t.amt=Math.abs(t.amt);t.card=String(t.card||"");t.cat=String(t.cat||"")}else{delete t.inc;t.card=String(t.card||"My card");t.cat=String(t.cat||"Other")}
-  if(t.auto&&!t.inc)t.auto=1;else delete t.auto;
+  if(t.auto&&!t.inc)t.auto=1;else delete t.auto;if(t.via!="w")delete t.via;
   if(t.fx&&typeof t.fx=="object"&&CCY[t.fx.c]&&isFinite(t.fx.a)&&isFinite(t.fx.r)&&t.fx.r>=0)t.fx=Object.assign({c:t.fx.c,a:+t.fx.a,r:+t.fx.r},t.fx.m?{m:1}:{});else delete t.fx;
   if(Array.isArray(t.split))t.split=t.split.filter(p=>p&&typeof p.amt=="number"&&isFinite(p.amt)).map(p=>({cat:String(p.cat||"Other"),amt:p.amt}));fitSplit(t)});
- if(!Array.isArray(o.recur))o.recur=[];o.recur.forEach(r=>{r.id=id(r.id);r.amt=+r.amt||0;r.day=Math.min(28,Math.max(1,parseInt(r.day)||1));r.desc=String(r.desc||"");if(r.inc)r.inc=1;else delete r.inc});
+ if(!Array.isArray(o.recur))o.recur=[];o.recur.forEach(r=>{r.id=id(r.id);r.amt=+r.amt||0;r.day=Math.min(28,Math.max(1,parseInt(r.day)||1));r.desc=String(r.desc||"");if(r.inc)r.inc=1;else delete r.inc;if(r.st&&!r.inc)r.st=1;else delete r.st});
  if(o.budget&&typeof o.budget=="object"){const c=bare(),s=o.budget.cats;if(s&&typeof s=="object")for(const k in s)if(+s[k]>0)c[k]=+s[k];o.budget={total:Math.max(0,+o.budget.total||0),cats:c}}else delete o.budget;
  if(o.barMode!="budget")delete o.barMode;
  for(const k of["home","buy"])if(!CCY[o[k]])delete o[k];
@@ -374,6 +387,8 @@ function fmt(n){return esc(S.cur)+" "+n.toLocaleString(undefined,{maximumFractio
 // Account; each row can be switched. Rates come from frankfurter.dev (European Central Bank, free, no key), looked up for the
 // purchase date and cached on this device (localStorage "spend-fx", not synced); if offline the last known rate is used, else the
 // rate box on the row is typed by hand. Editing the home amount of a foreign row changes its rate (the card statement's real charge).
+// A currency cell ("€", "USD", "ש"ח") as a code from CCY, or "" if unknown.
+const curCode=s=>{s=String(s||"").trim();const u=s.toUpperCase(),M={"₪":"ILS","ש\"ח":"ILS","ש״ח":"ILS","NIS":"ILS","$":"USD","€":"EUR","£":"GBP","¥":"JPY","₺":"TRY","฿":"THB","₹":"INR"};return CCY[u]?u:M[s]||M[u]||""};
 const CCY={ILS:"₪",USD:"$",EUR:"€",GBP:"£",CHF:"CHF",JPY:"¥",CAD:"CA$",AUD:"A$",TRY:"₺",CZK:"Kč",PLN:"zł",HUF:"Ft",SEK:"kr",NOK:"kr",DKK:"kr",THB:"฿",CNY:"CN¥",INR:"₹",MXN:"MX$",ZAR:"R"};
 const homeC=()=>CCY[S.home]?S.home:Object.keys(CCY).find(k=>CCY[k]==S.cur)||"ILS",buyC=()=>CCY[S.buy]?S.buy:homeC();
 const fmtc=(n,c)=>esc(CCY[c]||c)+" "+n.toLocaleString(undefined,{maximumFractionDigits:2}),r2=n=>Math.round(n*100)/100;
@@ -680,8 +695,30 @@ $("go").onclick=()=>{const m=$("msg"),sl=/נטו|וטנ/.test($("paste").value)&
  const p=parse($("paste").value);
  if(!p){m.textContent="Couldn’t find date, description and amount columns. Check the first row has headers like Date, Description, Amount.";return}
  if(!p.length){m.textContent="No purchases found in that text.";return}
- const card=canon($("card").value)||"My card";S.cards[card]=+$("irule").value;
- const[n,ni,nm]=add(p,card,$("icur").value),sk=p.length-n-ni-nm;m.textContent=`Added ${n} purchase${n==1?"":"s"}${ni?` and ${ni} income`:""}${nm?`, matched ${nm} you had already added`:""}${sk?`, skipped ${sk} already saved`:""}.`;$("paste").value="";$("file").value="";$("icur").dataset.k="";render()};
+ // A file covering several cards (a "last 4 digits" column): each row goes to the card whose name has its digits; the name typed
+ // above is for the file's main card (most rows) and for rows without digits; another card with no saved name becomes "Card 1234".
+ // A typed name ending in 4 digits belongs to those digits only. The chosen counting rule goes to the typed card and to every card this import creates.
+ const typed=canon($("card").value)||"My card",main=fileCards(p)[0],g=new Map(),end=c=>(String(c).match(/(\d{4})\s*$/)||[])[1],td=end(typed),
+  cardOf=d=>!d||td==d?typed:CL.find(c=>end(c)==d)||(!td&&d==main?typed:"Card "+d);
+ p.forEach(x=>{const c=cardOf(x.d4);if(!g.has(c))g.set(c,[]);g.get(c).push(x)});
+ g.forEach((l,c)=>{if(c==typed||!CL.includes(c))S.cards[c]=+$("irule").value});
+ let n=0,ni=0,nm=0;g.forEach((l,c)=>{const r=add(l,c,$("icur").value);n+=r[0];ni+=r[1];nm+=r[2]});const sk=p.length-n-ni-nm;
+ m.textContent=`Added ${n} purchase${n==1?"":"s"}${ni?` and ${ni} income`:""}${nm?`, matched ${nm} you had already added`:""}${sk?`, skipped ${sk} already saved`:""}${g.size>1?`, on ${g.size} cards (${[...g.keys()].join(", ")})`:""}.`;
+ // Standing orders ("הוראת קבע") not yet in Recurring are offered as recurring bills, one button each (latest row of each).
+ const so=new Map();g.forEach((l,c)=>l.filter(x=>x.so&&!x.inc&&x.amt>0).forEach(x=>{const k=c+"|"+x.desc,o=so.get(k);if(!o||o.date<x.date)so.set(k,{desc:x.desc,amt:x.amt,date:x.date,card:c})}));
+ recOffer=[...so.values()].filter(o=>!S.recur.some(r=>!r.inc&&(r.card||"Recurring")==o.card&&(r.desc==o.desc||Math.abs(r.amt-o.amt)<.005)));
+ $("paste").value="";$("file").value="";$("icur").dataset.k="";render();recShow()};
+// The last 4 digits found on the rows of a file, the most used first.
+function fileCards(p){const n=bare();p.forEach(x=>{if(x.d4)n[x.d4]=(n[x.d4]||0)+1});return Object.keys(n).sort((a,b)=>n[b]-n[a])}
+let recOffer=[];
+function recShow(){const el=$("recoff");el.hidden=!recOffer.length;
+ el.innerHTML=recOffer.length?`<span>Standing orders on this statement. Add as monthly bills?</span>`+recOffer.map((o,i)=>`<button data-recoff="${i}">↻ ${esc(o.desc)} · ${fmtc(o.amt,homeC())} · day ${Math.min(28,+o.date.slice(8))}</button>`).join(""):""}
+// A bill made from a statement starts this month. Its rows are marked "not on a statement yet" (auto) so the next statement
+// replaces each one instead of adding it twice; this month is skipped if the statement already brought this month's charge.
+$("recoff").onclick=e=>{const b=e.target.closest("[data-recoff]");if(!b)return;const o=recOffer[+b.dataset.recoff];if(!o)return;
+ const r={id:"r"+uid(),desc:o.desc,amt:o.amt,day:Math.min(28,+o.date.slice(8)),card:o.card,start:ymd().slice(0,7),st:1};
+ if(!S.recDone)S.recDone=bare();if(S.tx.some(t=>!t.inc&&!t.auto&&t.card==o.card&&Math.abs(t.amt-o.amt)<.005&&t.date.slice(0,7)==r.start))S.recDone[r.id+":"+r.start]=1;
+ S.recur.push(r);recOffer=recOffer.filter(x=>x!=o);$("msg").textContent="Added “"+o.desc.slice(0,40)+"” to Recurring.";recGen();render();recShow()};
 $("sample").onclick=()=>{const a=[["2026-11-02","Shufersal Deal Ramat Gan",312.4],["2026-11-03","Wolt Tel Aviv",89],["2026-11-04","Pango Parking",24],["2026-11-05","Netflix.com",54.9],["2026-11-06","Super-Pharm",67.5],["2026-11-08","Aroma Cafe",38],["2026-11-09","Zara",259],["2026-10-28","Rami Levy",420.1],["2026-10-30","Cinema City",96],["2026-10-21","Delek Fuel",250]];
  const b=[["2026-11-01","Arnona Tel Aviv",640],["2026-11-03","Rami Levy",488.3],["2026-11-07","Electric IEC",402],["2026-11-08","Wolt Dinner",142],["2026-11-10","Booking.com Hotel",1380],["2026-10-29","Yochananof",276.8],["2026-10-25","Partner Internet",99]];
  if(S.cards["Joint card"]==null)S.cards["Joint card"]=50;
@@ -692,7 +729,7 @@ function recGen(){
  const today=ymd(),nowM=today.slice(0,7);
  S.recur.forEach(r=>{let m=r.start,g=0;
   while(m&&m<=nowM&&g++<120){const k=r.id+":"+m,dt=m+"-"+String(Math.min(r.day||1,28)).padStart(2,"0");
-   if(!S.recDone[k]&&dt<=today){S.recDone[k]=1;S.tx.push(r.inc?{id:"rec-"+k,date:dt,desc:r.desc,amt:Math.abs(r.amt),inc:1,card:"",cat:""}:{id:"rec-"+k,date:dt,desc:r.desc,amt:r.amt,card:r.card||"Recurring",cat:guess(r.desc)})}
+   if(!S.recDone[k]&&dt<=today){S.recDone[k]=1;S.tx.push(r.inc?{id:"rec-"+k,date:dt,desc:r.desc,amt:Math.abs(r.amt),inc:1,card:"",cat:""}:{id:"rec-"+k,date:dt,desc:r.desc,amt:r.amt,card:r.card||"Recurring",cat:guess(r.desc),...(r.st?{auto:1}:{})})}
    const[y,mo]=m.split("-").map(Number);m=mo==12?(y+1)+"-01":y+"-"+String(mo+1).padStart(2,"0")}});
  save()}
 function addRec(){const d=$("rdesc").value.trim(),a=parseFloat($("ramt").value),inc=$("rkind").value=="inc";if(!d||!a)return;

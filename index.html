@@ -7,7 +7,7 @@ Content Security Policy (the meta tag in the head): the page may load scripts on
 Storage: localStorage "spend-v1" in local-only mode; Firestore per account in cloud mode. No bank connection.
 Top row (redesign part 1, 2026-11-18): "+ Add purchase" and one "More" menu (Import, Cards, Recurring, Budget, Report, Merchants, Account, then Theme and Delete all data; closes on a choice, outside click or Escape). Panels: Import, Cards, Recurring, Budget, Merchants, Account (cloud mode: sign out, Download/Restore, delete account; local-only mode shows it as "Backup" with Download/Restore only), Delete all (press twice).
 Look (2026-11-18): "Copilot blue" palette in style.css (light and dark variables on :root), the summary is a card with a progress bar toward the budget (green, amber from 80%, red when over). Theme button in the More menu cycles Auto (follows the device, default) / Light / Dark; kept per device in localStorage "spend-theme" (not synced), applied by the first lines of app.js, the browser bar colour (theme-color metas) follows;  Expenses list shows the latest 5 of the month ("Show all" / "Show only the latest 5"); no limit while searching or filtering by a category; adding a purchase shows all. Untested: a real phone, the brief flash if Light/Dark is chosen against the device setting (the theme is applied when app.js loads, not in the head).
-Import: CSV/Excel/pasted text. Finds each header row (several sheets are fine), uses the purchase date and the charged amount ("סכום חיוב", not "סכום עסקה"). Identical rows in one file are all kept; importing again skips only copies already saved on that card. Refunds come in as negative amounts. Installments ("תשלום 3 מתוך 5") are dated in their own month and labelled "3/5". The card's last 4 digits are read from the file to suggest a card name. A bank-style file (most amounts negative) imports the negatives as spending and the positives as income. A purchase edited after import remembers its imported values (src), so importing the same file again does not add it back. Tested on real Isracard and Max files (2026-11-15).
+Import: CSV/Excel/pasted text. Finds each header row (several sheets are fine), uses the purchase date and the charged amount ("סכום חיוב", not "סכום עסקה"). Identical rows in one file are all kept; importing again skips only copies already saved on that card. Refunds come in as negative amounts. Installments ("תשלום 3 מתוך 5") are dated in their own month and labelled "3/5". The card's last 4 digits are read from the file to suggest a card name. A file covering several cards (a "4 ספרות אחרונות" column) puts each row on its own card (saved name with those digits, else the typed name for the main card, else "Card 1234") (2026-11-22). Standing orders ("הוראת קבע") not yet in Recurring are offered after import as one-tap monthly bills; such a bill starts this month, its rows are marked "not on a statement yet" and a row of the next statement on the same card within 7 days, with the same amount or description, replaces them. A typed card name ending in 4 digits takes only those digits; the chosen counting rule also goes to cards the import creates. Not handled: a standing order bill whose description changes between statements. A row paid by phone ("תשלום בנייד") prefers a phone purchase from a Wallet notification when matching, other rows prefer the others. A purchase made in another currency keeps its original amount ("סכום עסקה מקורי" + currency) next to the charged shekels. A bank-style file (most amounts negative) imports the negatives as spending and the positives as income. A purchase edited after import remembers its imported values (src), so importing the same file again does not add it back. Tested on real Isracard and Max files (2026-11-15).
 Payslip (תלוש שכר): pick the PDF in Import, or paste its text. Only the net pay ("נטו לתשלום"), the slip's month and its issue date are read; a line shows them with a date box and "Add as income", which adds one income row "Salary MM/YYYY". The same slip is not added twice. Nothing else from the slip is saved. A picture of the slip (photo, screenshot, JPEG/PNG) is read by text recognition inside the browser, nothing is uploaded: Hebrew pass for the label, then the numbers on that row are read again as digits only when the first pass did not give a proper amount. A message asks to check the amount. A password-locked PDF gets a message.
 Cards: S.cards[name] = percent that counts (full 100, half 50, custom, not counted 0). Rename a card in the Cards panel. A joint card is a card set to half.
 Summary: spent, In and Left over (when the view has income), a figure per card (when more than one), currency.
@@ -72,7 +72,7 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
 <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=be6585f9d9">
+<link rel="stylesheet" href="style.css?v=d515d5104a">
 </head>
 <body>
 <main>
@@ -209,6 +209,7 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
   <div class="row" id="slip" hidden><span id="sliptxt"></span><input type="date" id="slipdate" aria-label="Date the money arrived"><button class="pri" id="slipgo">Add as income</button></div>
   <textarea id="paste" placeholder="date,description,amount&#10;2026-11-03,Shufersal Deal,214.50"></textarea>
   <div class="row"><button class="pri" id="go">Import and sort</button><button id="sample">Load sample data</button><span class="msg" id="msg"></span></div>
+  <div class="row recoff" id="recoff" hidden></div>
 </div></div>
 
 <div class="panel" id="p-crd" hidden><div class="grid">
@@ -284,7 +285,7 @@ IDEAS: see docs/handoff.md and the GitHub Issues.
  </form>
 </div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=be6585f9d9"></script>
-<script src="cloud.js?v=be6585f9d9"></script>
+<script src="app.js?v=d515d5104a"></script>
+<script src="cloud.js?v=d515d5104a"></script>
 </body>
 </html>

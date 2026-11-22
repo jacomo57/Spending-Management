@@ -735,6 +735,38 @@ async function local() {
     await upload(p, f); await p.click("#go");
     eq(await p.locator("#msg").textContent(), "Added 0 purchases, skipped 6 already saved.", "re-import");
   });
+  await test("Max export with two cards, a standing order, a foreign purchase and phone purchases", async () => {
+    const H = ["תאריך עסקה", "שם בית העסק", "קטגוריה", "4 ספרות אחרונות של כרטיס האשראי", "סוג עסקה", "סכום חיוב", "מטבע חיוב", "סכום עסקה מקורי", "מטבע עסקה מקורי", "תאריך חיוב", "הערות", "אופן ביצוע ההעסקה"];
+    const top = [["כל המשתמשים (1)"], ["כל הכרטיסים (2)"], ["11/2026"], H];
+    const f = xlsx("transaction-details_export_2.xlsx", [["עסקאות במועד החיוב", [...top,
+      ["01-10-2026", "מכון כושר לדוגמה", "פנאי, בידור וספורט", "1111", "רגילה", 100, "₪", 100, "₪", "02-11-2026", "הוראת קבע", "טלפוני"],
+      ["12-10-2026", "בית קפה לדוגמה", "מסעדות, קפה וברים", "1111", "רגילה", 30, "₪", 30, "₪", "02-11-2026", "", "תשלום בנייד"],
+      ["15-10-2026", "מלון לדוגמה", "טיסות ותיירות", "2222", "רגילה", 400, "₪", 100, "€", "02-11-2026", "", ""],
+      [], ["סך הכל"], ["530₪"]]]]);
+    const p = await open("?local=1");
+    // Two phone purchases of 30 that day: a quick add and a Wallet notification. The statement row was paid by phone, so it takes the Wallet one.
+    await p.evaluate(() => { inboxAdd([["q1", { amt: "30", desc: "quick coffee", date: "2026-10-12" }], ["w1", { title: "Coffee place", text: "₪30.00 with max Total ••1111", date: "2026-10-12" }]]); save(); render() });
+    await upload(p, f);
+    eq(await p.inputValue("#card"), "Card 1111", "main card from the rows");
+    await p.click("#go");
+    eq(await p.locator("#msg").textContent(), "Added 2 purchases, matched 1 you had already added, on 2 cards (Card 1111, Card 2222).", "import");
+    const st = await p.evaluate(() => S.tx.map(t => ({ d: t.desc, c: t.card, a: t.amt, fx: t.fx || null, auto: !!t.auto })));
+    eq(st.find(t => t.d == "מלון לדוגמה").c, "Card 2222", "row on its own card");
+    eq(JSON.stringify(st.find(t => t.d == "מלון לדוגמה").fx), JSON.stringify({ c: "EUR", a: 100, r: 4, m: 1 }), "original currency kept");
+    eq(st.filter(t => t.auto).map(t => t.d).join(), "quick coffee", "the Wallet purchase was the one matched");
+    // The standing order is offered as a monthly bill; this month's row then waits for the next statement and is replaced by it.
+    eq(await p.locator("#recoff button").count(), 1, "one standing order offered");
+    await p.click("#recoff button");
+    eq(await p.locator("#recoff").isVisible(), false, "offer gone after adding");
+    const rec = await p.evaluate(() => S.tx.find(t => String(t.id).startsWith("rec-")));
+    eq(!!(rec && rec.auto && rec.amt == 100 && rec.card == "Card 1111"), true, "bill row waits for a statement");
+    const [y, mo, d] = rec.date.split("-"), f2 = xlsx("transaction-details_export_3.xlsx", [["עסקאות במועד החיוב", [...top,
+      [`${+d + 2}-${mo}-${y}`, "מכון כושר לדוגמה", "פנאי, בידור וספורט", "1111", "רגילה", 105, "₪", 105, "₪", "02-12-2026", "הוראת קבע", "טלפוני"], [], ["סך הכל"], ["105₪"]]]]);
+    await upload(p, f2); await p.click("#go");
+    eq(await p.locator("#msg").textContent(), "Added 0 purchases, matched 1 you had already added.", "next statement");
+    eq(await p.evaluate(m => S.tx.filter(t => t.desc == "מכון כושר לדוגמה" && t.date.startsWith(m)).length, `${y}-${mo}`), 1, "bill not doubled, also when its amount changed");
+    eq(await p.locator("#recoff").isVisible(), false, "already recurring, not offered again");
+  });
   await test("an empty purchase abandoned on an earlier day is dropped on the next start", async () => {
     const p = await open("?local=1");
     await paste(p, "Visa", "date,description,amount\n2026-11-03,Zara,300");
