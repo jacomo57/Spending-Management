@@ -39,7 +39,7 @@ const own=o=>{if(o&&typeof o=="object")delete o["__proto__"];return o};
 function fixMaps(){for(const k of["rules","cards","recDone","hue","alias","icon"])if(!S[k]||typeof S[k]!="object"||Object.getPrototypeOf(S[k]))S[k]=bare(S[k]);
  const b=S.budget;if(b&&typeof b=="object"&&b.cats&&Object.getPrototypeOf(b.cats))b.cats=bare(b.cats)}
 let S={tx:[],rules:{},cur:"₪"};
-let wAll=false,HOW="exp",rpT="month",rpN=12,FOUND=[],rp=false,rpM=null,rpL=true,rpS=false,cmp=false,cmA=null,cmB=null,q="",cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null,showAll=false,catAll=false,catTop=[];
+let wAll=false,HOW="exp",rpT="month",rpN=12,FOUND=[],rp=false,rpM=null,rpL=true,rpS=false,cmp=false,cmA=null,cmB=null,q="",cardF="all",CL=[],crdMsg="",cat=null,tagF="",catMsg="",panel=null,focusCat=null,showAll=false,catAll=false,catTop=[];
 // Accounts + cloud sync (Firebase): see docs/backend.md. The cloud code is in cloud.js.
 // FB_REAL = the real project's firebaseConfig (public by design; firestore.rules is the protection).
 // If it is set to null the site falls back to local-only mode (localStorage, no sign-in).
@@ -451,7 +451,7 @@ let mTot=null,mTok=0,mBars=new Map(),mIds=null,mView=null,mList=null,mCat=null;
 function replay(el,cls){if(!el)return;cls=cls||"vin";el.classList.remove(cls);void el.offsetWidth;el.classList.add(cls)}
 function motion(tot){const on=MOTION(),n=document.querySelector("#big .n");
  // Opening or leaving the report: the screen that appears eases in. A new filter, month, sort or "Show all": the list fades in.
- const view=rp?"rep":PHONE()&&panel?"p:"+panel:"home",lk=[$("month").value,cardF,cat,showAll,S.sk,S.sd].join("|");
+ const view=rp?"rep":PHONE()&&panel?"p:"+panel:"home",lk=[$("month").value,cardF,cat,tagF,showAll,S.sk,S.sd].join("|");
  if(mView&&view!=mView&&PHONE()&&view!="rep")window.scrollTo(0,0);
  if(on&&mView&&view!=mView){if(rp)replay($("report"));else if(view=="home")document.querySelectorAll("#app>.sum,#app>section").forEach(e=>replay(e))}
  if(on&&mList!=null&&lk!=mList)replay($("rows"),"vfade");
@@ -500,7 +500,7 @@ function sheetSave(){const a=parseFloat(String($("shamt").value).replace(",","."
  const x=inc?{id,date:d,desc,amt:a,inc:1,card:"",cat:""}:{id,date:d,desc,amt:a,card:$("shcard").value||"My card",cat:$("shcat").value||guess(desc)};
  if(bc!=hc){x.fx={c:bc,a,r:0};x.amt=0}
  S.tx.push(x);pushUndo("Added “"+(desc||(inc?"income":"expense")).slice(0,28)+"”",()=>{S.tx=S.tx.filter(t=>t.id!=id)});
- pendingMonth=pk(d);q="";$("q").value="";if(cat&&(inc||x.cat!=cat))cat=null;
+ pendingMonth=pk(d);q="";$("q").value="";tagF="";if(cat&&(inc||x.cat!=cat))cat=null;
  if(MOTION())mGlow.set(id,performance.now());sheetClose();save();render();
  const b=document.querySelector(`#rows [data-del="${CSS.escape(id)}"]`);if(b)b.closest("tr").scrollIntoView({behavior:MOTION()?"smooth":"auto",block:"center"})}
 $("shform").addEventListener("submit",e=>{e.preventDefault();sheetSave()});
@@ -517,7 +517,7 @@ function doUndo(){const u=undo.pop();if(!u)return;u.fn();save();render();showToa
 document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key=="z"&&!/INPUT|TEXTAREA|SELECT/.test(e.target.tagName||"")&&undo.length){e.preventDefault();doUndo()}});
 let pendingMonth=null,focusTid=null,focusSp=null;
 function addPurchase(inc){const id=uid(),d=ymd();
- dropEmpty();q="";$("q").value="";
+ dropEmpty();q="";$("q").value="";tagF="";
  if(inc){S.tx.push({id,date:d,desc:"",amt:0,inc:1,card:"",cat:""});cardF="all";cat=null}
  else{const x={id,date:d,desc:"",amt:0,card:cardF!="all"?cardF:CL.find(c=>c!="Recurring")||"My card",cat:cat||"Other"};S.tx.push(x);
   if(buyC()!=homeC()){x.fx={c:buyC(),a:0,r:0};getRate(buyC(),homeC(),d).then(r=>{if(x.fx&&!x.fx.r){x.fx.r=r;if(S.tx.includes(x)){save();render()}}})}}
@@ -545,7 +545,6 @@ function render(){$("sample").hidden=S.tx.length>0;
  {const rv=$("rcard").value;$("rcard").innerHTML=copt(rc.includes(rv)?rv:"Recurring")}
  $("reclist").innerHTML=S.recur.map(r=>`<div class="row"><input dir="auto" data-rid="${r.id}" data-f="desc" value="${esc(r.desc)}" style="width:150px" aria-label="Description"><input data-rid="${r.id}" data-f="amt" type="number" step="0.01" value="${r.amt}" style="width:90px" aria-label="Amount"><input data-rid="${r.id}" data-f="day" type="number" min="1" max="28" value="${r.day}" style="width:60px" aria-label="Day of month">${r.inc?`<span class="sub">income</span>`:`<select data-rid="${r.id}" data-f="card" aria-label="Card">${copt(r.card||"Recurring")}</select>`}<button class="x" data-delrec="${r.id}" aria-label="Delete">✕</button></div>`).join("")||`<span class="msg">None yet.</span>`;
  $("cardlist").innerHTML=CL.map(c=>`<option value="${esc(c)}">`).join("");
- $("cardf").innerHTML='<option value="all">All cards</option>'+CL.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");$("cardf").value=cardF;
  const months=[...new Set(S.tx.map(t=>pk(t.date)))].sort().reverse();
  const cm=pendingMonth||$("month").value||(months.includes(pk(ymd()))?pk(ymd()):months[0]||"all");pendingMonth=null;
  const yrs=[...new Set(months.map(x=>x.slice(0,4)))];
@@ -581,12 +580,12 @@ function render(){$("sample").hidden=S.tx.length>0;
  {const ks=Object.keys(S.rules).sort((x,y)=>x.localeCompare(y)),co=[...S.cats,"Other"];
   $("merlist").innerHTML=ks.map(k=>{const c=S.rules[k],os=co.includes(c)?co:[...co,c];return `<div class="row"><span dir="auto" style="width:170px">${esc(k)}</span><select data-mk="${esc(k)}" aria-label="Category for ${esc(k)}">${os.map(o=>`<option value="${esc(o)}"${o==c?" selected":""}>${esc(o)}</option>`).join("")}</select><button class="x" data-delmk="${esc(k)}" aria-label="Forget ${esc(k)}">✕</button></div>`}).join("")||`<span class="msg">None yet. They are learned when you change a purchase's category.</span>`}
  $("budlist").innerHTML=S.cats.map((c,i)=>`<label class="row"><span dir="auto" style="width:150px">${esc(c)}</span><input data-bi="${i}" type="number" min="0" step="1" value="${B.cats[c]||""}" placeholder="No budget" style="width:120px" aria-label="Budget for ${esc(c)}"></label>`).join("");
- const shown=Object.keys(per).sort((a,b)=>per[b]-per[a]||a.localeCompare(b)),one=shown.length==1?rl(pct(shown[0])):"";
+ const P=cardF=="all"?per:calc(S.tx.filter(t=>m=="all"||pk(t.date).startsWith(m))).per,shown=Object.keys(P).concat(cardF!="all"&&!(cardF in P)?[cardF]:[]).sort((a,b)=>(P[b]||0)-(P[a]||0)||a.localeCompare(b)),one=cardF!="all"?rl(pct(cardF)):shown.length==1?rl(pct(shown[0])):"";
  {const el=$("trip"),bc2=buyC(),hc=homeC();el.hidden=bc2==hc;
   if(bc2!=hc){let fa=0,ha=0;for(const t of base)if(!t.skip&&!t.inc&&t.fx&&t.fx.c==bc2){const x=v(t);ha+=x;fa+=t.amt?t.fx.a*x/t.amt:0}
    el.innerHTML=`✈ Buying in <b>${bc2}</b>`+(fa||ha?` · <b>${fmtc(fa,bc2)}</b> spent · ${fmt(ha)}`:" · nothing spent yet")}}
  $("big").innerHTML=`<div><div class="n">${fmt(tot)}</div><div class="l">spent${one?" · "+one:""}${K.back?" · after "+fmt(K.back)+" paid back":""}</div>${bh}${bl}</div>`+
-  (shown.length>1?shown.map(c=>`<div><div class="m">${fmt(per[c])}</div><div class="l">${esc(c)}${rl(pct(c))?" · "+rl(pct(c)):""}</div></div>`).join(""):"")+(ign.length?`<div class="l">Not counting ${ign.length} ignored (${fmt(ign.reduce((a,t)=>a+v(t),0))})</div>`:"");
+  (shown.length>1?shown.map(c=>`<button class="cd${cardF==c?" on":""}" data-card="${esc(c)}" aria-pressed="${cardF==c}"><span class="m">${fmt(P[c]||0)}</span><span class="l" dir="auto">${esc(c)}${rl(pct(c))?" · "+rl(pct(c)):""}</span></button>`).join(""):"")+(ign.length?`<div class="l">Not counting ${ign.length} ignored (${fmt(ign.reduce((a,t)=>a+v(t),0))})</div>`:"");
  const mx=Math.max(1,...Object.values(by));
  // Bars (S.barMode): by amount (every bar against the largest category) or by budget (a bar with a budget fills toward it, one without stays empty).
  // Either way the colour warns from 80% of a budget and turns red when over, and "of ₪X" stays next to the amount.
@@ -606,15 +605,17 @@ function render(){$("sample").hidden=S.tx.length>0;
  $("catall").textContent=catAll?"Done":"All categories ("+S.cats.length+") · Edit";$("catreset").hidden=!(catAll&&pick0)||cmp;$("addrow").hidden=!catAll||cmp;
  $("catmsg").textContent=catMsg;
  document.querySelectorAll("[data-cs]").forEach(b=>b.classList.toggle("on",b.dataset.cs==(S.catSort=="manual"?"manual":"size")));
- $("chip").innerHTML=cat?`<button id="clearcat">${ic(cat)}${esc(cat)} ✕</button>`:"";
  const sk=S.sk||"date",sd=S.sd=="asc"?1:-1,val=t=>sk=="amt"?(t.inc?t.amt:v(t)):String(t[sk]||"").toLowerCase();
  const qw=q.toLowerCase().split(/\s+/).filter(Boolean),hit=t=>{const s=[t.desc,t.note,catLabel(t),t.card,t.amt].join("\n").toLowerCase(),tg=tags(t);return qw.every(w=>w[0]=="#"&&w.length>1?tg.includes(w.slice(1)):s.includes(w))};
- const found=base.filter(t=>(!cat||has(t,cat))&&hit(t));FOUND=found;
- {const ts=tagSums(base),el=$("tags");el.hidden=!ts.length;el.innerHTML=ts.map(([g,s])=>`<button data-tag="${esc(g)}"${q.trim().toLowerCase()=="#"+g?' class="on"':""}>#${esc(g)} <span class="sub">${fmt(s)}</span></button>`).join("")}
- $("found").hidden=!qw.length;if(qw.length)$("found").textContent=`${found.length} found, ${fmt(calc(found).spent)}`;
+ const found=base.filter(t=>(!cat||has(t,cat))&&(!tagF||tags(t).includes(tagF))&&hit(t));FOUND=found;
+ {const ts=tagSums(base),tl=!tagF||ts.some(x=>x[0]==tagF)?ts:[...ts,[tagF,0]],cs=[...S.cats,"Other"].filter(c=>c in by||c==cat),on=[cardF!="all"&&cardF,cat,tagF&&"#"+tagF].filter(Boolean),
+  o=(x,l)=>`<option value="${esc(x)}">${esc(l)}</option>`,g=(l,a)=>a.length?`<optgroup label="${l}">${a.join("")}</optgroup>`:"",el=$("fsel");
+  el.innerHTML=o("","All expenses")+(on.length>1?o("mix",on.join(" · ")):"")+g("Cards",CL.map(c=>o("c:"+c,c)))+g("Categories",cs.map(c=>o("k:"+c,c)))+g("Tags",tl.map(([x,v])=>o("t:"+x,"#"+x+" · "+fmt(v))));
+  el.value=on.length>1?"mix":cardF!="all"?"c:"+cardF:cat?"k:"+cat:tagF?"t:"+tagF:"";el.classList.toggle("on",on.length>0)}
+ $("found").hidden=!(qw.length||tagF);if(qw.length||tagF)$("found").textContent=`${found.length} found, ${fmt(calc(found).spent)}`;
  const list=found.sort((a,b)=>{const x=val(a),y=val(b),c=typeof x=="number"?x-y:x.localeCompare(y);return (c*sd)||b.date.localeCompare(a.date)});
- const lim=!qw.length&&!cat&&!showAll&&list.length>5,vis=lim?list.slice(0,5):list;
- $("allrow").hidden=list.length<=5||qw.length>0||!!cat;$("showall").textContent=lim?"Showing the latest 5 of "+list.length+" · Show all":"Show only the latest 5";
+ const lim=!qw.length&&!cat&&!tagF&&!showAll&&list.length>5,vis=lim?list.slice(0,5):list;
+ $("allrow").hidden=list.length<=5||qw.length>0||!!cat||!!tagF;$("showall").textContent=lim?"Showing the latest 5 of "+list.length+" · Show all":"Show only the latest 5";
  const cols=[["date","Date"],["desc","Description"],["cat","Category"],["card","Card"],["amt","Amount"]];
  $("head").innerHTML=cols.map(([k,l])=>`<th${k=="amt"?' class="amt"':""} aria-sort="${sk==k?(sd==1?"ascending":"descending"):"none"}"><button data-sort="${k}">${l}${sk==k?(sd==1?" ▲":" ▼"):""}</button></th>`).join("")+`<th class="k">Ignore</th><th></th>`;
  const soonest=dstr(new Date(Date.now()-40*864e5));
@@ -678,7 +679,7 @@ function trendRows(){const ms=trendMonths();return repRows("all").filter(t=>ms.i
 function repOther(el){
  let body="";
  if(rpT=="sel"){const K=calc(FOUND),lst=(rpS?FOUND:FOUND.filter(t=>!t.skip)).slice().sort((x,y)=>x.date.localeCompare(y.date)),m=$("month").value,cats=Object.keys(K.by).sort((x,y)=>K.by[y]-K.by[x]||x.localeCompare(y)),
-   fl=[m=="all"?"All time":m.length==4?"Year "+m:mname(m),cardF=="all"?"All cards":"Card: "+cardF,cat?"Category: "+cat:"",q.trim()?"Search: "+q.trim():""].filter(Boolean).join(" · ");
+   fl=[m=="all"?"All time":m.length==4?"Year "+m:mname(m),cardF=="all"?"All cards":"Card: "+cardF,cat?"Category: "+cat:"",tagF?"Tag: #"+tagF:"",q.trim()?"Search: "+q.trim():""].filter(Boolean).join(" · ");
   body=`<h2>Selected expenses</h2><div class="sub" dir="auto">${esc(fl)}</div><div class="sub">Set the month, card, category and search on the main screen first.</div>
   <div class="rbig"><div><b>${fmt(K.spent)}</b><span>spent in ${FOUND.filter(t=>!t.skip).length} entries${K.back?" · after "+fmt(K.back)+" paid back":""}</span></div></div>
   ${cats.length?sec("By category",repTable([["Category"],["Amount",1]],cats.map(c=>repTr([[esc(c),0,1],[fmt(K.by[c]),1]])).join(""))):""}
@@ -768,7 +769,7 @@ $("dl").onclick=()=>{S.bak=ymd();const a=document.createElement("a"),u=URL.creat
  a.href=u;a.download="spend-backup-"+ymd()+".json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);$("rsmsg").textContent="Saved to your downloads. Keep the file somewhere private.";save();render()};
 let rsPend=null,rsT=null;
 function rsReset(){rsPend=null;clearTimeout(rsT);$("rsbtn").textContent="Restore from file";$("rsfile").value=""}
-$("rsbtn").onclick=()=>{if(!rsPend)return $("rsfile").click();const old=S;S=rsPend;rsReset();fixMaps();cat=null;cardF="all";
+$("rsbtn").onclick=()=>{if(!rsPend)return $("rsfile").click();const old=S;S=rsPend;rsReset();fixMaps();cat=null;cardF="all";tagF="";
  pushUndo("Restored from file",()=>{S=old});save();render();$("rsmsg").textContent="Restored "+S.tx.length+" purchases."};
 $("rsfile").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
  r.onload=()=>{let o=null;try{o=JSON.parse(r.result);o=clean(o&&o.data||o)}catch(x){o=null}rsReset();
@@ -822,6 +823,7 @@ if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cn
  if(t.id=="wmore"){wAll=!wAll;render();return}
  if(t.dataset.winc){wInc([t.dataset.winc]);return}
  if(t.dataset.wdel){wDel(t.dataset.wdel);return}
+ {const cd=t.closest&&t.closest("[data-card]");if(cd){cardF=cardF==cd.dataset.card?"all":cd.dataset.card;render();return}}
  const b=t.closest&&t.closest("[data-c]");if(b){cat=cat==b.dataset.c?null:b.dataset.c;render()}
  if(t.id=="repb"){rp=true;rpM=null;render();window.scrollTo(0,0);return}
  if(t.dataset.rclose!==undefined){rp=false;render();return}
@@ -829,7 +831,6 @@ if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cn
  if(t.dataset.rx!==undefined){exportXlsx().catch(()=>{});return}
  if(t.id=="cmpb"){cmp=!cmp;if(cmp){catAll=false;cat=null}render();return}
  const tb=t.closest&&t.closest("[data-tm]");if(tb){$("month").value=tb.dataset.tm;cmA=null;render();return}
- if(t.id=="clearcat"){cat=null;render()}
  if(t.id=="addcat")addCat();
  if(t.id=="addp"){if(PHONE())sheetOpen();else addPurchase()}
  if(t.id=="slipgo")slipAdd();
@@ -842,7 +843,6 @@ if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cn
  if(t.dataset.delmk){const k=t.dataset.delmk,old=S.rules[k];if(old!=null){delete S.rules[k];pushUndo("Forgot merchant “"+k+"”",()=>{S.rules[k]=old});save();render()}}
  if(t.dataset.spdel){const x=S.tx.find(y=>y.id==t.dataset.spdel),i=+t.dataset.i,p=x&&sp(x)[i];
   if(p){x.split.splice(i,1);if(!x.split.length)delete x.split;pushUndo("Removed a split part",()=>{const y=S.tx.find(z=>z.id==x.id);if(y&&!y.inc)(y.split=sp(y)).splice(Math.min(i,y.split.length),0,p)});save();render()}}
- {const tg=t.closest&&t.closest("[data-tag]");if(tg){q=q.trim().toLowerCase()=="#"+tg.dataset.tag?"":"#"+tg.dataset.tag;$("q").value=q;render();return}}
  if(t.id=="undo")doUndo();
  const sb=t.closest&&t.closest("[data-sort]");if(sb){const c=sb.dataset.sort;if((S.sk||"date")==c)S.sd=(S.sd||"desc")=="asc"?"desc":"asc";else{S.sk=c;S.sd=(c=="amt"||c=="date")?"desc":"asc"}save();render()}});
 document.addEventListener("change",e=>{const t=e.target;
@@ -889,7 +889,7 @@ document.addEventListener("change",e=>{const t=e.target;
  else if(t.dataset.ci){const c=CL[+t.dataset.ci],f=t.dataset.f;if(c==null)return;
   if(f=="name"){const nv=t.value.trim();later(()=>renameCard(c,nv))}
   else{S.cards[c]=t.value=="c"?25:Math.min(100,Math.max(0,parseFloat(t.value)||0));save();later(render)}}
- else if(t.id=="cardf"){cardF=t.value;render()}
+ else if(t.id=="fsel"){const k=t.value.slice(0,2),x=t.value.slice(2);if(t.value!="mix"){cardF=k=="c:"?x:"all";cat=k=="k:"?x:null;tagF=k=="t:"?x:"";if(cat)cmp=catAll=false;render()}}
  else if(t.id=="icur")t.dataset.k=1;
  else if(t.id=="cur"&&CCY[t.value])changeHome(t.value);
  else if(t.id=="buy"&&CCY[t.value]){S.buy=t.value;save();render()}
