@@ -1066,6 +1066,9 @@ async function local() {
     await p.click('.big [data-card="Amex"]'); eq(await rows(p), 1, "rows on Amex"); eq(await p.locator(".big [data-card]").count() > 1, true, "other cards still shown");
     await p.click('.big [data-card="Amex"]'); eq(await rows(p), 3, "tap again for all cards");
     eq(await first(), "Cinema", "newest first at the start");
+    await p.evaluate(() => { S.tx.find(t => t.desc == "Cinema").time = "09:00"; S.tx.push({ id: "late", date: "2026-11-05", time: "21:30", desc: "Late", amt: 5, card: "Amex", cat: "Other" }, { id: "nt", date: "2026-11-05", desc: "NoTime", amt: 5, card: "Amex", cat: "Other" }); render() });
+    eq(await p.locator("#rows [data-f=\"desc\"]").evaluateAll(e => e.slice(0, 3).map(x => x.value).join()), "Late,Cinema,NoTime", "same day: latest time first, no time last");
+    await p.evaluate(() => { S.tx = S.tx.filter(t => !["late", "nt"].includes(t.id)); render() });
     await p.click("#sortd"); eq(await first(), "Zara", "arrow reverses (oldest first)");
     await p.selectOption("#sortf", "amt"); eq(await first(), "Zara", "amount, biggest first");
     await p.click("#sortd"); eq(await first(), "Cinema", "amount, smallest first");
