@@ -1,34 +1,36 @@
 # Handoff (living: rewritten at every handoff, history goes to `docs/archive.md`)
 
-Last updated 2026-11-21. Project `C:\Claude\Spending Project`, branch `dev`, remote jacomo57/Spending-Management. A session reads `CLAUDE.md` and this file only.
+Last updated 2026-11-23. Project `C:\Claude\Spending Project`, branch `dev`, remote jacomo57/Spending-Management. A session reads `CLAUDE.md` and this file only.
 
 ## Where things stand
-- Everything planned on 2026-11-18 is done and live: multi-currency, report with income, How to page, main screen (spent, left of budget, trip strip), Work page with Israeli overtime pay, and the motion and polish pass with the phone bottom bar. Details in `docs/archive.md` (2026-11-19 entries).
-- 61 tests pass (`npm test`, `failures: 0`). The import test "re-importing after editing a purchase" failed once with a timeout and passed on reruns: watch for it.
-- User opens the app rarely, mostly on the phone, for a quick look; the PC is for development and a monthly look. Everything stays revertable (small commits on `dev`).
-- Hebrew interface is parked, but keep it possible (use start/end, not left/right, in new CSS). "Partner owes" is dropped.
+- All work is done and live (last release afe7157). Latest: expenses toolbar (Sort dropdown + arrow, card totals filter), the app's own pickers (floating card on a computer, bottom sheet on a phone), optional purchase time with one date-and-time button, the phone press time, date sort by date and time. Details in `docs/archive.md` (2026-11-23) and `docs/spec.md`.
+- 64 tests pass (`npm test`, `failures: 0`). An import test ("re-importing after editing a purchase") once timed out and passed on rerun: watch for it.
+- User opens the app rarely, mostly on the phone; the PC is for development. Small, revertable commits on `dev`.
+- Hebrew interface is parked, but keep it possible (start/end, not left/right, in new CSS). "Partner owes" is dropped. Dropped 2026-11-21: "Hey Google" / Gemini triggers and anything needing a paid server function.
+- Firebase sign-up stays ON on purpose (user decided 2026-11-23).
 
-## Next
-iPhone guide written 2026-11-21 (`docs/phone.md`, section "iPhone (Shortcuts app)"; the file was reorganised 2026-11-21 into Android, iPhone, links, troubleshooting): quick expense, voice add, work timer, Apple Pay automation, starters (Action Button, Back Tap, Siri, NFC). Never tried on an iPhone: wait for the user's feedback and fix the guide where menu names differ. Still waiting for phone feedback on animations, bottom bar, back gesture, Work totals and the `#add` / `#work-toggle` links.
-Statement import (2026-11-22): a file with several cards splits by the last-4-digits column; standing orders offered as monthly bills; phone-paid rows prefer Wallet purchases when matching; foreign purchases keep the original amount. Checked with the user's real Max export (locally, not saved) and a made-up test. Not checked on the live site with real data; no How to topic yet.
-Audit fixes (2026-11-23): sample-data button only on an empty account; one last-4-digits rule (byDigits); rate lookups only in fillRates; spec moved from index.html to docs/spec.md; live site CSP drops the emulator addresses (pages.yml); Account shows the age of the last backup. Firebase sign-up stays ON on purpose: turning it off would also block invite sign-ups (user decided 2026-11-23); strangers can make empty logins only.
-Dropped by the user 2026-11-21: "Hey Google" / Gemini triggers and anything needing a paid server function (so no in-app AI analyst on a server).
+## Next (waiting on the user)
+- Phone feedback on the new pickers (bottom sheet, calendar with month list, time wheels, Back closing the sheet) on a real Android phone, and on an iPhone if one is available.
+- The Wallet-payment macro: add the time (`docs/phone.md`, "Add the time to an older button"). Quick expense with the time is confirmed working.
+- iPhone guide (`docs/phone.md`, "iPhone (Shortcuts app)") never tried on an iPhone: fix it where the menu names differ.
+- Statement import: the user should import the next Max file on the live site to confirm the multi-card split. The user should press "Download my data" once.
+
 ## Open items
-- Voice button: confirmed on the user's Android phone 2026-11-21 (popups, card picking, start/end shift). English only by the user's choice (Voice Input listens in one language). Shift = "start shift" / "end shift" anywhere in the sentence; expense = largest number + place; any English word (3+ letters) of a card name picks the card (`parseSay`, `inboxRow`, `shiftOf`, `phoneDate` in `app.js`). The popup can only show what was heard, not the app's parsed result (the app applies items when next open).
-- Work-timer button (MacroDroid, `docs/phone.md`): confirmed working on the user's phone 2026-11-20 (app closed, press, press, open: one session with the real times). The timer shows only after the app is next opened; a server function would be needed otherwise (Firebase paid plan, declined).
-- Never checked on a real phone: the motion pass (its smoothness was never seen: the browser pane draws about 2 frames a second), the bottom bar, swipe to delete, the Work page and timer, multi-currency with real euro statements and notifications. The dark theme of the new screens was not checked.
-- Not confirmed on a phone: the back gesture staying in the app; the `#...` links opening the installed app (not the browser).
-- How to page: no topic yet for Work, the links, the phone bottom bar, the + button or swipe to delete.
-- Work page, not handled: editing a session after it was added to income leaves the income row as it was; the hourly rate is not converted when the home currency changes; no weekly 42-hour limit, unpaid breaks or built-in holiday list (left out on purpose).
+- Never checked on a real phone: motion smoothness, the bottom bar, swipe to delete, Work page and timer, multi-currency with real euro statements, notifications, the back gesture staying in the app, the `#...` links opening the installed app. The dark theme of newer screens is not checked.
+- Voice button: confirmed on Android 2026-11-21, English only by choice; it already sends the time. The popup can show only what was heard.
+- Work timer: the timer only updates when the app is next opened (a server function would need the paid Firebase plan, declined).
+- How to page: no topic for Work, the links, the bottom bar, the + button, swipe to delete, statement import, the pickers.
+- Work page, not handled: editing a session after it went into income leaves the income row as it was; the hourly rate is not converted when the home currency changes; no weekly 42-hour limit, unpaid breaks or holiday list (on purpose).
 - Main-screen ideas the user declined for now: vs last month, money in and out, biggest this month, waiting to confirm, recurring coming up, streak/alert.
-- Not individually looked at on a phone-size screen: Import, Cards, Merchants, Account panels, Compare, the Trend and Selected-expenses reports.
-- Known rough edges: an edited row can drop out of the "latest 5" list if its date or amount moves it; Light/Dark chosen against the device setting may flash for a moment on load; the installed app picks up manifest colours only after an update.
-- Recurring bills missing for a month: bills are added when the app loads and when it returns to the front on a later day. If a month is still missing bills, ask the user: when was the bill added, which month start day is set (with a start day other than 1 a bill on the 1st belongs to the month before), and was the generated row deleted (a deleted generated row is never re-added).
-- Real print preview / Save as PDF never checked. Category pick and work log syncing between two real devices not checked (both ride in the settings JSON).
+- Known rough edges: an edited row can drop out of the "latest 5"; Light/Dark against the device setting may flash on load; the installed app picks up manifest colours only after an update.
+- Recurring bills missing for a month: ask when the bill was added, which month start day is set, and whether the generated row was deleted (a deleted one is never re-added).
+- Print preview / Save as PDF never checked. Syncing the category choice and the work log between two real devices not checked.
 - GitHub Issues hold bugs and ideas.
 
 ## Reminders
-- Browser pane launch config `spend` (http://localhost:8765, use `?local=1`). The pane renders slowly, so judge animations by their end state, not by watching. Palette: light bg `#EEF3FC`, card `#FFFFFF`, ink `#14253F`, muted `#6B7A92`, accent `#3B6FF0`; dark bg `#0E1626`, card `#172238`, ink `#EAF0FB`, accent `#5B8BFF`.
-- A failed "Publish the app" run with "No artifacts named github-pages" is GitHub's side: re-run it (`gh run rerun <id>`).
-- Every piece of work ends with a short summary (what changed, what was checked, what was not, what the user must do). Never commit personal data. Verify by actually running the app.
+- Browser pane launch config `spend` (http://localhost:8765, use `?local=1`). The pane draws slowly: judge animations by their end state. Palette: light bg `#EEF3FC`, card `#FFFFFF`, ink `#14253F`, muted `#6B7A92`, accent `#3B6FF0`; dark bg `#0E1626`, card `#172238`, ink `#EAF0FB`, accent `#5B8BFF`.
+- Pickers: native fields stay in the page and are intercepted (`pk*` block at the end of `app.js`); setting a value fires input and change. In tests, `setField` writes hidden `.vh` fields directly. `FULL=1 npm test` shows full Playwright errors.
+- Shell: the Bash tool's heredocs and `node -e` strip backslashes; write scripts with the Write tool. The project path has spaces.
+- A failed "Publish the app" run with "No artifacts named github-pages" is GitHub's side: `gh run rerun <id>`.
+- Every piece of work ends with a short summary (changed, checked, not checked, user to do). Never commit personal data. Verify by running the app.
 - At every handoff: append to `docs/archive.md`, rewrite this file (see CLAUDE.md "Handoff rules").
