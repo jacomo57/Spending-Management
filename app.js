@@ -360,6 +360,7 @@ function clean(o){const id=x=>String(x||"").replace(/[^\w:.-]/g,"")||uid();
  if(o.budget&&typeof o.budget=="object"){const c=bare(),s=o.budget.cats;if(s&&typeof s=="object")for(const k in s)if(+s[k]>0)c[k]=+s[k];o.budget={total:Math.max(0,+o.budget.total||0),cats:c}}else delete o.budget;
  if(o.barMode!="budget")delete o.barMode;if(typeof o.bak!="string"||!/^\d{4}-\d{2}-\d{2}$/.test(o.bak))delete o.bak;
  for(const k of["home","buy"])if(!CCY[o[k]])delete o[k];
+ if(Array.isArray(o.curs)){o.curs=[...new Set(o.curs.filter(c=>CCY[c]))];if(!o.curs.length)delete o.curs}else delete o.curs;
  if(typeof o.defCard=="string"&&o.defCard)o.defCard=o.defCard.slice(0,200);else delete o.defCard;
  if(o.mstart!=null){const n=Math.min(28,Math.max(1,parseInt(o.mstart)||1));if(n>1)o.mstart=n;else delete o.mstart}
  for(const k of["hue","cards"])if(o[k]&&typeof o[k]=="object")for(const c in o[k])o[k][c]=+o[k][c]||0;else delete o[k];
@@ -390,6 +391,12 @@ function fmt(n){return esc(S.cur)+" "+n.toLocaleString(undefined,{maximumFractio
 const curCode=s=>{s=String(s||"").trim();const u=s.toUpperCase(),M={"₪":"ILS","ש\"ח":"ILS","ש״ח":"ILS","NIS":"ILS","$":"USD","€":"EUR","£":"GBP","¥":"JPY","₺":"TRY","฿":"THB","₹":"INR"};return CCY[u]?u:M[s]||M[u]||""};
 const CCY={ILS:"₪",USD:"$",EUR:"€",GBP:"£",CHF:"CHF",JPY:"¥",CAD:"CA$",AUD:"A$",TRY:"₺",CZK:"Kč",PLN:"zł",HUF:"Ft",SEK:"kr",NOK:"kr",DKK:"kr",THB:"฿",CNY:"CN¥",INR:"₹",MXN:"MX$",ZAR:"R"};
 const homeC=()=>CCY[S.home]?S.home:Object.keys(CCY).find(k=>CCY[k]==S.cur)||"ILS",buyC=()=>CCY[S.buy]?S.buy:homeC();
+// Currencies offered in the lists: the user's own (S.curs, synced; ₪ and $ until more are added), any in use, and "+ Add currency".
+const myCurs=(...x)=>[...new Set([...(S.curs||["ILS","USD"]),homeC(),buyC(),...x])].filter(c=>CCY[c]);
+const curOpts=(sel,short)=>myCurs(sel).map(c=>`<option value="${c}"${c==sel?" selected":""}>${c}${short||CCY[c]==c?"":" "+CCY[c]}</option>`).join("")+`<option value="__add">+ Add currency</option>`;
+function addCur(src){let nm=c=>"";try{const D=new Intl.DisplayNames(undefined,{type:"currency"});nm=c=>D.of(c)}catch(e){}
+ const have=myCurs(),short=src.dataset.f=="ccy";
+ pkList(src,Object.keys(CCY).filter(c=>!have.includes(c)).map(c=>({v:c,l:c+(CCY[c]==c?"":" "+CCY[c]),s:nm(c)})),"",c=>{const el=src.isConnected?src:PKo&&PKo.sel&&document.querySelector(PKo.sel);if(!el)return pkClose();const old=el.value;S.curs=myCurs(c);save();el.innerHTML=curOpts(old,short);pkSet(el,c)})}
 const fmtc=(n,c)=>esc(CCY[c]||c)+" "+n.toLocaleString(undefined,{maximumFractionDigits:2}),r2=n=>Math.round(n*100)/100;
 let FX={};try{FX=JSON.parse(localStorage.getItem("spend-fx"))||{}}catch(e){}
 async function getRate(from,to,d){if(from==to)return 1;const today=ymd(),dd=d&&d<today?d:today,k=from+">"+to+"|"+dd;if(FX[k]>0)return FX[k];
@@ -488,10 +495,10 @@ function sheetClose(){const el=$("addsheet");if(el.hidden)return;document.body.c
 // there is one extra history entry. Back removes it and closes everything (back to the main screen) instead of leaving the app;
 // closing things in the app removes the entry too, so the next Back leaves as usual.
 let navSkip=false;
-const innerOpen=()=>!!(panel||rp||(!$("addsheet").hidden&&!$("addsheet").classList.contains("out"))||(!$("menu").hidden&&!$("menu").classList.contains("out")));
+const innerOpen=()=>!!(panel||rp||(!$("addsheet").hidden&&!$("addsheet").classList.contains("out"))||(!$("menu").hidden&&!$("menu").classList.contains("out"))||!!(PKo&&PKo.bg));
 function navSync(){const st=history.state&&history.state.spendInner,o=innerOpen();
  try{if(o&&!st)history.pushState({spendInner:1},"");else if(!o&&st){navSkip=true;history.back()}}catch(e){}}
-window.addEventListener("popstate",()=>{if(navSkip){navSkip=false;return}
+window.addEventListener("popstate",()=>{if(navSkip){navSkip=false;return}if(PKo){pkClose(false,true);return}
  const m=$("menu");m.hidden=true;m.classList.remove("out");["more","more2"].forEach(i=>$(i).setAttribute("aria-expanded","false"));
  const sh=$("addsheet");if(!sh.hidden){document.body.classList.remove("shopen");sh.hidden=true;sh.classList.remove("out")}
  if(panel||rp){panel=null;rp=false;render();window.scrollTo(0,0)}});
@@ -527,9 +534,7 @@ function render(){$("sample").hidden=S.tx.length>0;
  {const d=S.bak?Math.max(0,Math.round((new Date(ymd())-new Date(S.bak))/864e5)):-1;$("bak").textContent=d<0?"No backup downloaded yet. Download one every month.":"Last backup: "+(d?d+" day"+(d==1?"":"s")+" ago":"today")+(d>31?". Time for a new one.":".");$("bak").classList.toggle("warn",d<0||d>31)}
  const fs=fsel(document.activeElement);
  syncCats();if(!Array.isArray(S.recur))S.recur=[];
- if(!$("cur").options.length)$("cur").innerHTML=$("buy").innerHTML=Object.keys(CCY).map(c=>`<option value="${c}">${c} ${CCY[c]==c?"":CCY[c]}</option>`).join("");
- if(!$("icur").options.length)$("icur").innerHTML=$("cur").innerHTML;
- $("cur").value=homeC();$("buy").value=buyC();if(!$("icur").value||!$("icur").dataset.k)$("icur").value=homeC();
+ {const iv=$("icur").dataset.k&&CCY[$("icur").value]?$("icur").value:homeC();$("cur").innerHTML=curOpts(homeC());$("buy").innerHTML=curOpts(buyC());$("icur").innerHTML=curOpts(iv);$("icur").value=iv}
  CL=[...new Set([...S.tx.filter(t=>!t.inc).map(t=>t.card),...S.recur.filter(r=>!r.inc).map(r=>r.card||"Recurring"),...Object.keys(S.cards)])].sort((a,b)=>a.localeCompare(b));
  if(cardF!="all"&&!CL.includes(cardF))cardF="all";
  const rc=[...new Set(["Recurring",...CL])],copt=s=>rc.map(c=>`<option${c==s?" selected":""}>${esc(c)}</option>`).join("");
@@ -621,9 +626,9 @@ function render(){$("sample").hidden=S.tx.length>0;
    spl=sl.map((p,i)=>`<div class="sp"><select data-sp="${t.id}" data-i="${i}" data-f="cat" aria-label="Category of this part">${(ORDER.includes(p.cat)?ORDER:[...ORDER,p.cat]).map(c=>`<option value="${esc(c)}"${c==p.cat?" selected":""}>${ic(c)}${esc(c)}</option>`).join("")}</select><input type="number" step="0.01" min="0" data-sp="${t.id}" data-i="${i}" data-f="amt" value="${esc(Math.abs(p.amt)||"")}" placeholder="Amount" aria-label="Amount of this part"><button class="x" data-spdel="${t.id}" data-i="${i}" aria-label="Remove this part">✕</button></div>`).join("")+(sl.length?`<small class="c sr">${fmt(sg*parts(t)[0][1])} stays in ${esc(t.cat)}</small>`:""),note=t.inc?(t.cat?"paid back":"income"):[t.amt<0?"refund":"",pct(t.card)==100?"":pct(t.card)?"counts "+fmt(v(t)):"not counted",t.auto&&t.date>=soonest?"not on a statement yet":""].filter(Boolean).join(" · ");
   return `<tr class="${t.skip?"skip":""}${t.inc?" inc":""}"><td class="d"><input type="date" data-tid="${t.id}" data-f="date" value="${t.date}"></td>
   <td class="ds"><input dir="auto" data-tid="${t.id}" data-f="desc" placeholder="Description" value="${esc(t.desc)}" style="min-width:190px"><input dir="auto" class="nt" data-tid="${t.id}" data-f="note" placeholder="+ note" value="${esc(t.note||"")}" aria-label="Note"></td>
-  <td class="ct"><select data-id="${t.id}">${t.inc?`<option value="">Income</option>`:""}${os.map(c=>`<option value="${esc(c)}"${c==t.cat?" selected":""}>${t.inc?"Back: ":""}${ic(c)}${esc(c)}</option>`).join("")}${t.inc?"":`<option value="__inc">💰 Income</option><option data-split="1" value="${esc(t.cat)}">Split…</option>`}</select>${spl}</td>
+  <td class="ct"><select data-id="${t.id}" aria-label="Category">${t.inc?`<option value="">Income</option>`:""}${os.map(c=>`<option value="${esc(c)}"${c==t.cat?" selected":""}>${t.inc?"Back: ":""}${ic(c)}${esc(c)}</option>`).join("")}${t.inc?"":`<option value="__inc">💰 Income</option><option data-split="1" value="${esc(t.cat)}">Split…</option>`}</select>${spl}</td>
   <td class="cd"><select dir="auto" data-tid="${t.id}" data-f="card" style="width:115px" aria-label="Card">${[...new Set(["",...CL.filter(c=>c!="Recurring"),t.card||""])].filter(c=>c||t.inc).map(c=>`<option value="${esc(c)}"${c==(t.card||"")?" selected":""}>${esc(c||"—")}</option>`).join("")}<option value="__new">＋ New card…</option></select></td>
-  <td class="amt"><input type="number" step="0.01" data-tid="${t.id}" data-f="amt" value="${t.amt}">${t.inc?"":`<div class="fx"><div class="fxl"><span>${t.fx?"Paid":"Paid in"}</span>${t.fx?`<input type="number" step="0.01" data-tid="${t.id}" data-f="fxa" value="${t.fx.a||""}" placeholder="Amount" aria-label="Amount paid in ${t.fx.c}">`:""}<select data-tid="${t.id}" data-f="ccy" aria-label="Currency of this purchase">${Object.keys(CCY).map(c=>`<option${c==(t.fx?t.fx.c:homeC())?" selected":""}>${c}</option>`).join("")}</select>${t.fx?`<span>rate</span><input type="number" step="any" min="0" data-tid="${t.id}" data-f="fxr" value="${t.fx.r?+(t.fx.r>=1?t.fx.r.toFixed(2):t.fx.r.toPrecision(2)):""}" placeholder="rate" title="${homeC()} per 1 ${t.fx.c}" aria-label="Exchange rate: ${homeC()} per 1 ${t.fx.c}">`:""}</div></div>`}${note?`<small class="c amt">${note}</small>`:""}</td>
+  <td class="amt"><input type="number" step="0.01" data-tid="${t.id}" data-f="amt" value="${t.amt}">${t.inc?"":`<div class="fx"><div class="fxl"><span>${t.fx?"Paid":"Paid in"}</span>${t.fx?`<input type="number" step="0.01" data-tid="${t.id}" data-f="fxa" value="${t.fx.a||""}" placeholder="Amount" aria-label="Amount paid in ${t.fx.c}">`:""}<select data-tid="${t.id}" data-f="ccy" aria-label="Currency of this purchase">${curOpts(t.fx?t.fx.c:homeC(),1)}</select>${t.fx?`<span>rate</span><input type="number" step="any" min="0" data-tid="${t.id}" data-f="fxr" value="${t.fx.r?+(t.fx.r>=1?t.fx.r.toFixed(2):t.fx.r.toPrecision(2)):""}" placeholder="rate" title="${homeC()} per 1 ${t.fx.c}" aria-label="Exchange rate: ${homeC()} per 1 ${t.fx.c}">`:""}</div></div>`}${note?`<small class="c amt">${note}</small>`:""}</td>
   <td class="k"><input type="checkbox" data-skip="${t.id}"${t.skip?" checked":""} aria-label="Ignore this purchase"></td><td class="k dl"><button class="x" data-del="${t.id}" aria-label="Delete">✕</button></td></tr>`}).join("")
   :`<tr><td colspan="7" class="empty" style="grid-column:1/-1">${S.tx.length?"Nothing matches these filters.":"No purchases yet. Press Import above, or load the sample data to try it out."}</td></tr>`;
  report();if(needRates())fillRates();
@@ -846,6 +851,7 @@ if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cn
  if(t.id=="undo")doUndo();
  if(t.id=="sortd"){S.sd=(S.sd||"desc")=="asc"?"desc":"asc";save();render()}});
 document.addEventListener("change",e=>{const t=e.target;
+ if(t.tagName=="SELECT"&&t.value=="__add"){const o=[...t.options].find(o=>o.defaultSelected);t.value=o?o.value:homeC();return addCur(t)}
  if(t.dataset.wc||t.dataset.wf||t.id=="whol")return wChange(t);
  if(t.dataset.skip){const x=S.tx.find(y=>y.id==t.dataset.skip);if(x){if(t.checked)x.skip=1;else delete x.skip;save();render()}}
  else if(t.dataset.tid){const x=S.tx.find(y=>y.id==t.dataset.tid),f=t.dataset.f;
@@ -1034,3 +1040,86 @@ setInterval(workTick,1000);
  document.addEventListener("click",e=>{const t=e.target;if(t.closest&&t.closest("#more,#more2")){if(open())shut();else{mn.classList.remove("out");mn.hidden=false;aria();navSync()}return}
   if(open()&&(!t.closest||!t.closest("#menu")||t.dataset.p||t.id=="repb"))shut()});
  document.addEventListener("keydown",e=>{if(e.key=="Escape"&&!mn.hidden){shut();mb.focus()}})}
+// Pickers (2026-11-23): every dropdown (<select>), date, time and date-and-time field opens the app's own menu instead of the
+// browser's plain one: a floating card under the field on a computer, a sheet from the bottom on a phone (PHONE()).
+// The real element stays in the page: a pick sets its value and fires input + change, so every handler and the keyboard
+// (arrow keys, typing a date) work as before. Dates: a calendar (tap the month name for a list of months). Times and a work
+// shift's start and end: scroll wheels. Each shows on its own; pkList() is also used for "+ Add currency".
+let PKo=null;
+const pkIs=el=>!!(el&&el.matches&&el.matches('select:not([multiple]):not(:disabled),input[type=date]:not(:disabled),input[type=time]:not(:disabled),input[type=datetime-local]:not(:disabled)'));
+const pkName=el=>el.getAttribute("aria-label")||(el.closest("label")&&el.closest("label").textContent.trim())||({date:"Date",time:"Time","datetime-local":"Date and time"})[el.type]||"Choose";
+// On a phone the sheet adds a history step, so Back closes it (popstate); closing it any other way takes that step back off (keep: leave it, another sheet follows).
+function pkClose(back,keep){if(!PKo)return;const{src,box,bg}=PKo;PKo=null;box.remove();if(bg)bg.remove();document.body.classList.remove("pkopen");
+ if(bg&&!keep&&history.state&&history.state.pk){navSkip=true;try{history.back()}catch(e){navSkip=false}}
+ if(back&&src&&src.isConnected)src.focus({preventScroll:true})}
+// A redraw can replace the field while its menu is open: find the new one by its id or data-* attributes.
+const pkSel=el=>el.id?"#"+CSS.escape(el.id):Object.keys(el.dataset).length?el.tagName.toLowerCase()+Object.entries(el.dataset).map(([k,v])=>`[data-${k.replace(/[A-Z]/g,c=>"-"+c.toLowerCase())}="${CSS.escape(v)}"]`).join(""):null;
+// v is the new value, or {i, val} for a dropdown (two options can share a value, like a category and "Split…").
+function pkSet(src,v,keep){const sel=PKo&&PKo.sel;pkClose(true,keep);if(!src.isConnected){src=sel&&document.querySelector(sel);if(!src)return}
+ if(v&&typeof v=="object"){let i=v.i;if(!src.options[i]||src.options[i].value!==v.val)i=[...src.options].findIndex(o=>o.value==v.val);if(i<0||src.selectedIndex==i)return;src.selectedIndex=i}
+ else{if(src.value==v)return;src.value=v;if(src.value!==v)return}
+ src.dispatchEvent(new Event("input",{bubbles:true}));src.dispatchEvent(new Event("change",{bubbles:true}))}
+// Show a box next to the field (computer) or as a bottom sheet (phone). html is its content; wire(box) adds the behaviour.
+function pkShow(src,html,wire,wide){const had=!!(history.state&&history.state.pk);pkClose(false,true);const ph=PHONE(),box=document.createElement("div");box.id="pk";box.className="pk "+(ph?"pksh":"pkpop")+(wide?" wide":"");
+ box.setAttribute("role","dialog");box.setAttribute("aria-label",pkName(src));
+ box.innerHTML=(ph?`<div class="grab" aria-hidden="true"></div><div class="pkt"><b dir="auto">${esc(pkName(src))}</b><button type="button" data-pkx>Close</button></div>`:"")+html;
+ let bg=null;if(ph){bg=document.createElement("div");bg.className="pkbg";bg.dataset.pkx="";document.body.append(bg);document.body.classList.add("pkopen");if(!had)try{history.pushState({spendInner:1,pk:1},"")}catch(e){}}
+ document.body.append(box);PKo={src,box,bg,sel:pkSel(src),place(){if(ph)return;const r=src.getBoundingClientRect(),w=box.offsetWidth,h=box.offsetHeight,below=innerHeight-r.bottom-8;
+  box.style.left=Math.max(8,Math.min(r.left,innerWidth-w-8))+"px";box.style.top=Math.max(8,Math.min(below>=h||below>r.top?r.bottom+6:r.top-h-6,innerHeight-h-8))+"px"}};
+ wire&&wire(box);PKo.place();const s=box.querySelector(".pkit.sel,.pkg .sel");
+ if(s&&s.matches(".pkit")){const c=ph?box:s.closest(".pkl");if(c)c.scrollTop=s.offsetTop-(c==box?0:c.offsetTop)-c.clientHeight/2+s.offsetHeight/2}
+ if(!ph&&pkKb){const f=s||box.querySelector("input,button:not([data-pkx])");if(f)f.focus({preventScroll:true})}}
+// A list of choices: items = [{v, l (label), s (small text), h (true = a heading)}]; onPick(v).
+function pkList(src,items,cur,onPick){const n=items.filter(i=>!i.h).length,row=i=>i.h?`<div class="pkh">${esc(i.l)}</div>`:`<button type="button" class="pkit${i.v==cur?" sel":""}" data-v="${esc(i.v)}"><span dir="auto">${esc(i.l)}${i.s?`<small>${esc(i.s)}</small>`:""}</span><i aria-hidden="true">✓</i></button>`;
+ pkShow(src,(n>12?`<input class="pkq" type="search" placeholder="Search" aria-label="Search the list">`:"")+`<div class="pkl">${items.map(row).join("")}</div>`,box=>{
+  box.addEventListener("click",e=>{const b=e.target.closest("[data-v]");if(b)onPick(b.dataset.v)});
+  const q=box.querySelector(".pkq");if(q)q.addEventListener("input",()=>{const w=q.value.trim().toLowerCase();box.querySelectorAll(".pkit").forEach(b=>b.hidden=!!w&&!b.textContent.toLowerCase().includes(w))});
+  box.addEventListener("keydown",e=>{if(!/^Arrow(Up|Down)$/.test(e.key))return;const bs=[...box.querySelectorAll(".pkit:not([hidden])")],i=bs.indexOf(document.activeElement);e.preventDefault();(bs[i<0?0:Math.max(0,Math.min(bs.length-1,i+(e.key=="ArrowDown"?1:-1)))]||{focus(){}}).focus()})})}
+function pkSelect(src){const items=[],it=o=>{if(!o.disabled&&!o.hidden)items.push({v:String(o.index),l:o.textContent})};
+ for(const c of src.children){if(c.tagName=="OPTGROUP"){items.push({h:1,l:c.label});[...c.children].forEach(it)}else it(c)}
+ pkList(src,items,String(src.selectedIndex),i=>{const o=src.options[+i];if(o)pkSet(src,{i:+i,val:o.value},o.value=="__add")})}
+// Calendar for a date field. Sunday first (Israel). Tapping "November 2026" switches to the months of that year.
+const pkD=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+function pkCal(src){const v=/^\d{4}-\d{2}-\d{2}$/.test(src.value)?src.value:ymd(),st={y:+v.slice(0,4),m:+v.slice(5,7)-1,mv:false};
+ pkShow(src,`<div class="pkcal"></div>`,box=>{const el=box.querySelector(".pkcal"),loc=undefined;
+  const draw=()=>{const t=ymd();
+   if(st.mv){el.innerHTML=`<div class="pkch"><button type="button" data-y="-1" aria-label="Previous year">‹</button><button type="button" class="pkmt" data-mv>${st.y}</button><button type="button" data-y="1" aria-label="Next year">›</button></div><div class="pkms">${[...Array(12)].map((_,i)=>`<button type="button" data-mo="${i}"${i==st.m?' class="sel"':""}>${new Date(2000,i,1).toLocaleString(loc,{month:"short"})}</button>`).join("")}</div>`;return}
+   const f=new Date(st.y,st.m,1).getDay(),n=new Date(st.y,st.m+1,0).getDate(),wd=[...Array(7)].map((_,i)=>new Date(2026,10,1+i).toLocaleString(loc,{weekday:"narrow"}));
+   el.innerHTML=`<div class="pkch"><button type="button" data-m="-1" aria-label="Previous month">‹</button><button type="button" class="pkmt" data-mv aria-label="Choose a month">${esc(new Date(st.y,st.m,1).toLocaleString(loc,{month:"long",year:"numeric"}))} ▾</button><button type="button" data-m="1" aria-label="Next month">›</button></div>
+   <div class="pkg">${wd.map(x=>`<span>${x}</span>`).join("")}${"<span></span>".repeat(f)}${[...Array(n)].map((_,i)=>{const d=pkD(new Date(st.y,st.m,i+1));return `<button type="button" data-d="${d}" class="${d==src.value?"sel":""}${d==t?" now":""}">${i+1}</button>`}).join("")}</div>
+   <div class="pkf"><button type="button" data-d="${t}">Today</button></div>`};
+  box.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+   if(b.dataset.d)return pkSet(src,b.dataset.d);
+   if(b.dataset.m){st.m+= +b.dataset.m;if(st.m<0){st.m=11;st.y--}if(st.m>11){st.m=0;st.y++}}
+   if(b.dataset.y)st.y+= +b.dataset.y;if(b.dataset.mo){st.m=+b.dataset.mo;st.mv=false}else if(b.hasAttribute("data-mv"))st.mv=!st.mv;
+   draw();PKo.place();const k=el.querySelector(b.dataset.m?"[data-m='"+b.dataset.m+"']":b.dataset.y?"[data-y='"+b.dataset.y+"']":".pkmt");if(k)k.focus({preventScroll:true})});
+  draw()})}
+// Scroll wheels for a time (hour, minute) or a date and time (day, hour, minute). Done applies; closing does not.
+function pkWheel(src){const dt=src.type=="datetime-local",v=src.value||(dt?pkD(new Date())+"T"+new Date().toTimeString().slice(0,5):new Date().toTimeString().slice(0,5)),
+  tm=dt?v.slice(11,16):v.slice(0,5),day=dt?v.slice(0,10):null,p2=n=>String(n).padStart(2,"0");
+ const days=dt?[...Array(361)].map((_,i)=>{const d=new Date(day+"T12:00");d.setDate(d.getDate()-180+i);return d}):[],tday=ymd(),yday=pkD(new Date(Date.now()-864e5));
+ const dl=d=>{const s=pkD(d);return s==tday?"Today":s==yday?"Yesterday":d.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})};
+ const drum=(k,list,sel,lab)=>`<div class="pkdr" data-k="${k}" tabindex="0" role="listbox" aria-label="${lab}"><div class="pkpad"></div>${list.map((x,i)=>`<div data-i="${i}" role="option"${i==sel?' class="on" aria-selected="true"':""}>${esc(x)}</div>`).join("")}<div class="pkpad"></div></div>`;
+ pkShow(src,`<div class="pkwh">${dt?drum("d",days.map(dl),180,"Day"):""}${drum("h",[...Array(24)].map((_,i)=>p2(i)),+tm.slice(0,2),"Hour")}${drum("m",[...Array(60)].map((_,i)=>p2(i)),+tm.slice(3,5),"Minute")}</div><div class="pkf"><button type="button" data-pkx>Cancel</button><button type="button" class="pri" data-ok>Done</button></div>`,box=>{
+  const H=40,idx=k=>{const d=box.querySelector(`[data-k=${k}]`);return Math.round(d.scrollTop/H)};
+  box.querySelectorAll(".pkdr").forEach(d=>{const on=d.querySelector(".on");d.scrollTop=on?+on.dataset.i*H:0;let tmr;
+   d.addEventListener("scroll",()=>{clearTimeout(tmr);tmr=setTimeout(()=>{const i=Math.round(d.scrollTop/H);d.querySelectorAll("[data-i]").forEach(x=>{const y=+x.dataset.i==i;x.classList.toggle("on",y);x.toggleAttribute("aria-selected",y)})},50)});
+   d.addEventListener("click",e=>{const x=e.target.closest("[data-i]");if(x)d.scrollTo({top:+x.dataset.i*H,behavior:MOTION()?"smooth":"auto"})});
+   d.addEventListener("keydown",e=>{if(!/^Arrow(Up|Down)$/.test(e.key))return;e.preventDefault();d.scrollTop=(Math.round(d.scrollTop/H)+(e.key=="ArrowDown"?1:-1))*H})});
+  box.querySelector("[data-ok]").addEventListener("click",()=>{const t=p2(idx("h"))+":"+p2(idx("m"));pkSet(src,dt?pkD(days[idx("d")])+"T"+t:t)})},true)}
+function pkOpen(el){if(el.tagName=="SELECT")pkSelect(el);else if(el.type=="date")pkCal(el);else pkWheel(el)}
+// Open on a click or tap (the browser's own menu is stopped), Enter / Space / Alt+Down from the keyboard; close outside, with Escape or Close.
+let pkTouch=null,pkKb=false;
+document.addEventListener("mousedown",e=>{if(PKo&&!PKo.box.contains(e.target)&&!(e.target.dataset&&"pkx" in e.target.dataset)){const same=PKo.src==e.target;pkClose();if(same){e.preventDefault();return}}
+ if(pkIs(e.target)&&e.button==0){e.preventDefault();pkKb=false;pkOpen(e.target)}},true);
+document.addEventListener("touchstart",e=>{pkTouch=pkIs(e.target)?[e.touches[0].clientX,e.touches[0].clientY]:null},{capture:true,passive:true});
+document.addEventListener("touchmove",e=>{if(pkTouch&&Math.hypot(e.touches[0].clientX-pkTouch[0],e.touches[0].clientY-pkTouch[1])>10)pkTouch=null},{capture:true,passive:true});
+document.addEventListener("touchend",e=>{if(!pkIs(e.target))return;e.preventDefault();if(pkTouch){pkKb=false;pkOpen(e.target)}pkTouch=null},{capture:true,passive:false});
+document.addEventListener("click",e=>{if(pkIs(e.target))e.preventDefault()},true);// some browsers (Firefox) open their own date picker on click
+document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-pkx]"))pkClose(true)});
+// Escape closes only the menu (not the Add sheet or More menu behind it). Enter opens a dropdown, not a date (Enter there still submits the form).
+document.addEventListener("keydown",e=>{if(PKo&&e.key=="Escape"){e.preventDefault();e.stopImmediatePropagation();pkClose(true);return}
+ if(pkIs(e.target)&&((e.key=="Enter"&&e.target.tagName=="SELECT")||e.key=="F4"||(e.key==" "&&e.target.tagName=="SELECT")||(e.altKey&&e.key=="ArrowDown"))){e.preventDefault();pkKb=true;pkOpen(e.target)}},true);
+addEventListener("resize",()=>{if(PKo&&!PHONE())pkClose()});
+// Scrolling the page keeps the menu next to its field; it closes once the field leaves the screen.
+document.addEventListener("scroll",e=>{if(!PKo||PHONE()||PKo.box.contains(e.target))return;const r=PKo.src.getBoundingClientRect();if(r.bottom<0||r.top>innerHeight||!PKo.src.isConnected)pkClose();else PKo.place()},true);

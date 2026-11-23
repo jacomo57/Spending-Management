@@ -82,7 +82,7 @@ async function open(q = "") {
 async function test(name, fn) {
   count++;
   try { await fn(); console.log("ok   " + name) }
-  catch (e) { fails++; console.log("FAIL " + name + "\n     " + String(e.message || e).split("\n")[0]) }
+  catch (e) { fails++; console.log("FAIL " + name + "\n     " + String(e.message || e).split("\n").slice(0, process.env.FULL ? 30 : 1).join("\n     ")) }
 }
 const eq = (a, b, what) => { if (a !== b) throw new Error(`${what}: expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`) };
 async function total(p, want) {
@@ -880,7 +880,7 @@ async function local() {
     await p.waitForTimeout(400);
     eq(await p.evaluate(() => [S.tx[1].fx.r, S.tx[1].amt].join()), "3.8,190", "a hand-set rate is kept");
     // a statement in euro: rows are converted at their date
-    await p.evaluate(() => { S.tx = []; save(); render() });
+    await p.evaluate(() => { S.tx = []; S.curs = ["ILS", "USD", "EUR"]; save(); render() });
     await p.click("#more"); await p.click('[data-p="imp"]');
     await p.fill("#card", "Euro card"); await p.selectOption("#icur", "EUR");
     await p.fill("#paste", "date,description,amount\n2026-10-01,Cafe Roma,10"); await p.click("#go");
@@ -1065,6 +1065,30 @@ async function local() {
     await p.selectOption("#sortf", "amt"); eq(await first(), "Zara", "amount, biggest first");
     await p.click("#sortd"); eq(await first(), "Cinema", "amount, smallest first");
     await p.reload(); eq(await p.inputValue("#sortf"), "amt", "sort kept after reload");
+  });
+  await test("own menus: dropdowns, the calendar with a month list, time wheels, + Add currency, and a bottom sheet on a phone", async () => {
+    const p = await open("?local=1");
+    await paste(p, "Visa", "date,description,amount\n2026-11-03,Zara,300\n2026-11-04,Wolt,50");
+    await p.click("#sortf"); await p.click('#pk .pkit:has-text("Amount")'); eq(await p.inputValue("#sortf"), "amt", "sort picked from the menu"); eq(await p.locator("#pk").count(), 0, "menu closes after a pick");
+    await p.click("#sortf"); await p.keyboard.press("Escape"); eq(await p.locator("#pk").count(), 0, "Escape closes");
+    await p.locator("#rows input[type=date]").first().click(); await p.click("#pk .pkmt"); await p.click('#pk [data-mo="9"]'); await p.click('#pk [data-d="2026-10-05"]');
+    eq(await p.evaluate(() => S.tx.some(t => t.date == "2026-10-05")), true, "date picked from the calendar via the month list");
+    eq(await p.evaluate(() => [...document.getElementById("buy").options].map(o => o.value).join()), "ILS,USD,__add", "two currencies to start");
+    await p.selectOption("#month", "all"); const ccy = p.locator('#rows [data-f="ccy"]').first();
+    await ccy.click(); await p.click('#pk .pkit:has-text("Add currency")'); await p.click('#pk [data-v="EUR"]');
+    eq(await p.evaluate(() => JSON.stringify(S.curs)), '["ILS","USD","EUR"]', "EUR joins the list");
+    eq(await p.locator('#rows [data-f="ccy"]').first().inputValue(), "EUR", "and is chosen on that purchase");
+    await p.reload(); eq(await p.evaluate(() => [...document.getElementById("buy").options].map(o => o.value).join()), "ILS,USD,EUR,__add", "kept after reload");
+    await p.locator("#rows select[data-id]").first().click(); await p.click('#pk .pkit:has-text("Split")'); eq(await p.locator("#rows .sp").count() > 0, true, "Split… from the menu splits");
+    await p.evaluate(() => sheetOpen()); await p.click("#shdate"); eq(await p.locator("#pk .pkcal").count(), 1, "calendar in the Add sheet"); await p.keyboard.press("Escape");
+    eq(await p.locator("#pk").count(), 0, "Escape closes the calendar"); eq(await p.locator("#addsheet").isVisible(), true, "and leaves the Add sheet open"); await p.keyboard.press("Escape");
+    await p.evaluate(() => document.querySelector('[data-tab="wrk"]').click()); await p.click("text=Rate and rules");
+    await p.click('input[data-wc="sf"]'); await p.evaluate(() => { document.querySelector("#pk [data-k=h]").scrollTop = 17 * 40 }); await p.waitForTimeout(200);
+    await p.click("#pk [data-ok]"); eq(await p.evaluate(() => S.work.sf), "17:00", "Shabbat start set with the wheels");
+    await p.evaluate(() => document.querySelector('[data-tab="home"]').click());
+    await p.setViewportSize({ width: 375, height: 800 }); await p.locator("#sortf").scrollIntoViewIfNeeded(); await p.click("#sortf");
+    eq(await p.locator("#pk.pksh").count(), 1, "a bottom sheet on a phone"); await p.click(".pkbg", { position: { x: 20, y: 20 } }); eq(await p.locator("#pk").count(), 0, "tapping outside closes it");
+    await p.click("#sortf"); await p.goBack(); eq(await p.locator("#pk").count(), 0, "Back closes the sheet"); eq(await p.locator("#sortf").isVisible(), true, "and stays on the page");
   });
   await test("split a purchase across categories; #tags in notes filter and total", async () => {
     const p = await open("?local=1");
