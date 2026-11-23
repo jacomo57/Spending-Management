@@ -21,7 +21,7 @@
 <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=c73831d773">
+<link rel="stylesheet" href="style.css?v=9f92d20883">
 </head>
 <body>
 <main>
@@ -228,13 +228,13 @@
   <label class="shamt"><span id="shcur"></span><input id="shamt" inputmode="decimal" placeholder="0" autocomplete="off" aria-label="Amount"></label>
   <input id="shdesc" dir="auto" placeholder="Description (shop, what for)" autocomplete="off" aria-label="Description">
   <div class="row shx"><select id="shcat" aria-label="Category"></select><select id="shcard" aria-label="Card"></select></div>
-  <div class="row shdt"><input id="shdate" type="date" aria-label="Date"><input id="shtime" type="time" aria-label="Time"></div>
+  <div class="shdt"><button type="button" class="dtb" id="shdt"></button><input id="shdate" type="date" class="vh" tabindex="-1" aria-hidden="true"><input id="shtime" type="time" class="vh" tabindex="-1" aria-hidden="true"></div>
   <div class="row shbtn"><button type="button" data-shclose>Cancel</button><button class="pri" id="shsave">Save</button></div>
   <span class="msg" id="shmsg" role="status"></span>
  </form>
 </div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=c73831d773"></script>
-<script src="cloud.js?v=c73831d773"></script>
+<script src="app.js?v=9f92d20883"></script>
+<script src="cloud.js?v=9f92d20883"></script>
 </body>
 </html>

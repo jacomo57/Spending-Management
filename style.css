@@ -345,5 +345,10 @@ body.pkopen{overflow:hidden}
 .pkdr>div.on{color:var(--ink);font-weight:800}
 .pkdr .pkpad{height:80px;scroll-snap-align:none;cursor:default}
 .pkdr[data-k=d]{flex:2}
-td.d{vertical-align:top}td.d .tm{display:block;font-size:13px;color:var(--mute);padding-top:0}td.d .tm[value=""]{opacity:.6}
-.shdt{flex-wrap:nowrap}.shdt input{flex:1;min-width:0}
+/* One button for an expense date and time (dtTxt in app.js) */
+.dtb{display:grid;justify-items:start;gap:1px;text-align:start;line-height:1.25;background:none;border-color:transparent;padding:5px 8px;min-width:118px}
+.dtb:hover{border-color:var(--line);background:var(--card)}.dtb b{font-weight:600;white-space:nowrap}.dtb small{color:var(--mute);font-size:12.5px}
+.shdt{position:relative}.shdt .dtb{width:100%;background:var(--card);border-color:var(--line);padding:8px 12px}
+td.d{position:relative}
+.pkth{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);margin:8px 4px 4px;padding-top:8px;font-weight:600}.pkth small{color:var(--mute);font-weight:400;font-size:12.5px}
+.pkwh.sm{height:120px}.pkwh.sm::before{top:40px}.pkwh.sm .pkdr .pkpad{height:40px}

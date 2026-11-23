@@ -102,7 +102,10 @@ const text = async (p, sel, want) => {
   try { await p.waitForFunction(([s, w]) => { const e = document.querySelector(s); return e && e.textContent.includes(w) }, [sel, want], { timeout: 15000 }) }
   catch (e) { throw new Error(`${sel}: expected to contain ${want}, got ${await p.locator(sel).first().textContent({ timeout: 1000 }).catch(() => "nothing")}`) }
 };
-async function setField(loc, val) { await loc.fill(val); await loc.press("Tab") }
+// A purchase's date and time fields are hidden behind one button, so those are set directly (as the picker does).
+async function setField(loc, val) {
+  if (await loc.evaluate(e => e.classList.contains("vh"))) return loc.evaluate((e, v) => { e.value = v; e.dispatchEvent(new Event("input", { bubbles: true })); e.dispatchEvent(new Event("change", { bubbles: true })) }, val);
+  await loc.fill(val); await loc.press("Tab") }
 async function signUp(p, email) {
   await p.locator("#auth").waitFor();
   await p.click("#aswap");
@@ -777,8 +780,7 @@ async function local() {
     await paste(p, "Visa", "date,description,amount\n2026-11-03,Zara,300");
     await p.click("#addp"); eq(await rows(p), 2, "rows after Add");
     await p.reload(); await p.selectOption("#month", "all"); eq(await rows(p), 2, "today's empty row is kept");
-    await p.locator('tr:has([data-f="desc"][value=""]) [data-f="date"]').fill("2026-01-01");
-    await p.locator('tr:has([data-f="desc"][value=""]) [data-f="date"]').press("Tab");
+    await setField(p.locator('tr:has([data-f="desc"][value=""]) [data-f="date"]'), "2026-01-01");
     await p.reload(); await total(p, "₪ 300"); eq(await rows(p), 1, "rows after reload");
   });
   await test("a merchant, card or category called constructor or __proto__ is an ordinary name", async () => {
@@ -1071,7 +1073,8 @@ async function local() {
     await paste(p, "Visa", "date,description,amount\n2026-11-03,Zara,300\n2026-11-04,Wolt,50");
     await p.click("#sortf"); await p.click('#pk .pkit:has-text("Amount")'); eq(await p.inputValue("#sortf"), "amt", "sort picked from the menu"); eq(await p.locator("#pk").count(), 0, "menu closes after a pick");
     await p.click("#sortf"); await p.keyboard.press("Escape"); eq(await p.locator("#pk").count(), 0, "Escape closes");
-    await p.locator("#rows input[type=date]").first().click(); await p.click("#pk .pkmt"); await p.click('#pk [data-mo="9"]'); await p.click('#pk [data-d="2026-10-05"]');
+    await p.locator("#rows .dtb").first().click(); await p.click("#pk .pkmt"); await p.click('#pk [data-mo="9"]'); await p.click('#pk [data-d="2026-10-05"]'); await p.click("#pk [data-ok]");
+    eq(await p.evaluate(() => S.tx.some(t => t.time)), false, "a date change alone adds no time");
     eq(await p.evaluate(() => S.tx.some(t => t.date == "2026-10-05")), true, "date picked from the calendar via the month list");
     eq(await p.evaluate(() => [...document.getElementById("buy").options].map(o => o.value).join()), "ILS,USD,__add", "two currencies to start");
     await p.selectOption("#month", "all"); const ccy = p.locator('#rows [data-f="ccy"]').first();
@@ -1080,11 +1083,13 @@ async function local() {
     eq(await p.locator('#rows [data-f="ccy"]').first().inputValue(), "EUR", "and is chosen on that purchase");
     await p.reload(); eq(await p.evaluate(() => [...document.getElementById("buy").options].map(o => o.value).join()), "ILS,USD,EUR,__add", "kept after reload");
     await p.locator("#rows select[data-id]").first().click(); await p.click('#pk .pkit:has-text("Split")'); eq(await p.locator("#rows .sp").count() > 0, true, "Split… from the menu splits");
-    await p.evaluate(() => sheetOpen()); await p.click("#shdate"); eq(await p.locator("#pk .pkcal").count(), 1, "calendar in the Add sheet"); await p.keyboard.press("Escape");
+    await p.evaluate(() => sheetOpen()); await p.click("#shdt"); eq(await p.locator("#pk .pkcal").count(), 1, "calendar in the Add sheet"); await p.keyboard.press("Escape");
     eq(await p.locator("#pk").count(), 0, "Escape closes the calendar"); eq(await p.locator("#addsheet").isVisible(), true, "and leaves the Add sheet open"); await p.keyboard.press("Escape");
-    await p.locator('#rows input[data-f="time"]').first().click(); await p.evaluate(() => { const b = document.getElementById("pk"); b.querySelector("[data-k=h]").scrollTop = 9 * 40; b.querySelector("[data-k=m]").scrollTop = 15 * 40 }); await p.waitForTimeout(200); await p.click("#pk [data-ok]");
+    await p.locator("#rows .dtb").first().click(); eq(await p.locator("#pk .pkcal").count() + await p.locator("#pk .pkwh").count(), 2, "one button opens the calendar with the time below");
+    await p.evaluate(() => { const b = document.getElementById("pk"); b.querySelector("[data-k=h]").dispatchEvent(new Event("pointerdown")); b.querySelector("[data-k=h]").scrollTop = 9 * 40; b.querySelector("[data-k=m]").scrollTop = 15 * 40 }); await p.waitForTimeout(200); await p.click("#pk [data-ok]");
     eq(await p.evaluate(() => S.tx.some(t => t.time == "09:15")), true, "a time under the date, set with the wheels");
-    await p.locator('#rows input[data-f="time"][value="09:15"]').click(); await p.click("#pk [data-clr]"); eq(await p.evaluate(() => S.tx.some(t => t.time)), false, "Clear removes the time");
+    eq(/09:15/.test(await p.locator("#rows .dtb").filter({ hasText: "09:15" }).first().textContent()), true, "the button shows the time under the date");
+    await p.locator("#rows .dtb").filter({ hasText: "09:15" }).click(); await p.click("#pk [data-clr]"); eq(await p.evaluate(() => S.tx.some(t => t.time)), false, "Clear removes the time");
     await p.evaluate(() => sheetOpen()); eq(/^\d\d:\d\d$/.test(await p.inputValue("#shtime")), true, "the Add sheet starts at the current time");
     await p.fill("#shamt", "12"); await p.fill("#shdesc", "Coffee"); await p.click("#shsave"); eq(await p.evaluate(() => /^\d\d:\d\d$/.test(S.tx.find(t => t.desc == "Coffee").time)), true, "a new expense keeps its time");
     await p.evaluate(() => document.querySelector('[data-tab="wrk"]').click()); await p.click("text=Rate and rules");
