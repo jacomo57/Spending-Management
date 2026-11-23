@@ -1082,6 +1082,11 @@ async function local() {
     await p.locator("#rows select[data-id]").first().click(); await p.click('#pk .pkit:has-text("Split")'); eq(await p.locator("#rows .sp").count() > 0, true, "Split… from the menu splits");
     await p.evaluate(() => sheetOpen()); await p.click("#shdate"); eq(await p.locator("#pk .pkcal").count(), 1, "calendar in the Add sheet"); await p.keyboard.press("Escape");
     eq(await p.locator("#pk").count(), 0, "Escape closes the calendar"); eq(await p.locator("#addsheet").isVisible(), true, "and leaves the Add sheet open"); await p.keyboard.press("Escape");
+    await p.locator('#rows input[data-f="time"]').first().click(); await p.evaluate(() => { const b = document.getElementById("pk"); b.querySelector("[data-k=h]").scrollTop = 9 * 40; b.querySelector("[data-k=m]").scrollTop = 15 * 40 }); await p.waitForTimeout(200); await p.click("#pk [data-ok]");
+    eq(await p.evaluate(() => S.tx.some(t => t.time == "09:15")), true, "a time under the date, set with the wheels");
+    await p.locator('#rows input[data-f="time"][value="09:15"]').click(); await p.click("#pk [data-clr]"); eq(await p.evaluate(() => S.tx.some(t => t.time)), false, "Clear removes the time");
+    await p.evaluate(() => sheetOpen()); eq(/^\d\d:\d\d$/.test(await p.inputValue("#shtime")), true, "the Add sheet starts at the current time");
+    await p.fill("#shamt", "12"); await p.fill("#shdesc", "Coffee"); await p.click("#shsave"); eq(await p.evaluate(() => /^\d\d:\d\d$/.test(S.tx.find(t => t.desc == "Coffee").time)), true, "a new expense keeps its time");
     await p.evaluate(() => document.querySelector('[data-tab="wrk"]').click()); await p.click("text=Rate and rules");
     await p.click('input[data-wc="sf"]'); await p.evaluate(() => { document.querySelector("#pk [data-k=h]").scrollTop = 17 * 40 }); await p.waitForTimeout(200);
     await p.click("#pk [data-ok]"); eq(await p.evaluate(() => S.work.sf), "17:00", "Shabbat start set with the wheels");

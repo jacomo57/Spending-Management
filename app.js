@@ -353,6 +353,7 @@ function clean(o){const id=x=>String(x||"").replace(/[^\w:.-]/g,"")||uid();
  if(!o||!Array.isArray(o.tx)||o.tx.some(t=>!t||!/^\d{4}-\d{2}-\d{2}$/.test(t.date)||typeof t.amt!="number"))return null;
  o.tx.forEach(t=>{t.id=id(t.id);t.desc=String(t.desc||"");if(t.src!=null)t.src=String(t.src);if(t.note!=null)t.note=String(t.note).slice(0,500);
   if(t.inc){t.inc=1;t.amt=Math.abs(t.amt);t.card=String(t.card||"");t.cat=String(t.cat||"")}else{delete t.inc;t.card=String(t.card||"My card");t.cat=String(t.cat||"Other")}
+  if(typeof t.time!="string"||!/^([01]\d|2[0-3]):[0-5]\d$/.test(t.time))delete t.time;
   if(t.auto&&!t.inc)t.auto=1;else delete t.auto;if(t.via!="w")delete t.via;
   if(t.fx&&typeof t.fx=="object"&&CCY[t.fx.c]&&isFinite(t.fx.a)&&isFinite(t.fx.r)&&t.fx.r>=0)t.fx=Object.assign({c:t.fx.c,a:+t.fx.a,r:+t.fx.r},t.fx.m?{m:1}:{});else delete t.fx;
   if(Array.isArray(t.split))t.split=t.split.filter(p=>p&&typeof p.amt=="number"&&isFinite(p.amt)).map(p=>({cat:String(p.cat||"Other"),amt:p.amt}));fitSplit(t)});
@@ -485,7 +486,7 @@ let shKind="exp";
 function sheetKind(k){shKind=k;document.querySelectorAll("[data-kind]").forEach(b=>b.classList.toggle("on",b.dataset.kind==k));document.querySelector("#shform .shx").hidden=k=="inc";
  $("shdesc").placeholder=k=="inc"?"From (salary, gift, refund)":"Description (shop, what for)"}
 function sheetOpen(){syncCats();const el=$("addsheet"),cards=CL.filter(c=>c!="Recurring"),def=cardF!="all"?cardF:S.defCard&&cards.includes(S.defCard)?S.defCard:cards[0]||"My card";
- $("shcur").textContent=CCY[buyC()];$("shamt").value="";$("shdesc").value="";$("shdate").value=ymd();$("shmsg").textContent="";
+ $("shcur").textContent=CCY[buyC()];$("shamt").value="";$("shdesc").value="";$("shdate").value=ymd();$("shtime").value=hm();$("shmsg").textContent="";
  $("shcat").innerHTML=`<option value="">✨ Auto category</option>`+ORDER.map(c=>`<option value="${esc(c)}">${ic(c)}${esc(c)}</option>`).join("");$("shcat").value=cat&&ORDER.includes(cat)?cat:"";
  $("shcard").innerHTML=[...new Set([...cards,def])].map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");$("shcard").value=def;
  sheetKind("exp");el.classList.remove("out");el.hidden=false;document.body.classList.add("shopen");$("shamt").focus({preventScroll:true});sheetFit();navSync()}
@@ -497,20 +498,21 @@ function sheetClose(){const el=$("addsheet");if(el.hidden)return;document.body.c
 let navSkip=false;
 const innerOpen=()=>!!(panel||rp||(!$("addsheet").hidden&&!$("addsheet").classList.contains("out"))||(!$("menu").hidden&&!$("menu").classList.contains("out"))||!!(PKo&&PKo.bg));
 function navSync(){const st=history.state&&history.state.spendInner,o=innerOpen();
- try{if(o&&!st)history.pushState({spendInner:1},"");else if(!o&&st){navSkip=true;history.back()}}catch(e){}}
-window.addEventListener("popstate",()=>{if(navSkip){navSkip=false;return}if(PKo){pkClose(false,true);return}
+ try{if(o&&!st)history.pushState({spendInner:1},"");else if(!o&&st&&!navSkip){navSkip=true;history.back()}}catch(e){navSkip=false}}// navSkip: a step back is already on its way (a redraw right after closing must not go back twice)
+window.addEventListener("popstate",()=>{if(navSkip){navSkip=false;navSync();return}if(PKo){pkClose(false,true);return}
  const m=$("menu");m.hidden=true;m.classList.remove("out");["more","more2"].forEach(i=>$(i).setAttribute("aria-expanded","false"));
  const sh=$("addsheet");if(!sh.hidden){document.body.classList.remove("shopen");sh.hidden=true;sh.classList.remove("out")}
  if(panel||rp){panel=null;rp=false;render();window.scrollTo(0,0)}});
 function sheetSave(){const a=parseFloat(String($("shamt").value).replace(",","."));if(!(a>0)){$("shmsg").textContent="Enter an amount.";$("shamt").focus();return}
- const d=/^\d{4}-\d{2}-\d{2}$/.test($("shdate").value)?$("shdate").value:ymd(),desc=$("shdesc").value.trim().slice(0,1e4),id=uid(),inc=shKind=="inc",bc=buyC(),hc=homeC();
- const x=inc?{id,date:d,desc,amt:a,inc:1,card:"",cat:""}:{id,date:d,desc,amt:a,card:$("shcard").value||"My card",cat:$("shcat").value||guess(desc)};
+ const d=/^\d{4}-\d{2}-\d{2}$/.test($("shdate").value)?$("shdate").value:ymd(),tm=/^\d{2}:\d{2}$/.test($("shtime").value)?{time:$("shtime").value}:{},desc=$("shdesc").value.trim().slice(0,1e4),id=uid(),inc=shKind=="inc",bc=buyC(),hc=homeC();
+ const x=inc?{id,date:d,...tm,desc,amt:a,inc:1,card:"",cat:""}:{id,date:d,...tm,desc,amt:a,card:$("shcard").value||"My card",cat:$("shcat").value||guess(desc)};
  if(bc!=hc){x.fx={c:bc,a,r:0};x.amt=0}
  S.tx.push(x);pushUndo("Added “"+(desc||(inc?"income":"expense")).slice(0,28)+"”",()=>{S.tx=S.tx.filter(t=>t.id!=id)});
  pendingMonth=pk(d);q="";$("q").value="";if(cat&&(inc||x.cat!=cat))cat=null;
  if(MOTION())mGlow.set(id,performance.now());sheetClose();save();render();
  const b=document.querySelector(`#rows [data-del="${CSS.escape(id)}"]`);if(b)b.closest("tr").scrollIntoView({behavior:MOTION()?"smooth":"auto",block:"center"})}
 $("shform").addEventListener("submit",e=>{e.preventDefault();sheetSave()});
+$("shdate").addEventListener("change",()=>{if($("shdate").value!=ymd())$("shtime").value=""});
 // The on-screen keyboard shrinks the visible area (visualViewport) without moving the page's bottom edge, so the sheet would sit
 // under it: lift the sheet by the keyboard's height (--kb) and keep it no taller than what is visible (--vh). Closing the keyboard lowers it.
 function sheetFit(){const el=$("addsheet"),vv=window.visualViewport;if(!vv||el.hidden){el.style.removeProperty("--kb");el.style.removeProperty("--vh");return}
@@ -522,11 +524,12 @@ function delTx(id,tr){const go=()=>{const i=S.tx.findIndex(x=>x.id==id);if(i>=0)
  if(tr&&MOTION()){tr.classList.add("gone");setTimeout(go,200)}else go()}
 function doUndo(){const u=undo.pop();if(!u)return;u.fn();save();render();showToast()}
 document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key=="z"&&!/INPUT|TEXTAREA|SELECT/.test(e.target.tagName||"")&&undo.length){e.preventDefault();doUndo()}});
+const hm=()=>new Date().toTimeString().slice(0,5);
 let pendingMonth=null,focusTid=null,focusSp=null;
 function addPurchase(inc){const id=uid(),d=ymd();
  dropEmpty();q="";$("q").value="";
- if(inc){S.tx.push({id,date:d,desc:"",amt:0,inc:1,card:"",cat:""});cardF="all";cat=null}
- else{const x={id,date:d,desc:"",amt:0,card:cardF!="all"?cardF:CL.find(c=>c!="Recurring")||"My card",cat:cat||"Other"};S.tx.push(x);
+ if(inc){S.tx.push({id,date:d,time:hm(),desc:"",amt:0,inc:1,card:"",cat:""});cardF="all";cat=null}
+ else{const x={id,date:d,time:hm(),desc:"",amt:0,card:cardF!="all"?cardF:CL.find(c=>c!="Recurring")||"My card",cat:cat||"Other"};S.tx.push(x);
   if(buyC()!=homeC()){x.fx={c:buyC(),a:0,r:0};getRate(buyC(),homeC(),d).then(r=>{if(x.fx&&!x.fx.r){x.fx.r=r;if(S.tx.includes(x)){save();render()}}})}}
  pendingMonth=pk(d);focusTid=id;if((S.sk||"date")!="date"||S.sd=="asc")showAll=true;save();render()}
 function render(){$("sample").hidden=S.tx.length>0;
@@ -611,12 +614,12 @@ function render(){$("sample").hidden=S.tx.length>0;
  $("catmsg").textContent=catMsg;
  document.querySelectorAll("[data-cs]").forEach(b=>b.classList.toggle("on",b.dataset.cs==(S.catSort=="manual"?"manual":"size")));
  $("chip").innerHTML=cat?`<button id="clearcat">${ic(cat)}${esc(cat)} ✕</button>`:"";
- const sk=S.sk||"date",sd=S.sd=="asc"?1:-1,val=t=>sk=="amt"?(t.inc?t.amt:v(t)):String(t[sk]||"").toLowerCase();
+ const sk=S.sk||"date",sd=S.sd=="asc"?1:-1,val=t=>sk=="amt"?(t.inc?t.amt:v(t)):sk=="date"?t.date:String(t[sk]||"").toLowerCase();
  const qw=q.toLowerCase().split(/\s+/).filter(Boolean),hit=t=>{const s=[t.desc,t.note,catLabel(t),t.card,t.amt].join("\n").toLowerCase(),tg=tags(t);return qw.every(w=>w[0]=="#"&&w.length>1?tg.includes(w.slice(1)):s.includes(w))};
  const found=base.filter(t=>(!cat||has(t,cat))&&hit(t));FOUND=found;
  {const ts=tagSums(base),el=$("tags");el.hidden=!ts.length;el.innerHTML=ts.map(([g,s])=>`<button data-tag="${esc(g)}"${q.trim().toLowerCase()=="#"+g?' class="on"':""}>#${esc(g)} <span class="sub">${fmt(s)}</span></button>`).join("")}
  $("found").hidden=!qw.length;if(qw.length)$("found").textContent=`${found.length} found, ${fmt(calc(found).spent)}`;
- const list=found.sort((a,b)=>{const x=val(a),y=val(b),c=typeof x=="number"?x-y:x.localeCompare(y);return (c*sd)||b.date.localeCompare(a.date)});
+ const list=found.sort((a,b)=>{const x=val(a),y=val(b),c=typeof x=="number"?x-y:x.localeCompare(y);return (c*sd)||(sk=="date"&&a.time&&b.time?a.time.localeCompare(b.time)*sd:0)||b.date.localeCompare(a.date)});
  const lim=!qw.length&&!cat&&!showAll&&list.length>5,vis=lim?list.slice(0,5):list;
  $("allrow").hidden=list.length<=5||qw.length>0||!!cat;$("showall").textContent=lim?"Showing the latest 5 of "+list.length+" · Show all":"Show only the latest 5";
  $("sortf").value=sk;$("sortd").textContent=sd==1?"↑":"↓";$("sortd").setAttribute("aria-label","Order: "+(sd==1?"ascending":"descending")+". Press to reverse");
@@ -624,7 +627,7 @@ function render(){$("sample").hidden=S.tx.length>0;
  const soonest=dstr(new Date(Date.now()-40*864e5));
  $("rows").innerHTML=list.length?vis.map(t=>{const os=ORDER.includes(t.cat)||t.inc&&!t.cat?ORDER:[...ORDER,t.cat],sl=sp(t),sg=t.amt<0?-1:1,
    spl=sl.map((p,i)=>`<div class="sp"><select data-sp="${t.id}" data-i="${i}" data-f="cat" aria-label="Category of this part">${(ORDER.includes(p.cat)?ORDER:[...ORDER,p.cat]).map(c=>`<option value="${esc(c)}"${c==p.cat?" selected":""}>${ic(c)}${esc(c)}</option>`).join("")}</select><input type="number" step="0.01" min="0" data-sp="${t.id}" data-i="${i}" data-f="amt" value="${esc(Math.abs(p.amt)||"")}" placeholder="Amount" aria-label="Amount of this part"><button class="x" data-spdel="${t.id}" data-i="${i}" aria-label="Remove this part">✕</button></div>`).join("")+(sl.length?`<small class="c sr">${fmt(sg*parts(t)[0][1])} stays in ${esc(t.cat)}</small>`:""),note=t.inc?(t.cat?"paid back":"income"):[t.amt<0?"refund":"",pct(t.card)==100?"":pct(t.card)?"counts "+fmt(v(t)):"not counted",t.auto&&t.date>=soonest?"not on a statement yet":""].filter(Boolean).join(" · ");
-  return `<tr class="${t.skip?"skip":""}${t.inc?" inc":""}"><td class="d"><input type="date" data-tid="${t.id}" data-f="date" value="${t.date}"></td>
+  return `<tr class="${t.skip?"skip":""}${t.inc?" inc":""}"><td class="d"><input type="date" data-tid="${t.id}" data-f="date" value="${t.date}" aria-label="Date"><input type="time" class="tm" data-tid="${t.id}" data-f="time" value="${t.time||""}" aria-label="Time"></td>
   <td class="ds"><input dir="auto" data-tid="${t.id}" data-f="desc" placeholder="Description" value="${esc(t.desc)}" style="min-width:190px"><input dir="auto" class="nt" data-tid="${t.id}" data-f="note" placeholder="+ note" value="${esc(t.note||"")}" aria-label="Note"></td>
   <td class="ct"><select data-id="${t.id}" aria-label="Category">${t.inc?`<option value="">Income</option>`:""}${os.map(c=>`<option value="${esc(c)}"${c==t.cat?" selected":""}>${t.inc?"Back: ":""}${ic(c)}${esc(c)}</option>`).join("")}${t.inc?"":`<option value="__inc">💰 Income</option><option data-split="1" value="${esc(t.cat)}">Split…</option>`}</select>${spl}</td>
   <td class="cd"><select dir="auto" data-tid="${t.id}" data-f="card" style="width:115px" aria-label="Card">${[...new Set(["",...CL.filter(c=>c!="Recurring"),t.card||""])].filter(c=>c||t.inc).map(c=>`<option value="${esc(c)}"${c==(t.card||"")?" selected":""}>${esc(c||"—")}</option>`).join("")}<option value="__new">＋ New card…</option></select></td>
@@ -862,10 +865,11 @@ document.addEventListener("change",e=>{const t=e.target;
   if(x){let val=t.value;
    if(f=="amt"){val=parseFloat(val);if(!val)return later(render);if(x.inc)val=Math.abs(val)}
    if(f=="date"&&!/^\d{4}-\d{2}-\d{2}$/.test(val))return later(render);
+   if(f=="time"&&val&&!/^\d{2}:\d{2}$/.test(val))return later(render);
    if(f=="desc"&&!val.trim())return later(render);
    if(f=="card"&&val=="__new"){val=canon(prompt("New card name")||"");if(!val)return later(render)}
-   if(f!="card"&&f!="note"&&!x.src&&x.amt&&x.desc)x.src=rid(x);
-   x[f]=(f=="desc"||f=="card"||f=="note")?val.trim().slice(0,f=="note"?500:1e4):val;if(f=="amt"){fitSplit(x);if(x.fx&&x.fx.a){x.fx.r=x.amt/x.fx.a;x.fx.m=1}}if(f=="date"&&x.fx&&!x.fx.m){x.fx.r=0;fxTried.delete(x.id)}if(f=="note"&&!x.note)delete x.note;if(f=="desc"&&x.cat=="Other"&&!x.inc)x.cat=guess(x.desc);save();later(render)}}
+   if(f!="card"&&f!="note"&&f!="time"&&!x.src&&x.amt&&x.desc)x.src=rid(x);
+   x[f]=(f=="desc"||f=="card"||f=="note")?val.trim().slice(0,f=="note"?500:1e4):val;if(f=="amt"){fitSplit(x);if(x.fx&&x.fx.a){x.fx.r=x.amt/x.fx.a;x.fx.m=1}}if(f=="date"&&x.fx&&!x.fx.m){x.fx.r=0;fxTried.delete(x.id)}if(f=="note"&&!x.note)delete x.note;if(f=="time"&&!x.time)delete x.time;if(f=="desc"&&x.cat=="Other"&&!x.inc)x.cat=guess(x.desc);save();later(render)}}
  else if(t.dataset.rid){const r=S.recur.find(x=>x.id==t.dataset.rid),f=t.dataset.f;
   if(r){r[f]=f=="amt"?(parseFloat(t.value)||0):f=="day"?Math.min(28,Math.max(1,parseInt(t.value)||1)):t.value;recGen();save();later(render)}}
  else if(t.dataset.icin!==undefined){const c=S.cats[+t.dataset.icin];if(c){S.icon[c]=t.value.trim().slice(0,8);save()}icOpen=null;render()}
@@ -1050,7 +1054,7 @@ const pkIs=el=>!!(el&&el.matches&&el.matches('select:not([multiple]):not(:disabl
 const pkName=el=>el.getAttribute("aria-label")||(el.closest("label")&&el.closest("label").textContent.trim())||({date:"Date",time:"Time","datetime-local":"Date and time"})[el.type]||"Choose";
 // On a phone the sheet adds a history step, so Back closes it (popstate); closing it any other way takes that step back off (keep: leave it, another sheet follows).
 function pkClose(back,keep){if(!PKo)return;const{src,box,bg}=PKo;PKo=null;box.remove();if(bg)bg.remove();document.body.classList.remove("pkopen");
- if(bg&&!keep&&history.state&&history.state.pk){navSkip=true;try{history.back()}catch(e){navSkip=false}}
+ if(bg&&!keep&&!navSkip&&history.state&&history.state.pk){navSkip=true;try{history.back()}catch(e){navSkip=false}}
  if(back&&src&&src.isConnected)src.focus({preventScroll:true})}
 // A redraw can replace the field while its menu is open: find the new one by its id or data-* attributes.
 const pkSel=el=>el.id?"#"+CSS.escape(el.id):Object.keys(el.dataset).length?el.tagName.toLowerCase()+Object.entries(el.dataset).map(([k,v])=>`[data-${k.replace(/[A-Z]/g,c=>"-"+c.toLowerCase())}="${CSS.escape(v)}"]`).join(""):null;
@@ -1100,7 +1104,8 @@ function pkWheel(src){const dt=src.type=="datetime-local",v=src.value||(dt?pkD(n
  const days=dt?[...Array(361)].map((_,i)=>{const d=new Date(day+"T12:00");d.setDate(d.getDate()-180+i);return d}):[],tday=ymd(),yday=pkD(new Date(Date.now()-864e5));
  const dl=d=>{const s=pkD(d);return s==tday?"Today":s==yday?"Yesterday":d.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})};
  const drum=(k,list,sel,lab)=>`<div class="pkdr" data-k="${k}" tabindex="0" role="listbox" aria-label="${lab}"><div class="pkpad"></div>${list.map((x,i)=>`<div data-i="${i}" role="option"${i==sel?' class="on" aria-selected="true"':""}>${esc(x)}</div>`).join("")}<div class="pkpad"></div></div>`;
- pkShow(src,`<div class="pkwh">${dt?drum("d",days.map(dl),180,"Day"):""}${drum("h",[...Array(24)].map((_,i)=>p2(i)),+tm.slice(0,2),"Hour")}${drum("m",[...Array(60)].map((_,i)=>p2(i)),+tm.slice(3,5),"Minute")}</div><div class="pkf"><button type="button" data-pkx>Cancel</button><button type="button" class="pri" data-ok>Done</button></div>`,box=>{
+ pkShow(src,`<div class="pkwh">${dt?drum("d",days.map(dl),180,"Day"):""}${drum("h",[...Array(24)].map((_,i)=>p2(i)),+tm.slice(0,2),"Hour")}${drum("m",[...Array(60)].map((_,i)=>p2(i)),+tm.slice(3,5),"Minute")}</div><div class="pkf">${src.type=="time"&&!src.required&&src.value?`<button type="button" class="danger" data-clr style="margin-inline-end:auto">Clear</button>`:""}<button type="button" data-pkx>Cancel</button><button type="button" class="pri" data-ok>Done</button></div>`,box=>{
+  const cl=box.querySelector("[data-clr]");if(cl)cl.addEventListener("click",()=>pkSet(src,""));
   const H=40,idx=k=>{const d=box.querySelector(`[data-k=${k}]`);return Math.round(d.scrollTop/H)};
   box.querySelectorAll(".pkdr").forEach(d=>{const on=d.querySelector(".on");d.scrollTop=on?+on.dataset.i*H:0;let tmr;
    d.addEventListener("scroll",()=>{clearTimeout(tmr);tmr=setTimeout(()=>{const i=Math.round(d.scrollTop/H);d.querySelectorAll("[data-i]").forEach(x=>{const y=+x.dataset.i==i;x.classList.toggle("on",y);x.toggleAttribute("aria-selected",y)})},50)});

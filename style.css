@@ -345,3 +345,5 @@ body.pkopen{overflow:hidden}
 .pkdr>div.on{color:var(--ink);font-weight:800}
 .pkdr .pkpad{height:80px;scroll-snap-align:none;cursor:default}
 .pkdr[data-k=d]{flex:2}
+td.d{vertical-align:top}td.d .tm{display:block;font-size:13px;color:var(--mute);padding-top:0}td.d .tm[value=""]{opacity:.6}
+.shdt{flex-wrap:nowrap}.shdt input{flex:1;min-width:0}
