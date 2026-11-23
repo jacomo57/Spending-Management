@@ -21,7 +21,7 @@
 <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=a4e037e3c7">
+<link rel="stylesheet" href="style.css?v=e49af3328b">
 </head>
 <body>
 <main>
@@ -86,7 +86,7 @@
 
 <div class="panel" id="p-how" hidden><div class="grid">
   <div class="how-tabs" role="group" aria-label="Help topics">
-    <button data-how="exp">Expenses</button><button data-how="inc">Income</button><button data-how="cat">Categories</button><button data-how="crd">Cards</button><button data-how="bud">Budget</button><button data-how="rec">Recurring</button><button data-how="imp">Import</button><button data-how="cur">Currencies</button><button data-how="rep">Report</button><button data-how="mer">Merchants</button><button data-how="acc">Account and phone</button>
+    <button data-how="exp">Expenses</button><button data-how="inc">Income</button><button data-how="cat">Categories</button><button data-how="crd">Cards</button><button data-how="bud">Budget</button><button data-how="rec">Recurring</button><button data-how="imp">Import</button><button data-how="cur">Currencies</button><button data-how="rep">Report</button><button data-how="mer">Merchants</button><button data-how="wrk">Work</button><button data-how="phn">On the phone</button><button data-how="lnk">Links</button><button data-how="acc">Account and phone</button>
   </div>
   <div class="how" data-h="exp" hidden>
    <h4>Add an expense</h4><p>Press “+ Add expense” above the list and fill in the row.</p>
@@ -95,7 +95,10 @@
    <h4>Split</h4><p>Choose “Split…” in the category box to put part of a purchase in another category.</p>
    <h4>Tags</h4><p>Write a #word in a note. Tag buttons appear above the list; press one to see only those.</p>
    <h4>Ignore and delete</h4><p>Ignore keeps a row but leaves it out of the totals. ✕ deletes it, and Undo appears for a few seconds.</p>
-   <h4>Finding things</h4><p>The list shows the latest 5. Press Show all, or use the month, card and Search boxes.</p>
+   <h4>Date and time</h4><p>The date button on a row opens one picker: the calendar, then hour and minute wheels. The time is saved only if you move the wheels; Clear time removes it.</p>
+   <h4>Sorting</h4><p>The Sort box picks Date, Amount, Description, Category or Card. The arrow next to it reverses the order. Date puts the latest purchase first.</p>
+   <h4>Finding things</h4><p>The list shows the latest 5. Press Show all, or use the month and Search boxes. Tap a card's total at the top to see only that card; tap it again for all.</p>
+   <h4>Menus</h4><p>Every dropdown and date opens the app's own menu: a card under the field on a computer, a sheet from the bottom on a phone.</p>
   </div>
   <div class="how" data-h="inc" hidden>
    <h4>Add income</h4><p>Add a row, then choose “Income” in its category box. It counts as money in, not spending.</p>
@@ -142,6 +145,24 @@
   </div>
   <div class="how" data-h="mer" hidden>
    <h4>Learned merchants</h4><p>Change a category here to re-sort every purchase from that merchant.</p>
+  </div>
+  <div class="how" data-h="wrk" hidden>
+   <h4>Timing work</h4><p>Open Work and press Start; press Stop when done. The big clock shows the time and what you have earned so far. While it runs, a strip on the main screen opens the page.</p>
+   <h4>Sessions</h4><p>Each session is listed. Edit its start and end, tick Holiday, delete it (Undo appears), or press “+ Add session” for one you forgot.</p>
+   <h4>Rate and rules</h4><p>Open “Rate and rules” to set your hourly rate and the Shabbat hours. A work day pays 100% for the first 8 hours, 125% for the next 2, then 150%; Shabbat and Holiday hours pay 150%. A session keeps the rate it started with.</p>
+   <h4>Into income</h4><p>Nothing reaches income by itself. Use “Add to income” on a session, or “Add all to income”. A session is never added twice.</p>
+   <h4>Good to know</h4><p>The timer updates when the app is opened. Editing a session after it went into income does not change the income row.</p>
+  </div>
+  <div class="how" data-h="phn" hidden>
+   <h4>Bottom bar</h4><p>On a phone: Home, Work, More and Account. More opens a sheet with the rest, including Report.</p>
+   <h4>Pages</h4><p>Each screen opens as its own page. Press “‹ Back” at the top to return.</p>
+   <h4>The + button</h4><p>The round + on Home opens a sheet to add an expense or income: amount, description, card, date and time, then Save.</p>
+   <h4>Swipe to delete</h4><p>Swipe a purchase to the left, past the delete mark. Undo appears for a few seconds.</p>
+  </div>
+  <div class="how" data-h="lnk" hidden>
+   <h4>What they are</h4><p>Add one of these to the end of the app address to use it from a phone automation or an NFC tag.</p>
+   <h4>The four links</h4><p>#add opens the add-expense sheet. #add-income opens it for income. #work opens the Work page. #work-toggle starts or stops the timer and shows the Work page.</p>
+   <h4>Good to know</h4><p>The link is removed from the address once used, so a reload does not repeat it.</p>
   </div>
   <div class="how" data-h="acc" hidden>
    <h4>Account</h4><p>Currencies, download or restore your data, sign out.</p>
@@ -234,7 +255,7 @@
  </form>
 </div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=a4e037e3c7"></script>
-<script src="cloud.js?v=a4e037e3c7"></script>
+<script src="app.js?v=e49af3328b"></script>
+<script src="cloud.js?v=e49af3328b"></script>
 </body>
 </html>

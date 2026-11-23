@@ -107,3 +107,5 @@ Speed (2026-11-18): measured with a script (phone-like: 4x slower CPU, 150ms del
 Card names (2026-11-18): not case sensitive. A name typed in Import, the New card box, the Cards panel or a phone item that matches an existing card ignoring upper/lower case ("max" for "MAX") is that card (canon() in app.js); a rename that only changes the case is allowed. Cards already saved under two spellings are NOT merged automatically: rename one to the other's spelling is refused as already used, so change the rows or delete one by hand.
 
 IDEAS: see docs/handoff.md and the GitHub Issues.
+
+How to topics (2026-11-23): added Work, On the phone (bottom bar, pages, + button, swipe to delete) and Links (#add, #add-income, #work, #work-toggle); Expenses covers date and time, Sort, card totals filter and the own menus.

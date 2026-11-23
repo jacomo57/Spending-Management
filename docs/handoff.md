@@ -10,15 +10,15 @@ Last updated 2026-11-23. Project `C:\Claude\Spending Project`, branch `dev`, rem
 - Firebase sign-up stays ON on purpose (user decided 2026-11-23).
 
 ## Next (waiting on the user)
+- How to page now has Work, On the phone and Links topics, and the Expenses topic covers date/time, sorting and card filter (2026-11-23). Statement import has no topic yet.
 - Done by the user 2026-11-23: checked the new pickers on their phone (no problems reported), added the time to the Wallet-payment macro (Quick expense with the time confirmed working), pressed "Download my data".
-- iPhone guide (`docs/phone.md`, "iPhone (Shortcuts app)") never tried on an iPhone: fix it where the menu names differ.
+- iPhone guide tried by the user (2026-11-23); no problems reported.
 - Statement import: the next Max file arrives in December 2026; the user imports it on the live site to confirm the multi-card split.
 
 ## Open items
 - Never checked on a real phone: motion smoothness, the bottom bar, swipe to delete, Work page and timer, multi-currency with real euro statements, notifications, the back gesture staying in the app, the `#...` links opening the installed app. The dark theme of newer screens is not checked.
 - Voice button: confirmed on Android 2026-11-21, English only by choice; it already sends the time. The popup can show only what was heard.
 - Work timer: the timer only updates when the app is next opened (a server function would need the paid Firebase plan, declined).
-- How to page: no topic for Work, the links, the bottom bar, the + button, swipe to delete, statement import, the pickers.
 - Work page, not handled: editing a session after it went into income leaves the income row as it was; the hourly rate is not converted when the home currency changes; no weekly 42-hour limit, unpaid breaks or holiday list (on purpose).
 - Main-screen ideas the user declined for now: vs last month, money in and out, biggest this month, waiting to confirm, recurring coming up, streak/alert.
 - Known rough edges: an edited row can drop out of the "latest 5"; Light/Dark against the device setting may flash on load; the installed app picks up manifest colours only after an update.
