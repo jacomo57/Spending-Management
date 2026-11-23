@@ -164,8 +164,7 @@ body.rep #app>nav:not(#tabbar)>*:not(.menuw){display:none!important}
 /* Split parts under a category box, and the row of tag buttons above the list. */
 .sp{display:flex;gap:2px;align-items:center;min-width:215px}.sp select{flex:1;min-width:0}.sp input{width:70px;flex:none;text-align:right}.sp .x{flex:none}
 small.sr{text-align:left;padding:0 6px 3px}
-.big .cd{background:none;border:1px solid transparent;color:inherit;text-align:start;padding:4px 8px;margin:-5px -9px}.big .cd>span{display:block}.big .cd:hover{background:var(--bg)}.big .cd.on{border-color:var(--ink)}
-#fsel{max-width:200px}#fsel.on{border-color:var(--ink);font-weight:600}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.tags button{font-size:13px;padding:3px 10px}
 /* Phone: a split purchase gets a full-width category row of its own, under the date and card. */
 @media (max-width:640px){.sp{min-width:0;gap:4px;margin-top:4px}.sp input{width:96px}tr:has(.sp) td.ct{grid-column:1/-1;grid-row:3}tr:has(.sp) td.d{grid-column:1/3}tr:has(.sp) td.k{grid-row:6}}
 .ci{text-align:center;font-size:16px;line-height:1;cursor:default;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;padding:0;background:color-mix(in srgb,var(--ic,var(--mute)) 20%,var(--card))}
@@ -301,3 +300,7 @@ body.shopen{overflow:hidden}
 .how h4{margin:12px 0 2px;font-size:15px}.how h4:first-child{margin-top:2px}.how p{margin:0;line-height:1.45;color:var(--mute)}
 .budsum{padding-top:8px;border-top:1px solid var(--line)}.budsum .over{color:var(--bad)}
 .msg.warn{color:var(--bad)}
+
+.big .cd{background:none;border:1px solid transparent;color:inherit;text-align:start;padding:4px 8px;margin:-5px -9px}.big .cd>span{display:block}.big .cd:hover{background:var(--bg)}.big .cd.on{border-color:var(--ink)}
+.flt2{display:flex;gap:8px;align-items:center;flex:1 1 100%;min-width:0}.flt2 #q{flex:1 1 0;width:0;min-width:0}#sortf{flex:0 1 auto;min-width:0}#sortd{width:36px;padding:7px 0;text-align:center}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}

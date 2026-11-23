@@ -379,7 +379,7 @@ async function local() {
     await p.click("#catall"); await p.locator('#cats .cat:has([value="Shopping"]) .pin').click();
     await p.click("#undo"); await p.click("#catall"); eq(await names(), "Groceries|Shopping|Eating out|Transport", "undo");
     await p.click('[data-cs="manual"]'); eq(await names(), "Groceries|Eating out|Transport|Shopping", "My order");
-    await p.locator('#cats .cat.short[data-c="Transport"]').click(); eq(await p.inputValue("#fsel"), "k:Transport", "category tap sets the filter");
+    await p.locator('#cats .cat.short[data-c="Transport"]').click(); await text(p, "#chip", "Transport");
     await p.click("#catall"); await setField(p.locator('#cats [value="Transport"]'), "Travel"); await p.click("#catall");
     eq(await names(), "Groceries|Eating out|Travel|Shopping", "rename keeps the pick");
     await p.click("#catall"); await p.click("#catreset"); await p.click("#catall"); eq(await names(), "Groceries|Eating out|Rent & payments|Shopping", "back to the 4 biggest (My order)");
@@ -405,11 +405,11 @@ async function local() {
     await paste(p, "Visa", "date,description,amount\n2026-11-03,Zara,300\n2026-10-04,Zara,100\n2026-10-05,Wolt,50");
     eq(await p.locator("#cmp").isHidden(), true, "hidden at first");
     eq(await p.locator("#bmb").isHidden(), true, "no Bars button without a category budget");
-    await p.locator(".cat.short").first().click(); eq(await p.inputValue("#fsel") != "", true, "category filter on");
+    await p.locator(".cat.short").first().click(); eq(await p.locator("#clearcat").count(), 1, "category filter on");
     await p.click("#cmpb");
     eq(await p.locator("#cats").isHidden(), true, "compare replaces the category list"); eq(await p.locator("#catall").isHidden(), true, "no Edit while comparing");
     eq(await p.locator('[data-cs="size"]').isHidden(), true, "no sort buttons while comparing"); eq(await p.textContent("#cmpb"), "Done", "Compare becomes Done");
-    eq(await p.inputValue("#fsel"), "", "opening compare clears the category filter");
+    eq(await p.locator("#clearcat").count(), 0, "opening compare clears the category filter");
     const first = await p.locator(".cmpt .cr").nth(1).innerText();
     eq(/₪ 300/.test(first) && /₪ 100/.test(first) && /↑ ₪ 200 \(200%\)/.test(first), true, "first row: " + first);
     const tot = await p.locator(".cmpt .cr.tot").innerText();
@@ -1051,6 +1051,21 @@ async function local() {
     await p.click("[data-p=crd]"); await p.fill("#cname", "Diners"); await p.click("#cadd");
     eq((await p.locator(sel + " option").allTextContents()).includes("Diners"), true, "card added from the Cards panel shows in the dropdown");
   });
+  await test("card totals are buttons that filter; one Sort dropdown and an arrow replace the column titles", async () => {
+    const p = await open("?local=1");
+    await paste(p, "Visa", "date,description,amount\n2026-11-03,Zara,300\n2026-11-04,Wolt,50");
+    await paste(p, "Amex", "date,description,amount\n2026-11-05,Cinema,40");
+    const first = () => p.locator("#rows [data-f=\"desc\"]").first().inputValue();
+    eq(await p.locator("thead.vh").count(), 1, "column titles are only for screen readers");
+    await p.locator(".cat.short").first().click(); await p.click('.big [data-card="Amex"]'); await p.click("#clearcat"); eq(await p.locator('.big [data-card="Amex"].on').count(), 1, "clearing the category keeps the card filter"); await p.click('.big [data-card="Amex"]');
+    await p.click('.big [data-card="Amex"]'); eq(await rows(p), 1, "rows on Amex"); eq(await p.locator(".big [data-card]").count() > 1, true, "other cards still shown");
+    await p.click('.big [data-card="Amex"]'); eq(await rows(p), 3, "tap again for all cards");
+    eq(await first(), "Cinema", "newest first at the start");
+    await p.click("#sortd"); eq(await first(), "Zara", "arrow reverses (oldest first)");
+    await p.selectOption("#sortf", "amt"); eq(await first(), "Zara", "amount, biggest first");
+    await p.click("#sortd"); eq(await first(), "Cinema", "amount, smallest first");
+    await p.reload(); eq(await p.inputValue("#sortf"), "amt", "sort kept after reload");
+  });
   await test("split a purchase across categories; #tags in notes filter and total", async () => {
     const p = await open("?local=1");
     await paste(p, "Visa", "date,description,amount\n2026-11-03,Shufersal,400\n2026-11-04,Zara,100");
@@ -1066,7 +1081,7 @@ async function local() {
     await text(p, bar("Health"), "₪ 400");
     await setField(p.locator(row + ' [data-sp][data-f="amt"]'), "150");
     await text(p, bar("Health"), "₪ 150");
-    await p.click('.bw[data-c="Health"]'); eq(await rows(p), 1, "rows under Health"); await p.selectOption("#fsel", "");
+    await p.click('.bw[data-c="Health"]'); eq(await rows(p), 1, "rows under Health"); await p.click("#clearcat");
     await p.reload(); await text(p, bar("Health"), "₪ 150"); await text(p, bar("Groceries"), "₪ 250"); await total(p, "₪ 500");
     // Half of the card counts: every part is halved, the total is the same as without a split.
     await p.click('[data-p="crd"]'); await p.selectOption('#cardrules select[data-f="rule"]', "50");
@@ -1077,15 +1092,9 @@ async function local() {
     await text(p, bar("Groceries"), "₪ 100"); eq(await p.locator(row + " .sp").count(), 0, "split parts after lowering the amount");
     await setField(p.locator(row + ' [data-f="note"]'), "#Trip food");
     await setField(p.locator('tr:has([data-f="desc"][value="Zara"]) [data-f="note"]'), "gift #trip #work");
-    await text(p, '#fsel option[value="t:trip"]', "₪ 200"); await text(p, '#fsel option[value="t:work"]', "₪ 100");
-    await p.selectOption("#fsel", "t:work"); eq(await rows(p), 1, "rows tagged work"); await text(p, "#found", "1 found, ₪ 100");
-    await p.selectOption("#fsel", ""); eq(await rows(p), 2, "rows with the tag filter off");
-    // Card totals are buttons: tap one to see only its expenses (the other cards stay to switch), tap again for all; a category tap adds to it.
-    await paste(p, "Amex", "date,description,amount\n" + (await p.evaluate(() => S.tx[0].date)) + ",Cinema,40");
-    await p.click('.big [data-card="Amex"]'); eq(await p.inputValue("#fsel"), "c:Amex", "card tap sets the filter"); eq(await rows(p), 1, "rows on Amex");
-    eq(await p.locator(".big [data-card]").count() > 1, true, "other cards still shown");
-    await p.locator(".cat.short").first().click(); eq(await p.locator('#fsel option[value="mix"]').count(), 1, "card + category shows as one choice");
-    await p.selectOption("#fsel", "c:Amex"); await p.click('.big [data-card="Amex"]'); eq(await p.inputValue("#fsel"), "", "tap again for all cards");
+    await text(p, '#tags [data-tag="trip"]', "₪ 200"); await text(p, '#tags [data-tag="work"]', "₪ 100");
+    await p.click('#tags [data-tag="work"]'); eq(await rows(p), 1, "rows tagged work"); await text(p, "#found", "1 found, ₪ 100");
+    await p.click('#tags [data-tag="work"]'); eq(await rows(p), 2, "rows with the tag filter off");
     await p.click("#repb"); await text(p, "#report", "By tag"); await text(p, "#report", "#trip");
   });
   await test("just after midnight in Israel a new purchase and a recurring bill get that day's date", async () => {

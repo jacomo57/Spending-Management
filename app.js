@@ -39,7 +39,7 @@ const own=o=>{if(o&&typeof o=="object")delete o["__proto__"];return o};
 function fixMaps(){for(const k of["rules","cards","recDone","hue","alias","icon"])if(!S[k]||typeof S[k]!="object"||Object.getPrototypeOf(S[k]))S[k]=bare(S[k]);
  const b=S.budget;if(b&&typeof b=="object"&&b.cats&&Object.getPrototypeOf(b.cats))b.cats=bare(b.cats)}
 let S={tx:[],rules:{},cur:"₪"};
-let wAll=false,HOW="exp",rpT="month",rpN=12,FOUND=[],rp=false,rpM=null,rpL=true,rpS=false,cmp=false,cmA=null,cmB=null,q="",cardF="all",CL=[],crdMsg="",cat=null,tagF="",catMsg="",panel=null,focusCat=null,showAll=false,catAll=false,catTop=[];
+let wAll=false,HOW="exp",rpT="month",rpN=12,FOUND=[],rp=false,rpM=null,rpL=true,rpS=false,cmp=false,cmA=null,cmB=null,q="",cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null,showAll=false,catAll=false,catTop=[];
 // Accounts + cloud sync (Firebase): see docs/backend.md. The cloud code is in cloud.js.
 // FB_REAL = the real project's firebaseConfig (public by design; firestore.rules is the protection).
 // If it is set to null the site falls back to local-only mode (localStorage, no sign-in).
@@ -451,7 +451,7 @@ let mTot=null,mTok=0,mBars=new Map(),mIds=null,mView=null,mList=null,mCat=null;
 function replay(el,cls){if(!el)return;cls=cls||"vin";el.classList.remove(cls);void el.offsetWidth;el.classList.add(cls)}
 function motion(tot){const on=MOTION(),n=document.querySelector("#big .n");
  // Opening or leaving the report: the screen that appears eases in. A new filter, month, sort or "Show all": the list fades in.
- const view=rp?"rep":PHONE()&&panel?"p:"+panel:"home",lk=[$("month").value,cardF,cat,tagF,showAll,S.sk,S.sd].join("|");
+ const view=rp?"rep":PHONE()&&panel?"p:"+panel:"home",lk=[$("month").value,cardF,cat,showAll,S.sk,S.sd].join("|");
  if(mView&&view!=mView&&PHONE()&&view!="rep")window.scrollTo(0,0);
  if(on&&mView&&view!=mView){if(rp)replay($("report"));else if(view=="home")document.querySelectorAll("#app>.sum,#app>section").forEach(e=>replay(e))}
  if(on&&mList!=null&&lk!=mList)replay($("rows"),"vfade");
@@ -500,7 +500,7 @@ function sheetSave(){const a=parseFloat(String($("shamt").value).replace(",","."
  const x=inc?{id,date:d,desc,amt:a,inc:1,card:"",cat:""}:{id,date:d,desc,amt:a,card:$("shcard").value||"My card",cat:$("shcat").value||guess(desc)};
  if(bc!=hc){x.fx={c:bc,a,r:0};x.amt=0}
  S.tx.push(x);pushUndo("Added “"+(desc||(inc?"income":"expense")).slice(0,28)+"”",()=>{S.tx=S.tx.filter(t=>t.id!=id)});
- pendingMonth=pk(d);q="";$("q").value="";tagF="";if(cat&&(inc||x.cat!=cat))cat=null;
+ pendingMonth=pk(d);q="";$("q").value="";if(cat&&(inc||x.cat!=cat))cat=null;
  if(MOTION())mGlow.set(id,performance.now());sheetClose();save();render();
  const b=document.querySelector(`#rows [data-del="${CSS.escape(id)}"]`);if(b)b.closest("tr").scrollIntoView({behavior:MOTION()?"smooth":"auto",block:"center"})}
 $("shform").addEventListener("submit",e=>{e.preventDefault();sheetSave()});
@@ -517,7 +517,7 @@ function doUndo(){const u=undo.pop();if(!u)return;u.fn();save();render();showToa
 document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key=="z"&&!/INPUT|TEXTAREA|SELECT/.test(e.target.tagName||"")&&undo.length){e.preventDefault();doUndo()}});
 let pendingMonth=null,focusTid=null,focusSp=null;
 function addPurchase(inc){const id=uid(),d=ymd();
- dropEmpty();q="";$("q").value="";tagF="";
+ dropEmpty();q="";$("q").value="";
  if(inc){S.tx.push({id,date:d,desc:"",amt:0,inc:1,card:"",cat:""});cardF="all";cat=null}
  else{const x={id,date:d,desc:"",amt:0,card:cardF!="all"?cardF:CL.find(c=>c!="Recurring")||"My card",cat:cat||"Other"};S.tx.push(x);
   if(buyC()!=homeC()){x.fx={c:buyC(),a:0,r:0};getRate(buyC(),homeC(),d).then(r=>{if(x.fx&&!x.fx.r){x.fx.r=r;if(S.tx.includes(x)){save();render()}}})}}
@@ -605,19 +605,17 @@ function render(){$("sample").hidden=S.tx.length>0;
  $("catall").textContent=catAll?"Done":"All categories ("+S.cats.length+") · Edit";$("catreset").hidden=!(catAll&&pick0)||cmp;$("addrow").hidden=!catAll||cmp;
  $("catmsg").textContent=catMsg;
  document.querySelectorAll("[data-cs]").forEach(b=>b.classList.toggle("on",b.dataset.cs==(S.catSort=="manual"?"manual":"size")));
+ $("chip").innerHTML=cat?`<button id="clearcat">${ic(cat)}${esc(cat)} ✕</button>`:"";
  const sk=S.sk||"date",sd=S.sd=="asc"?1:-1,val=t=>sk=="amt"?(t.inc?t.amt:v(t)):String(t[sk]||"").toLowerCase();
  const qw=q.toLowerCase().split(/\s+/).filter(Boolean),hit=t=>{const s=[t.desc,t.note,catLabel(t),t.card,t.amt].join("\n").toLowerCase(),tg=tags(t);return qw.every(w=>w[0]=="#"&&w.length>1?tg.includes(w.slice(1)):s.includes(w))};
- const found=base.filter(t=>(!cat||has(t,cat))&&(!tagF||tags(t).includes(tagF))&&hit(t));FOUND=found;
- {const ts=tagSums(base),tl=!tagF||ts.some(x=>x[0]==tagF)?ts:[...ts,[tagF,0]],cs=[...S.cats,"Other"].filter(c=>c in by||c==cat),on=[cardF!="all"&&cardF,cat,tagF&&"#"+tagF].filter(Boolean),
-  o=(x,l)=>`<option value="${esc(x)}">${esc(l)}</option>`,g=(l,a)=>a.length?`<optgroup label="${l}">${a.join("")}</optgroup>`:"",el=$("fsel");
-  el.innerHTML=o("","All expenses")+(on.length>1?o("mix",on.join(" · ")):"")+g("Cards",CL.map(c=>o("c:"+c,c)))+g("Categories",cs.map(c=>o("k:"+c,c)))+g("Tags",tl.map(([x,v])=>o("t:"+x,"#"+x+" · "+fmt(v))));
-  el.value=on.length>1?"mix":cardF!="all"?"c:"+cardF:cat?"k:"+cat:tagF?"t:"+tagF:"";el.classList.toggle("on",on.length>0)}
- $("found").hidden=!(qw.length||tagF);if(qw.length||tagF)$("found").textContent=`${found.length} found, ${fmt(calc(found).spent)}`;
+ const found=base.filter(t=>(!cat||has(t,cat))&&hit(t));FOUND=found;
+ {const ts=tagSums(base),el=$("tags");el.hidden=!ts.length;el.innerHTML=ts.map(([g,s])=>`<button data-tag="${esc(g)}"${q.trim().toLowerCase()=="#"+g?' class="on"':""}>#${esc(g)} <span class="sub">${fmt(s)}</span></button>`).join("")}
+ $("found").hidden=!qw.length;if(qw.length)$("found").textContent=`${found.length} found, ${fmt(calc(found).spent)}`;
  const list=found.sort((a,b)=>{const x=val(a),y=val(b),c=typeof x=="number"?x-y:x.localeCompare(y);return (c*sd)||b.date.localeCompare(a.date)});
- const lim=!qw.length&&!cat&&!tagF&&!showAll&&list.length>5,vis=lim?list.slice(0,5):list;
- $("allrow").hidden=list.length<=5||qw.length>0||!!cat||!!tagF;$("showall").textContent=lim?"Showing the latest 5 of "+list.length+" · Show all":"Show only the latest 5";
- const cols=[["date","Date"],["desc","Description"],["cat","Category"],["card","Card"],["amt","Amount"]];
- $("head").innerHTML=cols.map(([k,l])=>`<th${k=="amt"?' class="amt"':""} aria-sort="${sk==k?(sd==1?"ascending":"descending"):"none"}"><button data-sort="${k}">${l}${sk==k?(sd==1?" ▲":" ▼"):""}</button></th>`).join("")+`<th class="k">Ignore</th><th></th>`;
+ const lim=!qw.length&&!cat&&!showAll&&list.length>5,vis=lim?list.slice(0,5):list;
+ $("allrow").hidden=list.length<=5||qw.length>0||!!cat;$("showall").textContent=lim?"Showing the latest 5 of "+list.length+" · Show all":"Show only the latest 5";
+ $("sortf").value=sk;$("sortd").textContent=sd==1?"↑":"↓";$("sortd").setAttribute("aria-label","Order: "+(sd==1?"ascending":"descending")+". Press to reverse");
+ $("head").innerHTML=["Date","Description","Category","Card","Amount","Ignore"].map(l=>`<th>${l}</th>`).join("")+"<th></th>";
  const soonest=dstr(new Date(Date.now()-40*864e5));
  $("rows").innerHTML=list.length?vis.map(t=>{const os=ORDER.includes(t.cat)||t.inc&&!t.cat?ORDER:[...ORDER,t.cat],sl=sp(t),sg=t.amt<0?-1:1,
    spl=sl.map((p,i)=>`<div class="sp"><select data-sp="${t.id}" data-i="${i}" data-f="cat" aria-label="Category of this part">${(ORDER.includes(p.cat)?ORDER:[...ORDER,p.cat]).map(c=>`<option value="${esc(c)}"${c==p.cat?" selected":""}>${ic(c)}${esc(c)}</option>`).join("")}</select><input type="number" step="0.01" min="0" data-sp="${t.id}" data-i="${i}" data-f="amt" value="${esc(Math.abs(p.amt)||"")}" placeholder="Amount" aria-label="Amount of this part"><button class="x" data-spdel="${t.id}" data-i="${i}" aria-label="Remove this part">✕</button></div>`).join("")+(sl.length?`<small class="c sr">${fmt(sg*parts(t)[0][1])} stays in ${esc(t.cat)}</small>`:""),note=t.inc?(t.cat?"paid back":"income"):[t.amt<0?"refund":"",pct(t.card)==100?"":pct(t.card)?"counts "+fmt(v(t)):"not counted",t.auto&&t.date>=soonest?"not on a statement yet":""].filter(Boolean).join(" · ");
@@ -679,7 +677,7 @@ function trendRows(){const ms=trendMonths();return repRows("all").filter(t=>ms.i
 function repOther(el){
  let body="";
  if(rpT=="sel"){const K=calc(FOUND),lst=(rpS?FOUND:FOUND.filter(t=>!t.skip)).slice().sort((x,y)=>x.date.localeCompare(y.date)),m=$("month").value,cats=Object.keys(K.by).sort((x,y)=>K.by[y]-K.by[x]||x.localeCompare(y)),
-   fl=[m=="all"?"All time":m.length==4?"Year "+m:mname(m),cardF=="all"?"All cards":"Card: "+cardF,cat?"Category: "+cat:"",tagF?"Tag: #"+tagF:"",q.trim()?"Search: "+q.trim():""].filter(Boolean).join(" · ");
+   fl=[m=="all"?"All time":m.length==4?"Year "+m:mname(m),cardF=="all"?"All cards":"Card: "+cardF,cat?"Category: "+cat:"",q.trim()?"Search: "+q.trim():""].filter(Boolean).join(" · ");
   body=`<h2>Selected expenses</h2><div class="sub" dir="auto">${esc(fl)}</div><div class="sub">Set the month, card, category and search on the main screen first.</div>
   <div class="rbig"><div><b>${fmt(K.spent)}</b><span>spent in ${FOUND.filter(t=>!t.skip).length} entries${K.back?" · after "+fmt(K.back)+" paid back":""}</span></div></div>
   ${cats.length?sec("By category",repTable([["Category"],["Amount",1]],cats.map(c=>repTr([[esc(c),0,1],[fmt(K.by[c]),1]])).join(""))):""}
@@ -769,7 +767,7 @@ $("dl").onclick=()=>{S.bak=ymd();const a=document.createElement("a"),u=URL.creat
  a.href=u;a.download="spend-backup-"+ymd()+".json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);$("rsmsg").textContent="Saved to your downloads. Keep the file somewhere private.";save();render()};
 let rsPend=null,rsT=null;
 function rsReset(){rsPend=null;clearTimeout(rsT);$("rsbtn").textContent="Restore from file";$("rsfile").value=""}
-$("rsbtn").onclick=()=>{if(!rsPend)return $("rsfile").click();const old=S;S=rsPend;rsReset();fixMaps();cat=null;cardF="all";tagF="";
+$("rsbtn").onclick=()=>{if(!rsPend)return $("rsfile").click();const old=S;S=rsPend;rsReset();fixMaps();cat=null;cardF="all";
  pushUndo("Restored from file",()=>{S=old});save();render();$("rsmsg").textContent="Restored "+S.tx.length+" purchases."};
 $("rsfile").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
  r.onload=()=>{let o=null;try{o=JSON.parse(r.result);o=clean(o&&o.data||o)}catch(x){o=null}rsReset();
@@ -831,6 +829,7 @@ if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cn
  if(t.dataset.rx!==undefined){exportXlsx().catch(()=>{});return}
  if(t.id=="cmpb"){cmp=!cmp;if(cmp){catAll=false;cat=null}render();return}
  const tb=t.closest&&t.closest("[data-tm]");if(tb){$("month").value=tb.dataset.tm;cmA=null;render();return}
+ if(t.id=="clearcat"){cat=null;render()}
  if(t.id=="addcat")addCat();
  if(t.id=="addp"){if(PHONE())sheetOpen();else addPurchase()}
  if(t.id=="slipgo")slipAdd();
@@ -843,8 +842,9 @@ if(t.id=="cadd"){const n=$("cname").value.trim().slice(0,200);if(!n)return $("cn
  if(t.dataset.delmk){const k=t.dataset.delmk,old=S.rules[k];if(old!=null){delete S.rules[k];pushUndo("Forgot merchant “"+k+"”",()=>{S.rules[k]=old});save();render()}}
  if(t.dataset.spdel){const x=S.tx.find(y=>y.id==t.dataset.spdel),i=+t.dataset.i,p=x&&sp(x)[i];
   if(p){x.split.splice(i,1);if(!x.split.length)delete x.split;pushUndo("Removed a split part",()=>{const y=S.tx.find(z=>z.id==x.id);if(y&&!y.inc)(y.split=sp(y)).splice(Math.min(i,y.split.length),0,p)});save();render()}}
+ {const tg=t.closest&&t.closest("[data-tag]");if(tg){q=q.trim().toLowerCase()=="#"+tg.dataset.tag?"":"#"+tg.dataset.tag;$("q").value=q;render();return}}
  if(t.id=="undo")doUndo();
- const sb=t.closest&&t.closest("[data-sort]");if(sb){const c=sb.dataset.sort;if((S.sk||"date")==c)S.sd=(S.sd||"desc")=="asc"?"desc":"asc";else{S.sk=c;S.sd=(c=="amt"||c=="date")?"desc":"asc"}save();render()}});
+ if(t.id=="sortd"){S.sd=(S.sd||"desc")=="asc"?"desc":"asc";save();render()}});
 document.addEventListener("change",e=>{const t=e.target;
  if(t.dataset.wc||t.dataset.wf||t.id=="whol")return wChange(t);
  if(t.dataset.skip){const x=S.tx.find(y=>y.id==t.dataset.skip);if(x){if(t.checked)x.skip=1;else delete x.skip;save();render()}}
@@ -889,7 +889,7 @@ document.addEventListener("change",e=>{const t=e.target;
  else if(t.dataset.ci){const c=CL[+t.dataset.ci],f=t.dataset.f;if(c==null)return;
   if(f=="name"){const nv=t.value.trim();later(()=>renameCard(c,nv))}
   else{S.cards[c]=t.value=="c"?25:Math.min(100,Math.max(0,parseFloat(t.value)||0));save();later(render)}}
- else if(t.id=="fsel"){const k=t.value.slice(0,2),x=t.value.slice(2);if(t.value!="mix"){cardF=k=="c:"?x:"all";cat=k=="k:"?x:null;tagF=k=="t:"?x:"";if(cat)cmp=catAll=false;render()}}
+ else if(t.id=="sortf"){S.sk=t.value;S.sd=(t.value=="amt"||t.value=="date")?"desc":"asc";save();render()}
  else if(t.id=="icur")t.dataset.k=1;
  else if(t.id=="cur"&&CCY[t.value])changeHome(t.value);
  else if(t.id=="buy"&&CCY[t.value]){S.buy=t.value;save();render()}
