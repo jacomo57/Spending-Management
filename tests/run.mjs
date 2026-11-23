@@ -744,11 +744,16 @@ async function local() {
       ["15-10-2026", "מלון לדוגמה", "טיסות ותיירות", "2222", "רגילה", 400, "₪", 100, "€", "02-11-2026", "", ""],
       [], ["סך הכל"], ["530₪"]]]]);
     const p = await open("?local=1");
+    eq(await p.evaluate(() => ["Max 5315", "Visa 11112", "5315", "Max 2026x"].map(lastFour).join()), "5315,,5315,", "last 4 digits only at the end of a name");
+    eq(await p.evaluate(() => [byDigits(["Visa 11112", "Max 5315 joint"], "5315"), byDigits(["Visa 11112"], "1112")].join()), "Max 5315 joint,", "digits standing alone also match");
+    eq(await p.evaluate(() => $("bak").textContent), "No backup downloaded yet. Download one every month.", "backup reminder");
+    eq(await p.isVisible("#sample"), true, "sample data offered while empty");
     // Two phone purchases of 30 that day: a quick add and a Wallet notification. The statement row was paid by phone, so it takes the Wallet one.
     await p.evaluate(() => { inboxAdd([["q1", { amt: "30", desc: "quick coffee", date: "2026-10-12" }], ["w1", { title: "Coffee place", text: "₪30.00 with max Total ••1111", date: "2026-10-12" }]]); save(); render() });
     await upload(p, f);
     eq(await p.inputValue("#card"), "Card 1111", "main card from the rows");
     await p.click("#go");
+    eq(await p.isVisible("#sample"), false, "no sample data once there are purchases");
     eq(await p.locator("#msg").textContent(), "Added 2 purchases, matched 1 you had already added, on 2 cards (Card 1111, Card 2222).", "import");
     const st = await p.evaluate(() => S.tx.map(t => ({ d: t.desc, c: t.card, a: t.amt, fx: t.fx || null, auto: !!t.auto })));
     eq(st.find(t => t.d == "מלון לדוגמה").c, "Card 2222", "row on its own card");

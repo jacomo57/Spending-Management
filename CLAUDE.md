@@ -20,7 +20,7 @@ Personal spending tracker for one user in Israel (Hebrew + English). Each card h
 - At every handoff (end of a session or part, or when the user says to hand off): (1) append what was finished to `docs/archive.md` under a dated heading (what changed, what was checked, what was not, decisions and why); (2) rewrite `docs/handoff.md` so it holds only the current status, the next parts, open items and reminders, with nothing finished left in it; (3) commit both. A handoff is not done until the archive is updated.
 
 ## The app (details in `docs/app.md`, backend in `docs/backend.md`, phone setup in `docs/phone.md`)
-- Files: `index.html` (the spec comment at its top lists features, untested parts and ideas: keep it updated with every change), `style.css`, `app.js` (data, import, rendering), `cloud.js` (accounts and sync), `vendor/`, `sw.js` + `manifest.webmanifest` + `icons/` (installable app).
+- Files: `index.html` (markup), `docs/spec.md` (features, untested parts and ideas: keep it updated with every change), `style.css`, `app.js` (data, import, rendering), `cloud.js` (accounts and sync), `vendor/`, `sw.js` + `manifest.webmanifest` + `icons/` (installable app).
 - `tools/stamp.mjs` runs before every `npm test` and stamps the version into `sw.js` and `index.html`: never commit an app change without running `npm test`, or installed phones keep the old files.
 - Two modes: local-only (`?local=1` on localhost, data in localStorage) and cloud (Firebase accounts, Firestore). No bank connection. A Content Security Policy in `index.html` lists every address the page may contact: add new ones there.
 - Numbers: `calc(rows)` and `v(t)` in `app.js` are the only definition of spent, income and paybacks; every total on screen or in a report must come from them.

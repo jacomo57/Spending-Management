@@ -25,6 +25,9 @@ jobs:
           mkdir _site
           cp index.html style.css app.js cloud.js sw.js manifest.webmanifest _site/
           cp -r icons vendor _site/
+          # The live site never talks to the local test servers (emulators), so drop them from the page's address list.
+          sed -i "s# http://127.0.0.1:9099 http://127.0.0.1:8080##" _site/index.html
+          grep -q "127.0.0.1:9099" _site/index.html && exit 1 || true
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

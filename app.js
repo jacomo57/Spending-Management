@@ -219,7 +219,7 @@ function inboxRow(id,d){if(typeof d.say=="string"&&d.say&&!d.amt&&!d.desc){const
   // Spoken: any word of a card's name said in the sentence picks that card ("coffee 39 with Max", "39 on visa").
   sm=d.say?[...new Set([...cards,...cardNames()])].filter(c=>c!="Recurring").map(c=>[c,c.toLowerCase().split(/[^a-z]+/).find(w=>w.length>=3&&new RegExp("\\b"+w+"\\b","i").test(d.say))]).find(x=>x[1]):null,
   want=sm?sm[0]:s("card"),iw=(all.match(/\bwith\s+([a-z]{3,})/i)||[])[1],l4=(want.match(/(\d{4})\s*$/)||all.match(/[•*·.x]{2,}\s*(\d{4})/i)||[])[1],
-  card=cards.find(c=>want&&c.toLowerCase()==want.toLowerCase())||(l4&&cards.find(c=>c.includes(l4)))||(want&&!/^\D*\d{4}$/.test(want)?want:"")||(iw&&cards.find(c=>c.toLowerCase().includes(iw.toLowerCase())))||(cards.includes(S.defCard)?S.defCard:"")||cards[0]||"My card",
+  card=cards.find(c=>want&&c.toLowerCase()==want.toLowerCase())||(l4&&byDigits(cards,l4))||(want&&!/^\D*\d{4}$/.test(want)?want:"")||(iw&&cards.find(c=>c.toLowerCase().includes(iw.toLowerCase())))||(cards.includes(S.defCard)?S.defCard:"")||cards[0]||"My card",
   t={id,date:/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date)?date:ymd(),desc,amt,card:canon(card),cat:desc?guess(desc):"Other",auto:1};
  // From a payment notification (Wallet / Apple Pay): the statement import prefers it for a row paid by phone.
  if(!d.say&&(s("title")||s("text")))t.via="w";
@@ -227,7 +227,7 @@ function inboxRow(id,d){if(typeof d.say=="string"&&d.say&&!d.amt&&!d.desc){const
  if(sm){const x=t.desc.replace(new RegExp("\\s*\\b(with|using|by)?\\s*"+sm[1]+"\\b(\\s+card)?","i")," ").replace(/\s+/g," ").trim();if(x&&x!=t.desc){t.desc=x[0].toUpperCase()+x.slice(1);t.cat=guess(t.desc)}}
  // Read from a notification without a shekel amount (foreign money, or nothing found): keep the original words in the note.
  // Currency (2026-11-19): a plain amount from the quick-add button is in the "Buying in" currency (or the item's own "cur" code);
- // a notification that names another currency (€50, USD 12.5) is saved in that currency, the shekel value looked up by inboxAdd.
+ // a notification that names another currency (€50, USD 12.5) is saved in that currency, the shekel value looked up by fillRates.
  let fc=null,fa=amt;
  if(s("amt")){const c=s("cur").toUpperCase();fc=CCY[c]?c:buyC()}
  else if(!cur&&all){const SY={"€":"EUR","$":"USD","£":"GBP","¥":"JPY","₺":"TRY","฿":"THB","₹":"INR"},W="(€|\\$|£|¥|₺|฿|₹|"+Object.keys(CCY).join("|")+")",
@@ -236,8 +236,7 @@ function inboxRow(id,d){if(typeof d.say=="string"&&d.say&&!d.amt&&!d.desc){const
  if(fc&&fc!=homeC()&&fa){t.fx={c:fc,a:fa,r:0};t.amt=0}
  else if(!s("amt")&&!cur&&all)t.note=all.slice(0,500);
  return t}
-function inboxAdd(list){const ids=[];list.forEach(([id,d])=>{if(d&&(d.work||shiftOf(d)))return;const k="in-"+String(id).replace(/[^\w:.-]/g,"");if(!d||S.tx.some(t=>t.id==k))return;const t=inboxRow(k,d);S.tx.push(t);ids.push(k);
- if(t.fx)getRate(t.fx.c,homeC(),t.date).then(r=>{if(r&&t.fx&&!t.fx.r&&S.tx.includes(t)){t.fx.r=r;t.amt=r2(t.fx.a*r);save();render()}})});return ids}
+function inboxAdd(list){const ids=[];list.forEach(([id,d])=>{if(d&&(d.work||shiftOf(d)))return;const k="in-"+String(id).replace(/[^\w:.-]/g,"");if(!d||S.tx.some(t=>t.id==k))return;const t=inboxRow(k,d);S.tx.push(t);ids.push(k)});if(needRates())fillRates();return ids}
 // Work timer from the phone (2026-11-20): an item {work:"toggle", date:"yyyy-mm-dd", time:"HH:MM:SS"} (the phone clock when the button was pressed)
 // starts the timer at that moment, or stops the running one. Items are applied oldest first, so presses made while the app was closed replay in order.
 // S.work.done remembers the last items handled, so a second open device (or a retry) never toggles twice. Returns how many were applied.
@@ -345,7 +344,7 @@ function readFile(f){const m=$("msg"),r=new FileReader(),my=++readN;slipShow(nul
  m.textContent="Reading the file…";
  r.onload=()=>loadXlsx().then(()=>{const w=XLSX.read(r.result,{type:"array",cellNF:true}),text=w.SheetNames.map(n=>sheetText(w.Sheets[n])).filter(Boolean).join("\n");
    $("paste").value=text;const ds=fileCards(parse(text)||[]),d4=cardDigits(text,f.name)||ds[0],c=$("card");
-   if(d4&&(!c.value.trim()||c.value==autoCard)){c.value=autoCard=CL.find(x=>x.includes(d4))||"Card "+d4;impRule()}
+   if(d4&&(!c.value.trim()||c.value==autoCard)){c.value=autoCard=byDigits(CL,d4)||"Card "+d4;impRule()}
    m.textContent=ds.length>1?`File read: it has ${ds.length} cards (${ds.join(", ")}). Each row goes to its own card; the name below is for ${d4}. Press Import and sort.`:"File read. Check the card name, then press Import and sort."})
   .catch(()=>{m.textContent="Couldn’t read that Excel file. Export it as CSV instead, or paste the rows."});
  r.readAsArrayBuffer(f)}
@@ -359,7 +358,7 @@ function clean(o){const id=x=>String(x||"").replace(/[^\w:.-]/g,"")||uid();
   if(Array.isArray(t.split))t.split=t.split.filter(p=>p&&typeof p.amt=="number"&&isFinite(p.amt)).map(p=>({cat:String(p.cat||"Other"),amt:p.amt}));fitSplit(t)});
  if(!Array.isArray(o.recur))o.recur=[];o.recur.forEach(r=>{r.id=id(r.id);r.amt=+r.amt||0;r.day=Math.min(28,Math.max(1,parseInt(r.day)||1));r.desc=String(r.desc||"");if(r.inc)r.inc=1;else delete r.inc;if(r.st&&!r.inc)r.st=1;else delete r.st});
  if(o.budget&&typeof o.budget=="object"){const c=bare(),s=o.budget.cats;if(s&&typeof s=="object")for(const k in s)if(+s[k]>0)c[k]=+s[k];o.budget={total:Math.max(0,+o.budget.total||0),cats:c}}else delete o.budget;
- if(o.barMode!="budget")delete o.barMode;
+ if(o.barMode!="budget")delete o.barMode;if(typeof o.bak!="string"||!/^\d{4}-\d{2}-\d{2}$/.test(o.bak))delete o.bak;
  for(const k of["home","buy"])if(!CCY[o[k]])delete o[k];
  if(typeof o.defCard=="string"&&o.defCard)o.defCard=o.defCard.slice(0,200);else delete o.defCard;
  if(o.mstart!=null){const n=Math.min(28,Math.max(1,parseInt(o.mstart)||1));if(n>1)o.mstart=n;else delete o.mstart}
@@ -398,12 +397,14 @@ async function getRate(from,to,d){if(from==to)return 1;const today=ymd(),dd=d&&d
   const j=await r.json(),x=j&&j.rates?+j.rates[to]:0;if(x>0){FX[k]=FX[from+">"+to]=x;try{localStorage.setItem("spend-fx",JSON.stringify(FX))}catch(e){}return x}}catch(e){}
  return FX[from+">"+to]||0}
 // Put purchase x in currency c with original amount a (the rate is looked up for its date). Home currency = plain purchase.
-async function setFx(x,c,a){if(c==homeC()){delete x.fx;return}const r=await getRate(c,homeC(),x.date);x.fx={c,a,r};if(r&&a)x.amt=r2(x.inc?Math.abs(a*r):a*r)}
+async function setFx(x,c,a){if(c==homeC()){delete x.fx;return}const r=await getRate(c,homeC(),x.date);x.fx={c,a,r};if(r&&a)x.amt=fxAmt(x)}
+// The home amount of a foreign row: original amount × rate (income is always positive).
+const fxAmt=t=>r2(t.inc?Math.abs(t.fx.a*t.fx.r):t.fx.a*t.fx.r);
 // Rows saved without a rate (offline at the time, a statement in another currency, a changed date) get it here, once per row per visit.
 let fxTried=new Set(),fxBusy=false;
 async function fillRates(){if(fxBusy)return;fxBusy=true;let ch=false;
- try{for(const t of S.tx.filter(t=>t.fx&&!t.fx.r&&t.fx.a&&!fxTried.has(t.id))){fxTried.add(t.id);const r=await getRate(t.fx.c,homeC(),t.date);if(r&&t.fx&&!t.fx.r&&S.tx.includes(t)){t.fx.r=r;t.amt=r2(t.inc?Math.abs(t.fx.a*r):t.fx.a*r);ch=true}}}finally{fxBusy=false}
- if(ch){save();render()}}
+ try{for(const t of S.tx.filter(t=>t.fx&&!t.fx.r&&t.fx.a&&!fxTried.has(t.id))){fxTried.add(t.id);const r=await getRate(t.fx.c,homeC(),t.date),x=S.tx.find(y=>y.id==t.id);if(r&&x&&x.fx&&!x.fx.r){x.fx.r=r;x.amt=fxAmt(x);ch=true}}}finally{fxBusy=false}
+ if(ch){save();render()}else if(needRates())fillRates()}
 const needRates=()=>!fxBusy&&S.tx.some(t=>t.fx&&!t.fx.r&&t.fx.a&&!fxTried.has(t.id));
 const fxLine=t=>t.fx?` <small>(${fmtc(t.fx.a,t.fx.c)})</small>`:"";
 // A "month" can start on any day (S.mstart, 1 to 28, default 1): the period from that day to the day before the next one is named
@@ -497,7 +498,7 @@ window.addEventListener("popstate",()=>{if(navSkip){navSkip=false;return}
 function sheetSave(){const a=parseFloat(String($("shamt").value).replace(",","."));if(!(a>0)){$("shmsg").textContent="Enter an amount.";$("shamt").focus();return}
  const d=/^\d{4}-\d{2}-\d{2}$/.test($("shdate").value)?$("shdate").value:ymd(),desc=$("shdesc").value.trim().slice(0,1e4),id=uid(),inc=shKind=="inc",bc=buyC(),hc=homeC();
  const x=inc?{id,date:d,desc,amt:a,inc:1,card:"",cat:""}:{id,date:d,desc,amt:a,card:$("shcard").value||"My card",cat:$("shcat").value||guess(desc)};
- if(bc!=hc){x.fx={c:bc,a,r:0};x.amt=0;getRate(bc,hc,d).then(r=>{if(r&&x.fx&&!x.fx.r){x.fx.r=r;x.amt=r2(a*r);if(S.tx.includes(x)){save();render()}}})}
+ if(bc!=hc){x.fx={c:bc,a,r:0};x.amt=0}
  S.tx.push(x);pushUndo("Added “"+(desc||(inc?"income":"expense")).slice(0,28)+"”",()=>{S.tx=S.tx.filter(t=>t.id!=id)});
  pendingMonth=pk(d);q="";$("q").value="";if(cat&&(inc||x.cat!=cat))cat=null;
  if(MOTION())mGlow.set(id,performance.now());sheetClose();save();render();
@@ -521,7 +522,9 @@ function addPurchase(inc){const id=uid(),d=ymd();
  else{const x={id,date:d,desc:"",amt:0,card:cardF!="all"?cardF:CL.find(c=>c!="Recurring")||"My card",cat:cat||"Other"};S.tx.push(x);
   if(buyC()!=homeC()){x.fx={c:buyC(),a:0,r:0};getRate(buyC(),homeC(),d).then(r=>{if(x.fx&&!x.fx.r){x.fx.r=r;if(S.tx.includes(x)){save();render()}}})}}
  pendingMonth=pk(d);focusTid=id;if((S.sk||"date")!="date"||S.sd=="asc")showAll=true;save();render()}
-function render(){
+function render(){$("sample").hidden=S.tx.length>0;
+ // The data lives only in the account (no restore to an earlier day), so the Account panel says how old the last download is.
+ {const d=S.bak?Math.max(0,Math.round((new Date(ymd())-new Date(S.bak))/864e5)):-1;$("bak").textContent=d<0?"No backup downloaded yet. Download one every month.":"Last backup: "+(d?d+" day"+(d==1?"":"s")+" ago":"today")+(d>31?". Time for a new one.":".");$("bak").classList.toggle("warn",d<0||d>31)}
  const fs=fsel(document.activeElement);
  syncCats();if(!Array.isArray(S.recur))S.recur=[];
  if(!$("cur").options.length)$("cur").innerHTML=$("buy").innerHTML=Object.keys(CCY).map(c=>`<option value="${c}">${c} ${CCY[c]==c?"":CCY[c]}</option>`).join("");
@@ -698,8 +701,8 @@ $("go").onclick=()=>{const m=$("msg"),sl=/נטו|וטנ/.test($("paste").value)&
  // A file covering several cards (a "last 4 digits" column): each row goes to the card whose name has its digits; the name typed
  // above is for the file's main card (most rows) and for rows without digits; another card with no saved name becomes "Card 1234".
  // A typed name ending in 4 digits belongs to those digits only. The chosen counting rule goes to the typed card and to every card this import creates.
- const typed=canon($("card").value)||"My card",main=fileCards(p)[0],g=new Map(),end=c=>(String(c).match(/(\d{4})\s*$/)||[])[1],td=end(typed),
-  cardOf=d=>!d||td==d?typed:CL.find(c=>end(c)==d)||(!td&&d==main?typed:"Card "+d);
+ const typed=canon($("card").value)||"My card",main=fileCards(p)[0],g=new Map(),td=lastFour(typed),
+  cardOf=d=>!d||td==d?typed:byDigits(CL,d)||(!td&&d==main?typed:"Card "+d);
  p.forEach(x=>{const c=cardOf(x.d4);if(!g.has(c))g.set(c,[]);g.get(c).push(x)});
  g.forEach((l,c)=>{if(c==typed||!CL.includes(c))S.cards[c]=+$("irule").value});
  let n=0,ni=0,nm=0;g.forEach((l,c)=>{const r=add(l,c,$("icur").value);n+=r[0];ni+=r[1];nm+=r[2]});const sk=p.length-n-ni-nm;
@@ -708,6 +711,8 @@ $("go").onclick=()=>{const m=$("msg"),sl=/נטו|וטנ/.test($("paste").value)&
  const so=new Map();g.forEach((l,c)=>l.filter(x=>x.so&&!x.inc&&x.amt>0).forEach(x=>{const k=c+"|"+x.desc,o=so.get(k);if(!o||o.date<x.date)so.set(k,{desc:x.desc,amt:x.amt,date:x.date,card:c})}));
  recOffer=[...so.values()].filter(o=>!S.recur.some(r=>!r.inc&&(r.card||"Recurring")==o.card&&(r.desc==o.desc||Math.abs(r.amt-o.amt)<.005)));
  $("paste").value="";$("file").value="";$("icur").dataset.k="";render();recShow()};
+// A card's last 4 digits are the 4 digits its name ends with ("Max 5315"), else 4 digits standing alone ("Max 5315 joint"); "Visa 11112" is not card 1112.
+const lastFour=c=>(String(c).match(/(?:^|\D)(\d{4})\s*$/)||[])[1],byDigits=(list,d)=>list.find(c=>lastFour(c)==d)||list.find(c=>new RegExp("(^|\\D)"+d+"(\\D|$)").test(c));
 // The last 4 digits found on the rows of a file, the most used first.
 function fileCards(p){const n=bare();p.forEach(x=>{if(x.d4)n[x.d4]=(n[x.d4]||0)+1});return Object.keys(n).sort((a,b)=>n[b]-n[a])}
 let recOffer=[];
@@ -759,8 +764,8 @@ function delCat(i){const old=S.cats[i],oAlias=bare(S.alias),oRules=bare(),oTx=S.
 let wp=false;$("wipe").onclick=()=>{if(!wp){wp=true;$("wipe").textContent="Press again to delete everything";$("wmsg").textContent="This removes all purchases, recurring items and learned corrections.";setTimeout(()=>{wp=false;$("wipe").textContent="Delete all data";$("wmsg").textContent=""},6000);return}
  const snap={tx:S.tx,rules:S.rules,recur:S.recur,recDone:S.recDone};S.tx=[];S.rules=bare();S.recur=[];S.recDone=bare();pushUndo("Deleted all data",()=>{S.tx=snap.tx.concat(S.tx);S.rules=Object.assign(bare(snap.rules),S.rules);S.recur=snap.recur.concat(S.recur);S.recDone=Object.assign(bare(snap.recDone),S.recDone)});save();wp=false;cat=null;$("wipe").textContent="Delete all data";$("wmsg").textContent="All clear.";render()};
 // Download my data / Restore from file (Account panel). The file holds everything in S. Restoring replaces what is saved, after a second press.
-$("dl").onclick=()=>{const a=document.createElement("a"),u=URL.createObjectURL(new Blob([JSON.stringify({app:"spend-sorted",v:1,saved:new Date().toISOString(),data:S})],{type:"application/json"}));
- a.href=u;a.download="spend-backup-"+ymd()+".json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);$("rsmsg").textContent="Saved to your downloads. Keep the file somewhere private."};
+$("dl").onclick=()=>{S.bak=ymd();const a=document.createElement("a"),u=URL.createObjectURL(new Blob([JSON.stringify({app:"spend-sorted",v:1,saved:new Date().toISOString(),data:S})],{type:"application/json"}));
+ a.href=u;a.download="spend-backup-"+ymd()+".json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);$("rsmsg").textContent="Saved to your downloads. Keep the file somewhere private.";save();render()};
 let rsPend=null,rsT=null;
 function rsReset(){rsPend=null;clearTimeout(rsT);$("rsbtn").textContent="Restore from file";$("rsfile").value=""}
 $("rsbtn").onclick=()=>{if(!rsPend)return $("rsfile").click();const old=S;S=rsPend;rsReset();fixMaps();cat=null;cardF="all";
@@ -847,7 +852,7 @@ document.addEventListener("change",e=>{const t=e.target;
   if(x&&f=="ccy"){const c=t.value;return setFx(x,c,x.fx?x.fx.a:x.amt).then(()=>{save();render()})}
   if(x&&x.fx&&(f=="fxa"||f=="fxr")){const n=parseFloat(t.value)||0;if(f=="fxa")x.fx.a=n;else x.fx.r=Math.max(0,n);
    if(f=="fxr")x.fx.m=1;
-   if(x.fx.a&&x.fx.r){x.amt=r2(x.inc?Math.abs(x.fx.a*x.fx.r):x.fx.a*x.fx.r);fitSplit(x)}return save(),later(render)}
+   if(x.fx.a&&x.fx.r){x.amt=fxAmt(x);fitSplit(x)}return save(),later(render)}
   if(x){let val=t.value;
    if(f=="amt"){val=parseFloat(val);if(!val)return later(render);if(x.inc)val=Math.abs(val)}
    if(f=="date"&&!/^\d{4}-\d{2}-\d{2}$/.test(val))return later(render);
