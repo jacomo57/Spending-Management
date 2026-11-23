@@ -12,6 +12,8 @@ Rewritten 2026-11-21. Android uses MacroDroid, iPhone uses the built-in Shortcut
 | Voice add | say an expense or "start/end shift" | confirmed on Android 2026-11-20 |
 | Everything on iPhone | same four, with Shortcuts | not tried on an iPhone |
 
+**Purchase time (2026-11-23):** every button now sends the time it was pressed, and the purchase shows it under its date. Voice add and the work timer already did. A Quick expense or Wallet / Apple Pay button made before this date sends no time (its purchases show "No time"); to fix one, see "Add the time to an older button" below.
+
 Dropped by choice: "Hey Google" / Gemini / default-assistant triggers (unreliable, and no way to pass the words on).
 
 ---
@@ -42,7 +44,7 @@ Actions:
 2. **Set Variable** `what` = "User Prompt", title `What? (can be empty)`.
 3. The send step with:
    ```
-   {"fields":{"key":{"stringValue":"PASTE-KEY-HERE"},"amt":{"stringValue":"{lv=amount}"},"desc":{"stringValue":"{lv=what}"},"date":{"stringValue":"{year}-{month_digit}-{dayofmonth}"}}}
+   {"fields":{"key":{"stringValue":"PASTE-KEY-HERE"},"amt":{"stringValue":"{lv=amount}"},"desc":{"stringValue":"{lv=what}"},"date":{"stringValue":"{year}-{month_digit}-{dayofmonth}"},"time":{"stringValue":"{hour}:{minute}:{second}"}}}
    ```
 Try it: start it, type `1`, `test`. Open the app: a purchase "test", ₪1, today, marked "not on a statement yet". Delete it.
 
@@ -51,7 +53,7 @@ The app reads the amount (₪60.00), uses the notification title as the name, an
 - **Trigger**: Device Events, **Notification Received**, application Google Wallet only, text contains `with` (so only payments match). Allow Notification Access when asked.
 - **Action**: the send step with the body below. Insert the notification's title and text with the magic-text button (the list shows what this trigger offers).
   ```
-  {"fields":{"key":{"stringValue":"PASTE-KEY-HERE"},"title":{"stringValue":"TITLE-HERE"},"text":{"stringValue":"TEXT-HERE"},"date":{"stringValue":"{year}-{month_digit}-{dayofmonth}"}}}
+  {"fields":{"key":{"stringValue":"PASTE-KEY-HERE"},"title":{"stringValue":"TITLE-HERE"},"text":{"stringValue":"TEXT-HERE"},"date":{"stringValue":"{year}-{month_digit}-{dayofmonth}"},"time":{"stringValue":"{hour}:{minute}:{second}"}}}
   ```
 - Wrong card: the digits in Wallet (••5315) can differ from the physical card's. Rename the app card to include the issuer word (`Max 1234`), or make it the default.
 
@@ -80,6 +82,15 @@ Actions (local text variables `say`, `code`):
    ```
 - The popup shows what the server stored, not the app's parsed result. If the words look wrong, fix the row in the app.
 - A double quote (") in what you say breaks the message: the popup says NOT sent, say it again.
+
+### Add the time to an older button
+For a Quick expense or Wallet payment macro made before 2026-11-23:
+1. MacroDroid, open the macro, tap its **HTTP Request** action.
+2. In the Body, put the cursor just before the last three characters `}}}`.
+3. Type `,"time":{"stringValue":"` (comma first).
+4. With the magic-text button insert **Hour (24-hour)**, type `:`, insert **Minute**, type `:`, insert **Second**.
+5. Type `"}`. The end of the body now reads `...{dayofmonth}"},"time":{"stringValue":"{hour}:{minute}:{second}"}}}`.
+6. Save, run it once (amount `1`, `test`), and check the app shows the time under the date. Delete the test row.
 
 ## 4. Triggers (a macro can have several)
 - **Hardware Button / Key** (long press is safest if the button does something else): good for Voice add.
@@ -110,7 +121,7 @@ Add actions with the search bar at the bottom. Insert a variable by tapping the 
 ## The shortcuts
 **Quick expense**: **Ask for Input** (Number, `Amount`) → variable `amount`; **Ask for Input** (Text, `What?`) → `what`; then the send block with
 ```
-{"fields":{"key":{"stringValue":"PASTE-KEY-HERE"},"amt":{"stringValue":"amount"},"desc":{"stringValue":"what"},"date":{"stringValue":"day"}}}
+{"fields":{"key":{"stringValue":"PASTE-KEY-HERE"},"amt":{"stringValue":"amount"},"desc":{"stringValue":"what"},"date":{"stringValue":"day"},"time":{"stringValue":"clock"}}}
 ```
 **Voice add**: **Dictate Text** (English (US), stop after pause) → `say`; **If** `say` does not have any value: notify `Didn't hear anything`, **Stop This Shortcut**; then the send block with
 ```
@@ -124,8 +135,10 @@ What to say is the same as on Android (section "Voice add" above).
 ```
 **Apple Pay payments (iOS 17+)**: Shortcuts, Automation, +, **Transaction**, pick your cards, **Run Immediately**; action: a shortcut with the send block and the body below, where MERCHANT, AMOUNT and CARD are the Shortcut Input's Merchant, Amount and Card details:
 ```
-{"fields":{"key":{"stringValue":"PASTE-KEY-HERE"},"title":{"stringValue":"MERCHANT"},"text":{"stringValue":"AMOUNT with CARD"},"date":{"stringValue":"day"}}}
+{"fields":{"key":{"stringValue":"PASTE-KEY-HERE"},"title":{"stringValue":"MERCHANT"},"text":{"stringValue":"AMOUNT with CARD"},"date":{"stringValue":"day"},"time":{"stringValue":"clock"}}}
 ```
+
+An older Quick expense or Apple Pay shortcut: open it, tap the **Text** in the send block, put the cursor before the last `}}}`, type `,"time":{"stringValue":"`, insert the variable **clock**, type `"}`. Its send block already makes `clock` (step 2).
 
 ## Starting a shortcut
 - **Home screen icon**: open the shortcut, its ⓘ menu, Add to Home Screen.

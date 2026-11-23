@@ -220,7 +220,7 @@ function inboxRow(id,d){if(typeof d.say=="string"&&d.say&&!d.amt&&!d.desc){const
   sm=d.say?[...new Set([...cards,...cardNames()])].filter(c=>c!="Recurring").map(c=>[c,c.toLowerCase().split(/[^a-z]+/).find(w=>w.length>=3&&new RegExp("\\b"+w+"\\b","i").test(d.say))]).find(x=>x[1]):null,
   want=sm?sm[0]:s("card"),iw=(all.match(/\bwith\s+([a-z]{3,})/i)||[])[1],l4=(want.match(/(\d{4})\s*$/)||all.match(/[•*·.x]{2,}\s*(\d{4})/i)||[])[1],
   card=cards.find(c=>want&&c.toLowerCase()==want.toLowerCase())||(l4&&byDigits(cards,l4))||(want&&!/^\D*\d{4}$/.test(want)?want:"")||(iw&&cards.find(c=>c.toLowerCase().includes(iw.toLowerCase())))||(cards.includes(S.defCard)?S.defCard:"")||cards[0]||"My card",
-  t={id,date:/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date)?date:ymd(),desc,amt,card:canon(card),cat:desc?guess(desc):"Other",auto:1};
+  pt=phoneTime(d.time),t={id,date:/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date)?date:ymd(),...(pt?{time:p2(pt[0])+":"+p2(pt[1])}:{}),desc,amt,card:canon(card),cat:desc?guess(desc):"Other",auto:1};
  // From a payment notification (Wallet / Apple Pay): the statement import prefers it for a row paid by phone.
  if(!d.say&&(s("title")||s("text")))t.via="w";
  // The card's words leave the place: "Coffee with Max card" becomes "Coffee".
@@ -240,10 +240,12 @@ function inboxAdd(list){const ids=[];list.forEach(([id,d])=>{if(d&&(d.work||shif
 // Work timer from the phone (2026-11-20): an item {work:"toggle", date:"yyyy-mm-dd", time:"HH:MM:SS"} (the phone clock when the button was pressed)
 // starts the timer at that moment, or stops the running one. Items are applied oldest first, so presses made while the app was closed replay in order.
 // S.work.done remembers the last items handled, so a second open device (or a retry) never toggles twice. Returns how many were applied.
-function workInbox(list){const bad=[],w=list.filter(([,d])=>shiftOf(d)).map(([id,d])=>{const m=/^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(phoneDate(d.date)),t=/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?\s*(am|pm)?$/i.exec((d.time||"").replace(/[{}]/g,"").trim()),
-   // MacroDroid may send minutes or seconds without a leading zero ("9:5:3") or a 12-hour clock with am/pm: all are read.
-   hr=t?(t[4]?+t[1]%12+(/pm/i.test(t[4])?12:0):+t[1]):0,
-   ms=m&&t?new Date(+m[1],+m[2]-1,+m[3],hr,+t[2],+(t[3]||0)).getTime():Date.now();if(!(m&&t))bad.push(JSON.stringify((d.date||"")+" "+(d.time||"")).slice(0,60));return[id,isFinite(ms)?Math.min(ms,Date.now()):Date.now(),shiftOf(d)]}).sort((a,b)=>a[1]-b[1]);
+// A time sent by a phone as [hour, minute, second], or null. MacroDroid may send minutes or seconds without a leading zero
+// ("9:5:3"), in braces ("{16}:{17}") or a 12-hour clock with am/pm: all are read.
+const phoneTime=s=>{const t=/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?\s*(am|pm)?$/i.exec(String(s||"").replace(/[{}]/g,"").trim());if(!t)return null;
+ const h=t[4]?+t[1]%12+(/pm/i.test(t[4])?12:0):+t[1];return h<24&&+t[2]<60?[h,+t[2],+(t[3]||0)]:null};
+function workInbox(list){const bad=[],w=list.filter(([,d])=>shiftOf(d)).map(([id,d])=>{const m=/^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(phoneDate(d.date)),t=phoneTime(d.time),
+   ms=m&&t?new Date(+m[1],+m[2]-1,+m[3],t[0],t[1],t[2]).getTime():Date.now();if(!(m&&t))bad.push(JSON.stringify((d.date||"")+" "+(d.time||"")).slice(0,60));return[id,isFinite(ms)?Math.min(ms,Date.now()):Date.now(),shiftOf(d)]}).sort((a,b)=>a[1]-b[1]);
  let n=0;if(!w.length)return 0;wlog();if(!Array.isArray(S.work.done))S.work.done=[];
  // "start" does nothing while a shift is running and "stop" does nothing when none is, so a repeated or late command never flips the timer.
  w.forEach(([id,ms,kind])=>{const k=String(id).replace(/[^\w:.-]/g,"");if(S.work.done.includes(k))return;const x=wcur();
