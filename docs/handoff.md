@@ -10,7 +10,7 @@ Last updated 2026-11-23. Project `C:\Claude\Spending Project`, branch `dev`, rem
 - Firebase sign-up stays ON on purpose (user decided 2026-11-23).
 
 ## Next (waiting on the user)
-- How to page now has Work, On the phone and Links topics, and the Expenses topic covers date/time, sorting and card filter (2026-11-23). Statement import has no topic yet.
+- How to page now has Work, On the phone and Links topics, and the Expenses topic covers date/time, sorting and card filter (2026-11-23).
 - Done by the user 2026-11-23: checked the new pickers on their phone (no problems reported), added the time to the Wallet-payment macro (Quick expense with the time confirmed working), pressed "Download my data".
 - iPhone guide tried by the user (2026-11-23); no problems reported.
 - Statement import: the next Max file arrives in December 2026; the user imports it on the live site to confirm the multi-card split.

@@ -21,7 +21,7 @@
 <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=e49af3328b">
+<link rel="stylesheet" href="style.css?v=040ee66312">
 </head>
 <body>
 <main>
@@ -127,6 +127,12 @@
   </div>
   <div class="how" data-h="imp" hidden>
    <h4>Statements</h4><p>Type the card name, upload an Excel or CSV file or paste the rows, and press Import and sort. Rows you already have are skipped.</p>
+   <h4>Several cards in one file</h4><p>If the file lists the last 4 digits of each card, every row goes on its own card. A card you already named keeps its name; others become “Card 1234”.</p>
+   <h4>Installments and refunds</h4><p>An installment (3 of 5) is dated in its own month and shown as 3/5. Refunds come in as minus amounts.</p>
+   <h4>Bank files</h4><p>In a bank-style file, money out is spending and money in is income.</p>
+   <h4>Standing orders</h4><p>After an import, standing orders not yet in Recurring are offered as monthly bills; one tap adds them.</p>
+   <h4>Importing twice</h4><p>It is safe: copies already saved on that card are skipped, and a purchase you edited is not added back.</p>
+   <h4>Categories</h4><p>Sorted by what the app learned, then by keywords, then by the file's own category. The rest stays in Other for you to sort.</p>
    <h4>Foreign statements</h4><p>Pick the currency next to the card rule. Each row is converted at its date's rate.</p>
    <h4>Payslips</h4><p>Upload a PDF or picture; the net pay is added as income. Check the amount.</p>
    <h4>Phone purchases</h4><p>They merge with their statement row when the amount and date match.</p>
@@ -255,7 +261,7 @@
  </form>
 </div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=e49af3328b"></script>
-<script src="cloud.js?v=e49af3328b"></script>
+<script src="app.js?v=040ee66312"></script>
+<script src="cloud.js?v=040ee66312"></script>
 </body>
 </html>
