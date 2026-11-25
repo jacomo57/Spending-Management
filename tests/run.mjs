@@ -150,7 +150,7 @@ async function smoke() {
   let d1, d2, d3;
   await test("sign up with invite, load sample, totals match", async () => {
     d1 = await open(); await signUp(d1, A);
-    await d1.click("#sample");
+    await d1.click("#sample"); await d1.selectOption("#month", "all");
     await total(d1, "₪ 3,325"); eq(await rows(d1), 17, "purchases"); await saved(d1);
   });
   await test("Show button reveals and hides the password", async () => {
@@ -224,7 +224,7 @@ async function smoke() {
     await d3.click("#wipe"); await d3.click("#wipe"); await total(d3, "₪ 0");
     await d3.setInputFiles("#rsfile", f);
     await d3.waitForFunction(() => /17 purchases/.test(document.getElementById("rsbtn").textContent));
-    await d3.click("#rsbtn");
+    await d3.click("#rsbtn"); await d3.selectOption("#month", "all");
     await total(d3, "₪ 3,325"); await saved(d3);
     await d3.reload(); await d3.locator("#app").waitFor(); await d3.selectOption("#month", "all"); await total(d3, "₪ 3,325"); eq(await rows(d3), 17, "purchases");
   });
@@ -524,7 +524,8 @@ async function local() {
     await p.click('[data-p="bud"]');
     await setField(p.locator("#btotal"), "1000");
     await setField(p.locator('[data-bi="0"]'), "500");
-    eq(await p.locator("#budline").count(), 0, "no budget line for All time");
+    eq(await p.inputValue("#month"), mo, "a first import opens on this month");
+    await p.selectOption("#month", "all"); eq(await p.locator("#budline").count(), 0, "no budget line for All time");
     await p.selectOption("#month", mo);
     await text(p, "#budline", "₪ 450 left of ₪ 1,000");
     await text(p, '.bw[data-c="Groceries"] small', "of ₪ 500");
@@ -1003,6 +1004,24 @@ async function local() {
     await p.evaluate(() => renameCat(S.cats.indexOf("Health"), "Wellness")); eq(await parts(), "Wellness", "renamed");
     await p.evaluate(() => delCat(S.cats.indexOf("Wellness"))); eq(await parts(), "Other", "deleted");
     await p.evaluate(() => document.getElementById("undo").click()); eq(await parts(), "Wellness", "undo");
+  });
+  await test("one number rule (phone amount with a comma), impossible or month-first dates, the default card, at most 100 rows drawn", async () => {
+    const p = await open("?local=1");
+    eq(await p.evaluate(() => [inboxRow("in-a", { amt: "12,50" }).amt, inboxRow("in-b", { amt: "1,250" }).amt, inboxRow("in-c", { amt: "abc" }).amt].join()), "12.5,1250,0", "phone amounts");
+    eq(await p.evaluate(() => [date("13/25/2026"), date("31/02/2026"), date("29/02/2028"), date("25/11/2026"), date("11/20/2026"), date("2026-14-01"), date("05/11/202"), date("5.11.26")].join()), ",,2028-02-29,2026-11-25,2026-11-20,,,2026-11-05", "dates");
+    eq(await p.evaluate(() => { S.cards = bare({ Visa: 100 }); return defCard() }), "Visa", "a card made in the Cards panel, no purchases yet");
+    eq(await p.evaluate(() => parse("Date,Description,Amount\n11/05/2026,Shop A,10\n11/20/2026,Shop B,20").map(x => x.date).join()), "2026-11-05,2026-11-20", "a month-first file is read month-first");
+    eq(await p.evaluate(() => parse("Date,Description,Amount\n05/11/2026,Shop A,10\n20/11/2026,Shop B,20").map(x => x.date).join()), "2026-11-05,2026-11-20", "a day-first file stays day-first");
+    // No ★ default: a new expense goes on the card used most recently (not the first by name); with ★ it goes on that one.
+    await p.evaluate(() => { S.tx = [{ id: "a1", date: "2026-10-01", desc: "A", amt: 5, card: "Alpha joint", cat: "Other" }, { id: "b1", date: "2026-11-01", desc: "B", amt: 5, card: "Zed", cat: "Other" }]; save(); render() });
+    eq(await p.evaluate(() => defCard()), "Zed", "most recent card");
+    await p.evaluate(() => { S.defCard = "Alpha joint"; addPurchase() }); eq(await p.evaluate(() => S.tx[S.tx.length - 1].card), "Alpha joint", "★ default");
+    await p.evaluate(() => { S.tx = []; for (let i = 0; i < 230; i++) S.tx.push({ id: "r" + i, date: "2026-11-01", desc: "Row " + i, amt: 1, card: "Zed", cat: "Other" }); showAll = true; save(); render() });
+    eq(await p.locator("#rows tr:has([data-del])").count(), 100, "100 drawn"); await text(p, "#showmore", "Show 100 more · 130 not shown");
+    await p.click("#showmore"); await p.click("#showmore"); eq(await p.locator("#rows tr:has([data-del])").count(), 230, "all drawn"); eq(await p.locator("#showmore").isHidden(), true, "nothing left");
+    // Sorted by amount, a new empty expense sorts last (past row 100): it stays drawn while it is filled in, and the count leaves it out.
+    const nid = await p.evaluate(() => { S.sk = "amt"; S.sd = "desc"; showAll = false; render(); addPurchase(); const x = S.tx[S.tx.length - 1]; x.desc = "Typed"; save(); render(); return x.id });
+    eq(await p.locator(`[data-tid="${nid}"][data-f="amt"]`).count(), 1, "new row still drawn"); await text(p, "#showmore", "130 not shown");
   });
   await test("a phone-added purchase merges with its statement row; phone items are read (amount, date, card, odd input)", async () => {
     const p = await open("?local=1");

@@ -21,7 +21,7 @@
 <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet" crossorigin>
-<link rel="stylesheet" href="style.css?v=040ee66312">
+<link rel="stylesheet" href="style.css?v=88aacdaac2">
 </head>
 <body>
 <main>
@@ -182,7 +182,7 @@
 <div class="panel" id="p-imp" hidden><div class="grid">
   <div class="row"><input id="card" dir="auto" placeholder="Card name, e.g. Visa 1234" list="cardlist"><datalist id="cardlist"></datalist><select id="irule" aria-label="How this card counts"></select><select id="icur" aria-label="Currency of this statement"></select></div>
   <div>Upload a card statement (Excel or CSV) or a payslip (PDF or picture), or paste the rows below.</div>
-  <input type="file" id="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.pdf,image/*">
+  <div class="row"><button type="button" id="filebtn">Choose a file</button><input type="file" id="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.pdf,image/*" hidden></div>
   <div class="row" id="slip" hidden><span id="sliptxt"></span><input type="date" id="slipdate" aria-label="Date the money arrived"><button class="pri" id="slipgo">Add as income</button></div>
   <textarea id="paste" placeholder="date,description,amount&#10;2026-11-03,Shufersal Deal,214.50"></textarea>
   <div class="row"><button class="pri" id="go">Import and sort</button><button id="sample">Load sample data</button><span class="msg" id="msg"></span></div>
@@ -238,7 +238,7 @@
   <div class="sub" id="found" hidden></div>
   <div class="tags" id="tags" hidden></div>
   <div class="tw"><table><thead class="vh"><tr id="head"></tr></thead><tbody id="rows"></tbody></table></div>
-  <div class="row allrow" id="allrow" hidden><button id="showall"></button></div>
+  <div class="row allrow" id="allrow" hidden><button id="showall"></button><button id="showmore" hidden></button></div>
 </section>
 <button id="fab" aria-label="Add expense">+</button>
 <nav id="tabbar" aria-label="Main">
@@ -261,7 +261,7 @@
  </form>
 </div>
 <div class="toast top" id="upd" hidden role="status"><span>Update available</span><button id="updgo">Reload</button></div>
-<script src="app.js?v=040ee66312"></script>
-<script src="cloud.js?v=040ee66312"></script>
+<script src="app.js?v=88aacdaac2"></script>
+<script src="cloud.js?v=88aacdaac2"></script>
 </body>
 </html>

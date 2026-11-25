@@ -39,7 +39,7 @@ const own=o=>{if(o&&typeof o=="object")delete o["__proto__"];return o};
 function fixMaps(){for(const k of["rules","cards","recDone","hue","alias","icon"])if(!S[k]||typeof S[k]!="object"||Object.getPrototypeOf(S[k]))S[k]=bare(S[k]);
  const b=S.budget;if(b&&typeof b=="object"&&b.cats&&Object.getPrototypeOf(b.cats))b.cats=bare(b.cats)}
 let S={tx:[],rules:{},cur:"₪"};
-let wAll=false,HOW="exp",rpT="month",rpN=12,FOUND=[],rp=false,rpM=null,rpL=true,rpS=false,cmp=false,cmA=null,cmB=null,q="",cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null,showAll=false,catAll=false,catTop=[];
+let cap=100,capK="",wAll=false,HOW="exp",rpT="month",rpN=12,FOUND=[],rp=false,rpM=null,rpL=true,rpS=false,cmp=false,cmA=null,cmB=null,q="",cardF="all",CL=[],crdMsg="",cat=null,catMsg="",panel=null,focusCat=null,showAll=false,catAll=false,catTop=[];
 // Accounts + cloud sync (Firebase): see docs/backend.md. The cloud code is in cloud.js.
 // FB_REAL = the real project's firebaseConfig (public by design; firestore.rules is the protection).
 // If it is set to null the site falls back to local-only mode (localStorage, no sign-in).
@@ -56,6 +56,10 @@ const pct=c=>S.cards[c]==null?100:S.cards[c];
 // Card names ignore upper and lower case: a card typed as "max" is the card "MAX" you already have (the one with a rule, else the first).
 const cardNames=()=>[...new Set([...Object.keys(S.cards),...S.tx.filter(t=>!t.inc).map(t=>t.card),...S.recur.filter(r=>!r.inc).map(r=>r.card||"Recurring")])].filter(Boolean);
 const sameCard=(a,b)=>String(a).trim().toLowerCase()==String(b).trim().toLowerCase();
+// The card a new purchase gets when none is picked (Add expense, the + sheet, the phone): the ★ default, else the card used most recently.
+// A card made in the Cards panel with no purchases yet still counts (after the used ones, by name).
+const lastCards=()=>[...new Set(S.tx.filter(t=>!t.inc&&t.card&&t.card!="Recurring").sort((a,b)=>(b.date+(b.time||"")).localeCompare(a.date+(a.time||""))).map(t=>t.card))];
+const defCard=()=>{const all=cardNames().filter(c=>c!="Recurring");return all.includes(S.defCard)?S.defCard:lastCards()[0]||all.sort((a,b)=>a.localeCompare(b))[0]||"My card"};
 function canon(n){n=String(n||"").trim();const all=cardNames().filter(c=>sameCard(c,n));return all.length?all.find(c=>S.cards[c]!=null)||all[0]:n}
 // Income (asked 2026-11-15). A row with inc:1 is money that came in; its amount is stored positive and no card rule applies to it.
 //  - no category (cat ""): plain income (salary, a tax refund). Counts toward "In", never toward spending.
@@ -96,7 +100,7 @@ function syncCats(){fixMaps();if(!Array.isArray(S.cats))S.cats=BASE.slice();ORDE
 syncCats();
 const $=id=>document.getElementById(id);
 // Today in the user's own time zone (toISOString is UTC, which is a day behind in Israel from midnight to about 3am).
-const ymd=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+const p2=n=>String(n).padStart(2,"0"),dstr=d=>d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate()),ymd=()=>dstr(new Date());
 // A new id for a purchase or recurring item: the time plus random letters and digits (ids must match /^[\w:.-]+$/).
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,10);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -115,9 +119,13 @@ function num(s){if(s==null)return NaN;s=String(s);const neg=/^\(.*\)$/.test(s.tr
  if(s.includes(",")&&s.includes("."))s=s.lastIndexOf(",")>s.lastIndexOf(".")?s.replace(/\./g,"").replace(",","."):s.replace(/,/g,"");
  else if(s.includes(",")){s=/,\d{1,2}$/.test(s)?s.replace(",","."):s.replace(/,/g,"")}
  const v=parseFloat(s);return neg?-v:v}
-function date(s){s=String(s).trim();let m;
- if(m=s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/))return `${m[1]}-${m[2].padStart(2,"0")}-${m[3].padStart(2,"0")}`;
- if(m=s.match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/)){let y=m[3].length==2?"20"+m[3]:m[3];return `${y}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`}return null}
+// A date cell as yyyy-mm-dd, or null if it is not a real date. Day first (Israel) unless mf (a month-first file) or the
+// middle number cannot be a month ("11/20/2026").
+function date(s,mf){s=String(s).trim();let m,y,mo,d;
+ if(m=s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/))[y,mo,d]=[+m[1],+m[2],+m[3]];
+ else if(m=s.match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4}|\d{2})(?!\d)/)){y=+(m[3].length==2?"20"+m[3]:m[3]);[d,mo]=mf||+m[2]>12?[+m[2],+m[1]]:[+m[1],+m[2]]}
+ else return null;
+ return mo>=1&&mo<=12&&d>=1&&new Date(y,mo-1,d).getDate()==d?y+"-"+p2(mo)+"-"+p2(d):null}
 function loose(text){const out=[];
  text.split(/\r?\n/).forEach(l=>{const m=l.match(/\d{4}-\d{2}-\d{2}|\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}/);if(!m)return;
   const dt=date(m[0]);const rest=l.replace(m[0]," ").replace(/\d{1,2}[\/.]\d{1,2}[\/.]\d{2,4}/g," ");
@@ -134,7 +142,7 @@ const HD=/date|תאריך/i,HS=/desc|merchant|name|details|payee|memo|בית ה?
 const addM=(d,n)=>{let[y,m,day]=d.split("-").map(Number);m+=n;y+=Math.floor((m-1)/12);m=(m-1)%12+1;return y+"-"+String(m).padStart(2,"0")+"-"+String(Math.min(day,new Date(y,m,0).getDate())).padStart(2,"0")};
 function table(rows){rows=rows.map(r=>r.map(x=>String(x==null?"":x).trim())).filter(r=>r.some(Boolean));if(!rows.length)return[];
  const dc=x=>x&&x.length<25?date(x):null,isH=r=>!r.some(dc)&&r.some(x=>HD.test(x))&&r.some(x=>HA.test(x)&&!HX.test(x));
- let di=-1,si=-1,ai=-1,ci=-1,ki=-1,pi=-1,oi=-1,oc=-1,bc=-1,need=true;const out=[];
+ let di=-1,si=-1,ai=-1,ci=-1,ki=-1,pi=-1,oi=-1,oc=-1,bc=-1,need=true,mf=false;const out=[];
  const head=h=>{const pick=(re,no,pref)=>{const c=h.map((x,i)=>i).filter(i=>re.test(h[i])&&!(no&&no.test(h[i])));return c.length?(c.find(i=>pref(h[i]))??c[0]):-1};
   di=pick(HD,null,x=>!HB.test(x));ai=pick(HA,HX,x=>HB.test(x));si=h.findIndex((x,i)=>i!=di&&i!=ai&&HS.test(x));ci=h.findIndex(x=>/^(קטגוריה|category)$/i.test(x));need=true;out.card=ai>=0&&HB.test(h[ai]);
   // Optional columns (2026-11-22): each row's card (last 4 digits), how it was paid (phone, standing order...), and the original
@@ -148,8 +156,10 @@ function table(rows){rows=rows.map(r=>r.map(x=>String(x==null?"":x).trim())).fil
    if(di<0)di=r.findIndex(dc);
    if(ai<0)for(let k=r.length-1;k>=0;k--)if(k!=di&&k!=si&&/\d/.test(r[k])&&!isNaN(num(r[k]))){ai=k;break}
    if(si<0)si=r.findIndex((x,k)=>k!=di&&k!=ai&&/\D{3}/.test(x));
-   if(di<0||ai<0||si<0)return out.length?out:null}
-  let d=dc(r[di]),desc=r[si];const a=num(r[ai]);if(!d||!desc||isNaN(a)||a===0)continue;
+   if(di<0||ai<0||si<0)return out.length?out:null;
+   // Month first ("11/20/2026"): some date in the column has a middle number above 12 and none has a first number above 12.
+   const dm=rows.slice(i).map(x=>String(x[di]||"").match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-]\d{2,4}/)).filter(Boolean);mf=dm.some(x=>+x[2]>12)&&!dm.some(x=>+x[1]>12)}
+  let d=r[di]&&r[di].length<25?date(r[di],mf):null,desc=r[si];const a=num(r[ai]);if(!d||!desc||isNaN(a)||a===0)continue;
   // Installments ("תשלום 3 מתוך 5"): the row carries the original purchase date, so move this payment to its own month.
   const m=r.join(" ").match(/תשלום\s*(\d+)\s*מתוך\s*(\d+)/);if(m&&+m[1]>=1&&+m[1]<=+m[2]){d=addM(d,m[1]-1);desc+=" "+m[1]+"/"+m[2]}
   const x={date:d,desc,amt:a,hint:ci>=0?r[ci]||"":""},k4=ki>=0&&String(r[ki]||"").match(/(\d{4})\s*$/);if(k4)x.d4=k4[1];if(pi>=0&&r[pi])x.pay=r[pi];
@@ -209,17 +219,17 @@ function phoneDate(s){return String(s||"").replace(/[{}]/g,"").replace(/\b(jan|f
 function shiftOf(d){if(!d)return"";if(d.work)return d.work=="toggle"?"toggle":"";const p=typeof d.say=="string"&&d.say?parseSay(d.say):0;return p&&p.k!="exp"?p.k:""}
 function inboxRow(id,d){if(typeof d.say=="string"&&d.say&&!d.amt&&!d.desc){const p=parseSay(d.say);d={...d,amt:p.amt?String(p.amt):"",desc:p.desc||d.say.slice(0,200),text:d.say}}
  const s=k=>typeof d[k]=="string"?d[k].replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g,"").trim():"",
-  num=x=>{const n=parseFloat(String(x).replace(/,/g,"").replace(/[^\d.-]/g,""));return isFinite(n)?Math.round(n*100)/100:0},
+  amtOf=x=>{const n=num(x);return isFinite(n)?r2(n):0},
   title=s("title"),text=s("text"),all=(title+" "+text).trim(),N="([\\d,]+(?:\\.\\d{1,2})?)",
   cur=all.match(new RegExp("(?:₪|ILS|NIS)\\s*"+N))||all.match(new RegExp(N+"\\s*(?:₪|ILS|NIS|ש\"ח|ש״ח)")),any=cur||all.match(/([\d,]+\.\d{2})/),
-  amt=s("amt")?num(s("amt")):any?num(any[1]):0,desc=(s("desc")||title||text).slice(0,200),
+  amt=s("amt")?amtOf(s("amt")):any?amtOf(any[1]):0,desc=(s("desc")||title||text).slice(0,200),
   dm=phoneDate(s("date")).match(/^(\d{4})-(\d{1,2})-(\d{1,2})/),de=phoneDate(s("date")).match(/^(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})/),
   date=dm?dm[1]+"-"+p2(dm[2])+"-"+p2(dm[3]):de?de[3]+"-"+p2(de[2])+"-"+p2(de[1]):ymd(),
-  cards=[...new Set(S.tx.filter(t=>!t.inc&&t.card&&t.card!="Recurring").sort((a,b)=>b.date.localeCompare(a.date)).map(t=>t.card))],
+  cards=lastCards(),
   // Spoken: any word of a card's name said in the sentence picks that card ("coffee 39 with Max", "39 on visa").
   sm=d.say?[...new Set([...cards,...cardNames()])].filter(c=>c!="Recurring").map(c=>[c,c.toLowerCase().split(/[^a-z]+/).find(w=>w.length>=3&&new RegExp("\\b"+w+"\\b","i").test(d.say))]).find(x=>x[1]):null,
   want=sm?sm[0]:s("card"),iw=(all.match(/\bwith\s+([a-z]{3,})/i)||[])[1],l4=(want.match(/(\d{4})\s*$/)||all.match(/[•*·.x]{2,}\s*(\d{4})/i)||[])[1],
-  card=cards.find(c=>want&&c.toLowerCase()==want.toLowerCase())||(l4&&byDigits(cards,l4))||(want&&!/^\D*\d{4}$/.test(want)?want:"")||(iw&&cards.find(c=>c.toLowerCase().includes(iw.toLowerCase())))||(cards.includes(S.defCard)?S.defCard:"")||cards[0]||"My card",
+  card=cards.find(c=>want&&c.toLowerCase()==want.toLowerCase())||(l4&&byDigits(cards,l4))||(want&&!/^\D*\d{4}$/.test(want)?want:"")||(iw&&cards.find(c=>c.toLowerCase().includes(iw.toLowerCase())))||defCard(),
   pt=phoneTime(d.time),t={id,date:/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date)?date:ymd(),...(pt?{time:p2(pt[0])+":"+p2(pt[1])}:{}),desc,amt,card:canon(card),cat:desc?guess(desc):"Other",auto:1};
  // From a payment notification (Wallet / Apple Pay): the statement import prefers it for a row paid by phone.
  if(!d.say&&(s("title")||s("text")))t.via="w";
@@ -232,7 +242,7 @@ function inboxRow(id,d){if(typeof d.say=="string"&&d.say&&!d.amt&&!d.desc){const
  if(s("amt")){const c=s("cur").toUpperCase();fc=CCY[c]?c:buyC()}
  else if(!cur&&all){const SY={"€":"EUR","$":"USD","£":"GBP","¥":"JPY","₺":"TRY","฿":"THB","₹":"INR"},W="(€|\\$|£|¥|₺|฿|₹|"+Object.keys(CCY).join("|")+")",
   a=all.match(new RegExp("(?<![A-Za-z])"+W+"\\s*"+N+"(?!\\d)")),b=!a&&all.match(new RegExp(N+"\\s*"+W+"(?![A-Za-z])")),sym=a?a[1]:b&&b[2];
-  if(sym){fc=SY[sym]||sym;fa=num((a?a[2]:b[1]).replace(/^(\d+),(\d{1,2})$/,"$1.$2"))}}
+  if(sym){fc=SY[sym]||sym;fa=amtOf(a?a[2]:b[1])}}
  if(fc&&fc!=homeC()&&fa){t.fx={c:fc,a:fa,r:0};t.amt=0}
  else if(!s("amt")&&!cur&&all)t.note=all.slice(0,500);
  return t}
@@ -383,7 +393,8 @@ async function changeHome(nw){const old=homeC();if(nw==old)return render();
    if(S.budget){S.budget.total=r2(S.budget.total*r);for(const k in S.budget.cats)S.budget.cats[k]=r2(S.budget.cats[k]*r)}
    pushUndo("Converted to "+nw,()=>{const o=JSON.parse(snap);S.tx=o.tx;S.recur=o.recur;if(o.budget)S.budget=o.budget;else delete S.budget;S.home=o.home;if(o.cur)S.cur=o.cur;S.buy=o.buy;fixMaps()})}}
  if(buyC()==old)S.buy=nw;S.home=nw;S.cur=CCY[nw];save();render()}
-function fmt(n){return esc(S.cur)+" "+n.toLocaleString(undefined,{maximumFractionDigits:0})}
+// Money in the home currency: whole numbers, or up to d decimals (the work log).
+function fmt(n,d){return esc(S.cur)+" "+n.toLocaleString(undefined,{maximumFractionDigits:d||0})}
 // Multi-currency (asked 2026-11-19). Every stored amount (t.amt) is in the HOME currency (S.home, shown everywhere), so v(), calc() and
 // every total stay as they were. A purchase made in another currency also carries t.fx = {c: code, a: original amount, r: rate}
 // with amt = a*r; the row shows the original next to it. S.buy = the currency new purchases are entered in (a trip). Both are set in
@@ -419,7 +430,7 @@ const needRates=()=>!fxBusy&&S.tx.some(t=>t.fx&&!t.fx.r&&t.fx.a&&!fxTried.has(t.
 const fxLine=t=>t.fx?` <small>(${fmtc(t.fx.a,t.fx.c)})</small>`:"";
 // A "month" can start on any day (S.mstart, 1 to 28, default 1): the period from that day to the day before the next one is named
 // after the calendar month it starts in. pk(date) -> "YYYY-MM" key of the period a date is in; mrange(m) -> [first day, last day].
-const MS=()=>Math.min(28,Math.max(1,parseInt(S.mstart)||1)),p2=n=>String(n).padStart(2,"0"),dstr=d=>d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate());
+const MS=()=>Math.min(28,Math.max(1,parseInt(S.mstart)||1));
 function pk(d){if(MS()==1)return d.slice(0,7);let y=+d.slice(0,4),m=+d.slice(5,7);if(+d.slice(8,10)<MS()){if(--m==0){m=12;y--}}return y+"-"+p2(m)}
 const mrange=m=>{const[y,mo]=m.split("-").map(Number);return[dstr(new Date(y,mo-1,MS())),dstr(new Date(y,mo,MS()-1))]};
 function mname(m){const[y,mo]=m.split("-");if(MS()==1)return new Date(y,mo-1,1).toLocaleString(undefined,{month:"long",year:"numeric"});
@@ -488,7 +499,7 @@ const PTITLE={imp:"Import",crd:"Cards",rec:"Recurring",bud:"Budget",mer:"Merchan
 let shKind="exp";
 function sheetKind(k){shKind=k;document.querySelectorAll("[data-kind]").forEach(b=>b.classList.toggle("on",b.dataset.kind==k));document.querySelector("#shform .shx").hidden=k=="inc";
  $("shdesc").placeholder=k=="inc"?"From (salary, gift, refund)":"Description (shop, what for)"}
-function sheetOpen(){syncCats();const el=$("addsheet"),cards=CL.filter(c=>c!="Recurring"),def=cardF!="all"?cardF:S.defCard&&cards.includes(S.defCard)?S.defCard:cards[0]||"My card";
+function sheetOpen(){syncCats();const el=$("addsheet"),cards=CL.filter(c=>c!="Recurring"),def=cardF!="all"?cardF:defCard();
  $("shcur").textContent=CCY[buyC()];$("shamt").value="";$("shdesc").value="";$("shdate").value=ymd();$("shtime").value=hm();$("shdt").innerHTML=dtTxt(ymd(),hm());$("shmsg").textContent="";
  $("shcat").innerHTML=`<option value="">✨ Auto category</option>`+ORDER.map(c=>`<option value="${esc(c)}">${ic(c)}${esc(c)}</option>`).join("");$("shcat").value=cat&&ORDER.includes(cat)?cat:"";
  $("shcard").innerHTML=[...new Set([...cards,def])].map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");$("shcard").value=def;
@@ -510,7 +521,7 @@ function sheetSave(){const a=parseFloat(String($("shamt").value).replace(",","."
  const d=/^\d{4}-\d{2}-\d{2}$/.test($("shdate").value)?$("shdate").value:ymd(),tm=/^\d{2}:\d{2}$/.test($("shtime").value)?{time:$("shtime").value}:{},desc=$("shdesc").value.trim().slice(0,1e4),id=uid(),inc=shKind=="inc",bc=buyC(),hc=homeC();
  const x=inc?{id,date:d,...tm,desc,amt:a,inc:1,card:"",cat:""}:{id,date:d,...tm,desc,amt:a,card:$("shcard").value||"My card",cat:$("shcat").value||guess(desc)};
  if(bc!=hc){x.fx={c:bc,a,r:0};x.amt=0}
- S.tx.push(x);pushUndo("Added “"+(desc||(inc?"income":"expense")).slice(0,28)+"”",()=>{S.tx=S.tx.filter(t=>t.id!=id)});
+ S.tx.push(x);newTid=id;pushUndo("Added “"+(desc||(inc?"income":"expense")).slice(0,28)+"”",()=>{S.tx=S.tx.filter(t=>t.id!=id)});
  pendingMonth=pk(d);q="";$("q").value="";if(cat&&(inc||x.cat!=cat))cat=null;
  if(MOTION())mGlow.set(id,performance.now());sheetClose();save();render();
  const b=document.querySelector(`#rows [data-del="${CSS.escape(id)}"]`);if(b)b.closest("tr").scrollIntoView({behavior:MOTION()?"smooth":"auto",block:"center"})}
@@ -528,13 +539,14 @@ function delTx(id,tr){const go=()=>{const i=S.tx.findIndex(x=>x.id==id);if(i>=0)
 function doUndo(){const u=undo.pop();if(!u)return;u.fn();save();render();showToast()}
 document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key=="z"&&!/INPUT|TEXTAREA|SELECT/.test(e.target.tagName||"")&&undo.length){e.preventDefault();doUndo()}});
 const hm=()=>new Date().toTimeString().slice(0,5);
-let pendingMonth=null,focusTid=null,focusSp=null;
+// newTid: the purchase added last (+ Add expense or the + sheet); it stays drawn past the 100-row limit while it is filled in.
+let pendingMonth=null,focusTid=null,focusSp=null,newTid=null,lastM="";
 function addPurchase(inc){const id=uid(),d=ymd();
  dropEmpty();q="";$("q").value="";
  if(inc){S.tx.push({id,date:d,time:hm(),desc:"",amt:0,inc:1,card:"",cat:""});cardF="all";cat=null}
- else{const x={id,date:d,time:hm(),desc:"",amt:0,card:cardF!="all"?cardF:CL.find(c=>c!="Recurring")||"My card",cat:cat||"Other"};S.tx.push(x);
+ else{const x={id,date:d,time:hm(),desc:"",amt:0,card:cardF!="all"?cardF:defCard(),cat:cat||"Other"};S.tx.push(x);
   if(buyC()!=homeC()){x.fx={c:buyC(),a:0,r:0};getRate(buyC(),homeC(),d).then(r=>{if(x.fx&&!x.fx.r){x.fx.r=r;if(S.tx.includes(x)){save();render()}}})}}
- pendingMonth=pk(d);focusTid=id;if((S.sk||"date")!="date"||S.sd=="asc")showAll=true;save();render()}
+ pendingMonth=pk(d);focusTid=newTid=id;if((S.sk||"date")!="date"||S.sd=="asc")showAll=true;save();render()}
 function render(){$("sample").hidden=S.tx.length>0;
  // The data lives only in the account (no restore to an earlier day), so the Account panel says how old the last download is.
  {const d=S.bak?Math.max(0,Math.round((new Date(ymd())-new Date(S.bak))/864e5)):-1;$("bak").textContent=d<0?"No backup downloaded yet. Download one every month.":"Last backup: "+(d?d+" day"+(d==1?"":"s")+" ago":"today")+(d>31?". Time for a new one.":".");$("bak").classList.toggle("warn",d<0||d>31)}
@@ -557,11 +569,13 @@ function render(){$("sample").hidden=S.tx.length>0;
  $("reclist").innerHTML=S.recur.map(r=>`<div class="row"><input dir="auto" data-rid="${r.id}" data-f="desc" value="${esc(r.desc)}" style="width:150px" aria-label="Description"><input data-rid="${r.id}" data-f="amt" type="number" step="0.01" value="${r.amt}" style="width:90px" aria-label="Amount"><input data-rid="${r.id}" data-f="day" type="number" min="1" max="28" value="${r.day}" style="width:60px" aria-label="Day of month">${r.inc?`<span class="sub">income</span>`:`<select data-rid="${r.id}" data-f="card" aria-label="Card">${copt(r.card||"Recurring")}</select>`}<button class="x" data-delrec="${r.id}" aria-label="Delete">✕</button></div>`).join("")||`<span class="msg">None yet.</span>`;
  $("cardlist").innerHTML=CL.map(c=>`<option value="${esc(c)}">`).join("");
  const months=[...new Set(S.tx.map(t=>pk(t.date)))].sort().reverse();
- const cm=pendingMonth||$("month").value||(months.includes(pk(ymd()))?pk(ymd()):months[0]||"all");pendingMonth=null;
+ // "All time" shown only because there was no data (a first import, the sample, after Delete all data) is not a choice:
+ // use the last month picked while there was data (lastM), else this month.
+ const cm=pendingMonth||($("month").options.length>1?$("month").value:lastM)||(months.includes(pk(ymd()))?pk(ymd()):months[0]||"all");pendingMonth=null;
  const yrs=[...new Set(months.map(x=>x.slice(0,4)))];
  $("month").innerHTML='<option value="all">All time</option>'+yrs.map(y=>`<option value="${y}">All of ${y}</option>`).join("")+months.map(m=>`<option value="${m}">${mname(m)}</option>`).join("");
  $("month").value=months.includes(cm)||yrs.includes(cm)||cm=="all"?cm:"all";
- const m=$("month").value;
+ const m=$("month").value;if(months.length)lastM=m;
  // Compare (view only, not saved): two months per category, change, and a strip of the last 12 months.
  // Compare needs two months; while it is open it replaces the category list and its buttons (and Edit hides it).
  {const el=$("cmp");if(months.length<2)cmp=false;el.hidden=!cmp;$("cmpb").classList.toggle("on",cmp);$("cmpb").textContent=cmp?"Done":"Compare";$("cmpb").hidden=months.length<2||catAll;
@@ -623,8 +637,11 @@ function render(){$("sample").hidden=S.tx.length>0;
  {const ts=tagSums(base),el=$("tags");el.hidden=!ts.length;el.innerHTML=ts.map(([g,s])=>`<button data-tag="${esc(g)}"${q.trim().toLowerCase()=="#"+g?' class="on"':""}>#${esc(g)} <span class="sub">${fmt(s)}</span></button>`).join("")}
  $("found").hidden=!qw.length;if(qw.length)$("found").textContent=`${found.length} found, ${fmt(calc(found).spent)}`;
  const list=found.sort((a,b)=>{const x=val(a),y=val(b),c=typeof x=="number"?x-y:x.localeCompare(y);return (c*sd)||b.date.localeCompare(a.date)});
- const lim=!qw.length&&!cat&&!showAll&&list.length>5,vis=lim?list.slice(0,5):list;
- $("allrow").hidden=list.length<=5||qw.length>0||!!cat;$("showall").textContent=lim?"Showing the latest 5 of "+list.length+" · Show all":"Show only the latest 5";
+ // Drawing thousands of rows takes seconds, so at most `cap` are drawn (100 more per press); a new row being typed into is always drawn.
+ {const ck=[m,cardF,cat,q,showAll].join("|");if(ck!=capK){capK=ck;cap=100}}
+ const lim=!qw.length&&!cat&&!showAll&&list.length>5,vis=lim?list.slice(0,5):list.filter((t,i)=>i<cap||t.id==newTid),rest=lim?0:list.length-vis.length;
+ $("showall").hidden=list.length<=5||qw.length>0||!!cat;$("showall").textContent=lim?"Showing the latest 5 of "+list.length+" · Show all":"Show only the latest 5";
+ $("showmore").hidden=rest<=0;if(rest>0)$("showmore").textContent="Show "+Math.min(100,rest)+" more · "+rest.toLocaleString()+" not shown";$("allrow").hidden=$("showall").hidden&&rest<=0;
  $("sortf").value=sk;$("sortd").textContent=sd==1?"↑":"↓";$("sortd").setAttribute("aria-label","Order: "+(sd==1?"ascending":"descending")+". Press to reverse");
  $("head").innerHTML=["Date","Description","Category","Card","Amount","Ignore"].map(l=>`<th>${l}</th>`).join("")+"<th></th>";
  const soonest=dstr(new Date(Date.now()-40*864e5));
@@ -634,7 +651,7 @@ function render(){$("sample").hidden=S.tx.length>0;
   <td class="ds"><input dir="auto" data-tid="${t.id}" data-f="desc" placeholder="Description" value="${esc(t.desc)}" style="min-width:190px"><input dir="auto" class="nt" data-tid="${t.id}" data-f="note" placeholder="+ note" value="${esc(t.note||"")}" aria-label="Note"></td>
   <td class="ct"><select data-id="${t.id}" aria-label="Category">${t.inc?`<option value="">Income</option>`:""}${os.map(c=>`<option value="${esc(c)}"${c==t.cat?" selected":""}>${t.inc?"Back: ":""}${ic(c)}${esc(c)}</option>`).join("")}${t.inc?"":`<option value="__inc">💰 Income</option><option data-split="1" value="${esc(t.cat)}">Split…</option>`}</select>${spl}</td>
   <td class="cd"><select dir="auto" data-tid="${t.id}" data-f="card" style="width:115px" aria-label="Card">${[...new Set(["",...CL.filter(c=>c!="Recurring"),t.card||""])].filter(c=>c||t.inc).map(c=>`<option value="${esc(c)}"${c==(t.card||"")?" selected":""}>${esc(c||"—")}</option>`).join("")}<option value="__new">＋ New card…</option></select></td>
-  <td class="amt"><input type="number" step="0.01" data-tid="${t.id}" data-f="amt" value="${t.amt}">${t.inc?"":`<div class="fx"><div class="fxl"><span>${t.fx?"Paid":"Paid in"}</span>${t.fx?`<input type="number" step="0.01" data-tid="${t.id}" data-f="fxa" value="${t.fx.a||""}" placeholder="Amount" aria-label="Amount paid in ${t.fx.c}">`:""}<select data-tid="${t.id}" data-f="ccy" aria-label="Currency of this purchase">${curOpts(t.fx?t.fx.c:homeC(),1)}</select>${t.fx?`<span>rate</span><input type="number" step="any" min="0" data-tid="${t.id}" data-f="fxr" value="${t.fx.r?+(t.fx.r>=1?t.fx.r.toFixed(2):t.fx.r.toPrecision(2)):""}" placeholder="rate" title="${homeC()} per 1 ${t.fx.c}" aria-label="Exchange rate: ${homeC()} per 1 ${t.fx.c}">`:""}</div></div>`}${note?`<small class="c amt">${note}</small>`:""}</td>
+  <td class="amt"><input type="number" step="0.01" data-tid="${t.id}" data-f="amt" value="${t.amt}">${t.inc?"":!t.fx&&buyC()==homeC()?`<div class="fx fx1"><select data-tid="${t.id}" data-f="ccy" aria-label="Currency of this purchase">${curOpts(homeC(),1)}</select></div>`:`<div class="fx"><div class="fxl"><span>${t.fx?"Paid":"Paid in"}</span>${t.fx?`<input type="number" step="0.01" data-tid="${t.id}" data-f="fxa" value="${t.fx.a||""}" placeholder="Amount" aria-label="Amount paid in ${t.fx.c}">`:""}<select data-tid="${t.id}" data-f="ccy" aria-label="Currency of this purchase">${curOpts(t.fx?t.fx.c:homeC(),1)}</select>${t.fx?`<span>rate</span><input type="number" step="any" min="0" data-tid="${t.id}" data-f="fxr" value="${t.fx.r?+(t.fx.r>=1?t.fx.r.toFixed(2):t.fx.r.toPrecision(2)):""}" placeholder="rate" title="${homeC()} per 1 ${t.fx.c}" aria-label="Exchange rate: ${homeC()} per 1 ${t.fx.c}">`:""}</div></div>`}${note?`<small class="c amt">${note}</small>`:""}</td>
   <td class="k"><input type="checkbox" data-skip="${t.id}"${t.skip?" checked":""} aria-label="Ignore this purchase"></td><td class="k dl"><button class="x" data-del="${t.id}" aria-label="Delete">✕</button></td></tr>`}).join("")
   :`<tr><td colspan="7" class="empty" style="grid-column:1/-1">${S.tx.length?"Nothing matches these filters.":"No purchases yet. Press Import above, or load the sample data to try it out."}</td></tr>`;
  report();if(needRates())fillRates();
@@ -805,6 +822,8 @@ function endDrag(){if(!drag)return;const d=drag;drag=null;if(!d.moved)return;
 document.addEventListener("pointerup",endDrag);document.addEventListener("pointercancel",endDrag);
 document.addEventListener("click",e=>{const t=e.target;
  if(t.id=="showall"){showAll=!showAll;render();return}
+ if(t.id=="showmore"){cap+=100;render();return}
+ if(t.id=="filebtn"){$("file").click();return}
  if(t.id=="themeb"){if(MOTION()){const h=document.documentElement;h.classList.add("themeswap");setTimeout(()=>h.classList.remove("themeswap"),450)}themeSet(THEMES[(THEMES.indexOf(themeGet())+1)%3]);return}
  if(t.dataset&&t.dataset.ic!==undefined){icOpen=icOpen==+t.dataset.ic?null:+t.dataset.ic;render();return}
  if(t.dataset&&t.dataset.pick!==undefined&&icOpen!=null){const c=S.cats[icOpen];if(c){S.icon[c]=t.dataset.pick;save()}icOpen=null;render();return}
@@ -973,17 +992,15 @@ function workDay(list,now){const out={};let cum=0;
   out[x.id]={ms,pay}});
  return out}
 function workCalc(now){const g={},out={};wlog().forEach(x=>{const d=new Date(x.s),k=d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate();(g[k]=g[k]||[]).push(x)});for(const k in g)Object.assign(out,workDay(g[k],now));return out}
-const wp2=n=>String(n).padStart(2,"0");
-function wclock(ms){const s=Math.max(0,Math.floor(ms/1000));return wp2(Math.floor(s/3600))+":"+wp2(Math.floor(s/60)%60)+":"+wp2(s%60)}
-function whm(ms){const m=Math.round(Math.max(0,ms)/6e4);return Math.floor(m/60)+"h "+wp2(m%60)+"m"}
-function wlocal(ms){const d=new Date(ms);return d.getFullYear()+"-"+wp2(d.getMonth()+1)+"-"+wp2(d.getDate())+"T"+wp2(d.getHours())+":"+wp2(d.getMinutes())}
+function wclock(ms){const s=Math.max(0,Math.floor(ms/1000));return p2(Math.floor(s/3600))+":"+p2(Math.floor(s/60)%60)+":"+p2(s%60)}
+function whm(ms){const m=Math.round(Math.max(0,ms)/6e4);return Math.floor(m/60)+"h "+p2(m%60)+"m"}
+function wlocal(ms){const d=new Date(ms);return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate())+"T"+p2(d.getHours())+":"+p2(d.getMinutes())}
 const wdate=ms=>wlocal(ms).slice(0,10);
-function wmoney(n){return esc(S.cur)+" "+n.toLocaleString(undefined,{maximumFractionDigits:2})}
 function workTick(){const x=wcur(),now=Date.now(),st=$("wstrip");
  if(!x){if(st&&!st.hidden)st.hidden=true;return}
  const r=workCalc(now)[x.id]||{ms:0,pay:0};
- if(st){st.hidden=false;$("wst").innerHTML=`Working · ${wclock(now-x.s)} · ${wmoney(r.pay)} so far`}
- if($("wtime")){$("wtime").innerHTML=wclock(now-x.s).replace(/:/g,'<span class="c">:</span>');$("wearn").textContent=wmoney(r.pay)+" so far"}}
+ if(st){st.hidden=false;$("wst").innerHTML=`Working · ${wclock(now-x.s)} · ${fmt(r.pay,2)} so far`}
+ if($("wtime")){$("wtime").innerHTML=wclock(now-x.s).replace(/:/g,'<span class="c">:</span>');$("wearn").textContent=fmt(r.pay,2)+" so far"}}
 function workRender(){workTick();
  if(panel!="wrk")return;
  const x=wcur(),c=wcfg(),now=Date.now(),calc2=workCalc(now),log=wlog().slice().sort((a,b)=>b.s-a.s);
@@ -996,17 +1013,17 @@ function workRender(){workTick();
  const sum=a=>[a.reduce((q,y)=>q+(calc2[y.id]?calc2[y.id].ms:0),0),a.reduce((q,y)=>q+(calc2[y.id]?calc2[y.id].pay:0),0)],
   wk=new Date(now);wk.setHours(0,0,0,0);wk.setDate(wk.getDate()-wk.getDay());const wks=wk.getTime(),
   fin=log.filter(y=>y.e),[wm,wp]=sum(fin.filter(y=>y.s>=wks)),[mm,mp]=sum(mine);
- $("wtot").innerHTML="This week: "+whm(wm)+" · "+wmoney(wp)+"<br>This month: "+whm(mm)+" · "+wmoney(mp)+"<br>Not in income yet: "+wmoney(owed.reduce((q,y)=>q+(calc2[y.id]?calc2[y.id].pay:0),0));
+ $("wtot").innerHTML="This week: "+whm(wm)+" · "+fmt(wp,2)+"<br>This month: "+whm(mm)+" · "+fmt(mp,2)+"<br>Not in income yet: "+fmt(owed.reduce((q,y)=>q+(calc2[y.id]?calc2[y.id].pay:0),0),2);
  const by={};fin.forEach(y=>{(by[wdate(y.s).slice(0,7)]=by[wdate(y.s).slice(0,7)]||[]).push(y)});
  $("wmonths").innerHTML=Object.keys(by).sort().reverse().map(k=>{const a=by[k],[m,p]=sum(a),od=a.filter(y=>!(y.inc&&S.tx.some(t=>t.id==y.inc))&&calc2[y.id]&&calc2[y.id].pay>0);
-  return `<div class="row"><span class="wl">${esc(new Date(k+"-15").toLocaleString(undefined,{month:"long",year:"numeric"}))}</span><b>${whm(m)} · ${wmoney(p)}</b>${od.length?`<button data-wmonth="${k}">Add month to income</button>`:`<span class="sub">✓ in income</span>`}</div>`}).join("");
+  return `<div class="row"><span class="wl">${esc(new Date(k+"-15").toLocaleString(undefined,{month:"long",year:"numeric"}))}</span><b>${whm(m)} · ${fmt(p,2)}</b>${od.length?`<button data-wmonth="${k}">Add month to income</button>`:`<span class="sub">✓ in income</span>`}</div>`}).join("");
  $("wall").hidden=!owed.length;
  const num=(k,l,u,st)=>`<label class="row"><span class="wl">${l}</span><input type="number" data-wc="${k}" min="0" step="${st||1}" value="${c[k]}" style="width:90px"><span class="sub">${u}</span></label>`;
  $("wcfg").innerHTML=num("rate","Hourly rate",esc(S.cur),"0.01")+num("lim","Normal day","hours")+num("o1","Overtime, first 2 hours","%")+num("o2","Overtime after that","%")+num("r","Shabbat / holiday","%")+num("ro1","Shabbat overtime, first 2 hours","%")+num("ro2","Shabbat overtime after that","%")+
   `<label class="row"><span class="wl">Shabbat starts, Friday</span><input type="time" data-wc="sf" value="${c.sf}"></label><label class="row"><span class="wl">Shabbat ends, Saturday</span><input type="time" data-wc="st" value="${c.st}"></label><div class="sub">Changes apply to new sessions only. Not counted: weekly limit, unpaid breaks.</div>`;
  const shown=wAll?log:log.slice(0,8);
  $("wlist").innerHTML=shown.map(y=>{const r=calc2[y.id]||{ms:0,pay:0},inInc=y.inc&&S.tx.some(t=>t.id==y.inc);
-  return `<div class="row wrow"><input type="datetime-local" data-wf="s" data-wid="${y.id}" value="${wlocal(y.s)}" aria-label="Start">${y.e?`<input type="datetime-local" data-wf="e" data-wid="${y.id}" value="${wlocal(y.e)}" aria-label="End">`:`<span class="sub">running…</span>`}<label class="sub"><input type="checkbox" data-wf="hol" data-wid="${y.id}"${y.hol?" checked":""}> Holiday</label>${y.e?`<b>${whm(r.ms)} · ${wmoney(r.pay)}</b>${inInc?`<span class="sub">✓ in income</span>`:`<button data-winc="${y.id}">Add to income</button>`}`:""}<button class="x" data-wdel="${y.id}" aria-label="Delete">✕</button></div>`}).join("")||`<span class="msg">No sessions yet.</span>`;
+  return `<div class="row wrow"><input type="datetime-local" data-wf="s" data-wid="${y.id}" value="${wlocal(y.s)}" aria-label="Start">${y.e?`<input type="datetime-local" data-wf="e" data-wid="${y.id}" value="${wlocal(y.e)}" aria-label="End">`:`<span class="sub">running…</span>`}<label class="sub"><input type="checkbox" data-wf="hol" data-wid="${y.id}"${y.hol?" checked":""}> Holiday</label>${y.e?`<b>${whm(r.ms)} · ${fmt(r.pay,2)}</b>${inInc?`<span class="sub">✓ in income</span>`:`<button data-winc="${y.id}">Add to income</button>`}`:""}<button class="x" data-wdel="${y.id}" aria-label="Delete">✕</button></div>`}).join("")||`<span class="msg">No sessions yet.</span>`;
  $("wmore").hidden=log.length<=8;$("wmore").textContent=wAll?"Show fewer":"Show all ("+log.length+")"}
 function wToggle(){const x=wcur();if(x)x.e=Math.max(Date.now(),x.s+1);else wlog().push({id:uid(),s:Date.now(),e:null,hol:0,c:wcfg()});save();render()}
 function wAdd(){const d=new Date();d.setHours(9,0,0,0);const s=d.getTime();d.setHours(17,0,0,0);wlog().push({id:uid(),s,e:d.getTime(),hol:0,c:wcfg()});save();render()}
@@ -1087,7 +1104,6 @@ function pkSelect(src){const items=[],it=o=>{if(!o.disabled&&!o.hidden)items.pus
  pkList(src,items,String(src.selectedIndex),i=>{const o=src.options[+i];if(o)pkSet(src,{i:+i,val:o.value},o.value=="__add")})}
 // Calendar for a date field. Sunday first (Israel). Tapping "November 2026" switches to the months of that year.
 // With tsrc (an expense's time field) it is one picker for both: the calendar, then hour and minute wheels below, and Done.
-const pkD=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 // Wheels: H px per row; the padding above and below lets the first and last rows reach the middle band.
 const pkDrum=(k,list,sel,lab)=>`<div class="pkdr" data-k="${k}" tabindex="0" role="listbox" aria-label="${lab}"><div class="pkpad"></div>${list.map((x,i)=>`<div data-i="${i}" role="option"${i==sel?' class="on" aria-selected="true"':""}>${esc(x)}</div>`).join("")}<div class="pkpad"></div></div>`;
 function pkDrums(box,onTouch){const H=40;
@@ -1107,7 +1123,7 @@ function pkCal(src,tsrc){const ok=v=>/^\d{4}-\d{2}-\d{2}$/.test(v),v=ok(src.valu
    if(st.mv){el.innerHTML=`<div class="pkch"><button type="button" data-y="-1" aria-label="Previous year">‹</button><button type="button" class="pkmt" data-mv>${st.y}</button><button type="button" data-y="1" aria-label="Next year">›</button></div><div class="pkms">${[...Array(12)].map((_,i)=>`<button type="button" data-mo="${i}"${i==st.m?' class="sel"':""}>${new Date(2000,i,1).toLocaleString(loc,{month:"short"})}</button>`).join("")}</div>`;return}
    const f=new Date(st.y,st.m,1).getDay(),n=new Date(st.y,st.m+1,0).getDate(),wd=[...Array(7)].map((_,i)=>new Date(2026,10,1+i).toLocaleString(loc,{weekday:"narrow"}));
    el.innerHTML=`<div class="pkch"><button type="button" data-m="-1" aria-label="Previous month">‹</button><button type="button" class="pkmt" data-mv aria-label="Choose a month">${esc(new Date(st.y,st.m,1).toLocaleString(loc,{month:"long",year:"numeric"}))} ▾</button><button type="button" data-m="1" aria-label="Next month">›</button></div>
-   <div class="pkg">${wd.map(x=>`<span>${x}</span>`).join("")}${"<span></span>".repeat(f)}${[...Array(n)].map((_,i)=>{const d=pkD(new Date(st.y,st.m,i+1));return `<button type="button" data-d="${d}" class="${d==cur?"sel":""}${d==t?" now":""}" aria-pressed="${d==cur}">${i+1}</button>`}).join("")}</div>
+   <div class="pkg">${wd.map(x=>`<span>${x}</span>`).join("")}${"<span></span>".repeat(f)}${[...Array(n)].map((_,i)=>{const d=dstr(new Date(st.y,st.m,i+1));return `<button type="button" data-d="${d}" class="${d==cur?"sel":""}${d==t?" now":""}" aria-pressed="${d==cur}">${i+1}</button>`}).join("")}</div>
    ${tsrc?"":`<div class="pkf"><button type="button" data-d="${t}">Today</button></div>`}`};
   if(tsrc)idx=pkDrums(box,()=>{touched=true;const h=box.querySelector(".pkth small");if(h)h.textContent=""});
   box.addEventListener("click",e=>{const b=e.target.closest("button");if(!b||b.hasAttribute("data-pkx"))return;
@@ -1127,12 +1143,12 @@ function pkDTset(ts,d,tm){const sel=PKo&&PKo.sel;pkClose(true);let b=ts.btn;if(!
  const f=pkDTin(b),fire=(el,v)=>{if(el.value==v)return;el.value=v;el.dispatchEvent(new Event("input",{bubbles:true}));el.dispatchEvent(new Event("change",{bubbles:true}))};
  fire(f.d,d);if(tm!=null)fire(f.t,tm);if(b.isConnected)b.innerHTML=dtTxt(f.d.value,f.t.value)}
 // Scroll wheels for a time (hour, minute) or a date and time (day, hour, minute). Done applies; closing does not.
-function pkWheel(src){const dt=src.type=="datetime-local",v=src.value||(dt?pkD(new Date())+"T"+hm():hm()),tm=dt?v.slice(11,16):v.slice(0,5),day=dt?v.slice(0,10):null;
- const days=dt?[...Array(361)].map((_,i)=>{const d=new Date(day+"T12:00");d.setDate(d.getDate()-180+i);return d}):[],tday=ymd(),yday=pkD(new Date(Date.now()-864e5));
- const dl=d=>{const s=pkD(d);return s==tday?"Today":s==yday?"Yesterday":d.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})};
+function pkWheel(src){const dt=src.type=="datetime-local",v=src.value||(dt?dstr(new Date())+"T"+hm():hm()),tm=dt?v.slice(11,16):v.slice(0,5),day=dt?v.slice(0,10):null;
+ const days=dt?[...Array(361)].map((_,i)=>{const d=new Date(day+"T12:00");d.setDate(d.getDate()-180+i);return d}):[],tday=ymd(),yday=dstr(new Date(Date.now()-864e5));
+ const dl=d=>{const s=dstr(d);return s==tday?"Today":s==yday?"Yesterday":d.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})};
  pkShow(src,`<div class="pkwh">${dt?pkDrum("d",days.map(dl),180,"Day"):""}${pkHM(tm)}</div><div class="pkf">${src.type=="time"&&!src.required&&src.value?`<button type="button" class="danger" data-clr style="margin-inline-end:auto">Clear</button>`:""}<button type="button" data-pkx>Cancel</button><button type="button" class="pri" data-ok>Done</button></div>`,box=>{
   const idx=pkDrums(box),cl=box.querySelector("[data-clr]");if(cl)cl.addEventListener("click",()=>pkSet(src,""));
-  box.querySelector("[data-ok]").addEventListener("click",()=>{const t=p2(idx("h"))+":"+p2(idx("m"));pkSet(src,dt?pkD(days[idx("d")])+"T"+t:t)})},true)}
+  box.querySelector("[data-ok]").addEventListener("click",()=>{const t=p2(idx("h"))+":"+p2(idx("m"));pkSet(src,dt?dstr(days[idx("d")])+"T"+t:t)})},true)}
 const pkT=el=>el&&el.closest?el.closest(".dtb")||(pkIs(el)?el:null):null;
 function pkOpen(el){if(el.matches(".dtb"))pkDT(el);else if(el.tagName=="SELECT")pkSelect(el);else if(el.type=="date")pkCal(el);else pkWheel(el)}
 // Open on a click or tap (the browser's own menu is stopped), Enter / Space / Alt+Down from the keyboard; close outside, with Escape or Close.
