@@ -11,7 +11,7 @@ Last updated 2026-11-25. Project `C:\Claude\Spending Project`, branch `dev`, rem
 
 ## Next (waiting on the user)
 - Optional, from the audit: Firebase console: password policy 10+ characters, a long random invite code, email enumeration protection on (Claude gives click-by-click steps on request).
-- Check on the phone: the small currency box in the bottom row of each purchase, the Choose a file button (Import), the red Stop button.
+- Check on the phone: the new purchase layout (₪ mark inside the amount box, note beside "+ note", date with Ignore and ✕), the Choose a file button (Import), the red Stop button.
 - Statement import: the next Max file arrives in December 2026; the user imports it on the live site to confirm the multi-card split.
 
 ## Open items
